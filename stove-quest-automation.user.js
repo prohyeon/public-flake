@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      1.7.6
+// @version      1.7.8
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -21,7 +21,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '1.7.6',
+        version: '1.7.8',
         lastUpdated: '2025-10-28',
         api: {
             baseUrl: 'https://api.onstove.com'
@@ -278,13 +278,13 @@
         return response.value?.comment_id;
     }
 
-    // 할로윈 이벤트 댓글 (특정 게시글에 "호박" 댓글 작성)
+    // 할로윈 이벤트 댓글 (특정 게시글에 "유령" 댓글 작성)
     async function postHalloweenComment(headers) {
         const halloweenArticleId = '11137068'; // 할로윈 이벤트 게시글 ID
         const url = `${CONFIG.api.baseUrl}/postie/v1.0/article/${halloweenArticleId}/comment`;
         const body = {
             article_id: halloweenArticleId,
-            content: '<p>호박</p>',
+            content: '<p>유령</p>',
             attached: {
                 media_ids: []
             }
@@ -1033,7 +1033,7 @@
                             // 첫 번째 댓글은 할로윈 이벤트 댓글로 작성
                             if (i === 0) {
                                 commentId = await postHalloweenComment(headers);
-                                log(`✓ 할로윈 댓글 작성 완료: ${commentId} (호박 🎃)`, 'success');
+                                log(`✓ 할로윈 댓글 작성 완료: ${commentId} (유령 👻)`, 'success');
                             } else {
                                 commentId = await postComment(headers, articles[i].article_id, CONFIG.comment);
                                 log(`✓ 댓글 작성 완료: ${commentId}`, 'success');
