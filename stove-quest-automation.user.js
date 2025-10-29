@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      1.7.8
+// @version      1.7.9
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -21,8 +21,8 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '1.7.8',
-        lastUpdated: '2025-10-28',
+        version: '1.7.9',
+        lastUpdated: '2025-10-29',
         api: {
             baseUrl: 'https://api.onstove.com'
         },
@@ -284,7 +284,7 @@
         const url = `${CONFIG.api.baseUrl}/postie/v1.0/article/${halloweenArticleId}/comment`;
         const body = {
             article_id: halloweenArticleId,
-            content: '<p>유령</p>',
+            content: '<p>마녀모자</p>',
             attached: {
                 media_ids: []
             }
