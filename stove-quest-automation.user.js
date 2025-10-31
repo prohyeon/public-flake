@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      1.7.11
+// @version      1.7.12
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -21,8 +21,13 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '1.7.11',
+        version: '1.7.12',
         lastUpdated: '2025-10-31',
+        maintenanceMode: {
+            enabled: true,                    // 점검 모드 활성화 여부
+            startDate: '2025-11-01',          // KST 기준 점검 시작일 (YYYY-MM-DD)
+            message: '11월 플레이크 구조 확인중입니다, 업데이트 이후 사용할 수 있습니다'
+        },
         api: {
             baseUrl: 'https://api.onstove.com'
         },
@@ -118,6 +123,24 @@
 
     function getTimestamp() {
         return Date.now();
+    }
+
+    // KST 기준 현재 날짜 확인 (점검 모드용)
+    function isMaintenanceMode() {
+        if (!CONFIG.maintenanceMode.enabled) {
+            return false;
+        }
+
+        // KST (UTC+9) 기준 현재 날짜 가져오기
+        const now = new Date();
+        const kstOffset = 9 * 60; // KST는 UTC+9
+        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+        const kstDate = new Date(utc + (kstOffset * 60000));
+
+        const currentDateKST = kstDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        const maintenanceStart = CONFIG.maintenanceMode.startDate;
+
+        return currentDateKST >= maintenanceStart;
     }
 
     function getTodayString() {
@@ -2736,6 +2759,35 @@
                     font-family: 'Courier New', monospace;
                 }
 
+                .stove-maintenance-notice {
+                    background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+                    border: 2px solid #b71c1c;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin-bottom: 20px;
+                    text-align: center;
+                    box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
+                }
+
+                .stove-maintenance-icon {
+                    font-size: 48px;
+                    margin-bottom: 12px;
+                    display: block;
+                }
+
+                .stove-maintenance-title {
+                    font-size: 18px;
+                    font-weight: bold;
+                    color: #ffffff;
+                    margin-bottom: 8px;
+                }
+
+                .stove-maintenance-message {
+                    font-size: 14px;
+                    color: #ffebee;
+                    line-height: 1.6;
+                }
+
             </style>
 
             <div class="stove-panel-header">
@@ -2744,6 +2796,12 @@
                     <div>v${CONFIG.version}</div>
                     <div>Updated: ${CONFIG.lastUpdated}</div>
                 </span>
+            </div>
+
+            <div id="stove-maintenance-notice" class="stove-maintenance-notice" style="display: none;">
+                <span class="stove-maintenance-icon">🚧</span>
+                <div class="stove-maintenance-title">점검 중</div>
+                <div class="stove-maintenance-message">${CONFIG.maintenanceMode.message}</div>
             </div>
 
             <div class="stove-controls">
@@ -2883,17 +2941,50 @@
             }
         };
 
-        attachListener('stove-btn-start', runAutomation);
-        attachListener('stove-btn-roulette', runRoulette);
-        attachListener('stove-btn-roulette-extra', runRouletteExtra);
-        attachListener('stove-btn-daily', runDailyReward);
-        attachListener('stove-btn-daily-accumulated', runDailyAccumulatedReward);
-        attachListener('stove-btn-majak', runMajakReward);
-        attachListener('stove-btn-article', runArticleCreation);
-        attachListener('stove-btn-copy-log', copyLogToClipboard);
-        attachListener('stove-btn-status-refresh', checkAllStatus);
+        // 점검 모드 체크 및 처리
+        if (isMaintenanceMode()) {
+            // 점검 안내 메시지 표시
+            const maintenanceNotice = document.getElementById('stove-maintenance-notice');
+            if (maintenanceNotice) {
+                maintenanceNotice.style.display = 'block';
+            }
 
-        log('자동화 패널이 준비되었습니다', 'info');
+            // 모든 버튼 비활성화
+            const buttons = [
+                'stove-btn-start',
+                'stove-btn-roulette',
+                'stove-btn-roulette-extra',
+                'stove-btn-daily',
+                'stove-btn-daily-accumulated',
+                'stove-btn-majak',
+                'stove-btn-article',
+                'stove-btn-status-refresh'
+            ];
+
+            buttons.forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) {
+                    btn.disabled = true;
+                    console.log(`[점검 모드] ${id} 버튼 비활성화`);
+                }
+            });
+
+            log('⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다', 'warning');
+        } else {
+            // 정상 모드: 이벤트 리스너 등록
+            attachListener('stove-btn-start', runAutomation);
+            attachListener('stove-btn-roulette', runRoulette);
+            attachListener('stove-btn-roulette-extra', runRouletteExtra);
+            attachListener('stove-btn-daily', runDailyReward);
+            attachListener('stove-btn-daily-accumulated', runDailyAccumulatedReward);
+            attachListener('stove-btn-majak', runMajakReward);
+            attachListener('stove-btn-article', runArticleCreation);
+            attachListener('stove-btn-status-refresh', checkAllStatus);
+
+            log('자동화 패널이 준비되었습니다', 'info');
+        }
+
+        attachListener('stove-btn-copy-log', copyLogToClipboard);
 
         // Auto-check status on initialization
         setTimeout(() => {
