@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      1.7.13
+// @version      1.8.0
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -21,10 +21,10 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '1.7.13',
+        version: '1.8.0',
         lastUpdated: '2025-11-01',
         maintenanceMode: {
-            enabled: true,                    // 점검 모드 활성화 여부
+            enabled: false,                   // 점검 모드 비활성화
             startDate: '2025-11-01',          // KST 기준 점검 시작일 (YYYY-MM-DD)
             message: '11월 플레이크 구조 확인중입니다, 업데이트 이후 사용할 수 있습니다'
         },
