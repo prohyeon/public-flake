@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      1.8.1
+// @version      1.8.2
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -21,7 +21,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '1.8.1',
+        version: '1.8.2',
         lastUpdated: '2025-11-01',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -2209,6 +2209,11 @@
     // Status Check Functions
     // ============================================
     async function checkRouletteStatus(headers) {
+        // 🚧 룰렛 횟수 조회 기능 임시 비활성화 (11월 3일 이후 업데이트 예정)
+        log('🎰 룰렛 횟수 조회 기능은 11월 3일 이후에 업데이트 예정입니다', 'info');
+        return { success: false, error: '룰렛 기능 임시 비활성화 (11월 3일 이후 업데이트 예정)' };
+
+        /* 임시 비활성화
         try {
             const participationInfo = await getRouletteParticipationCount(headers, CONFIG.roulette.subEventNo);
             if (participationInfo && participationInfo.value) {
@@ -2221,6 +2226,7 @@
         } catch (e) {
             return { success: false, error: e.message };
         }
+        */
     }
 
     async function checkDailyShopStatus(headers) {
