@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      1.7.12
+// @version      1.7.13
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -21,8 +21,8 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '1.7.12',
-        lastUpdated: '2025-10-31',
+        version: '1.7.13',
+        lastUpdated: '2025-11-01',
         maintenanceMode: {
             enabled: true,                    // 점검 모드 활성화 여부
             startDate: '2025-11-01',          // KST 기준 점검 시작일 (YYYY-MM-DD)
@@ -49,7 +49,7 @@
             'chaoszeronightmare'
         ],
         roulette: {
-            enabled: true,              // 룰렛 자동 실행 활성화
+            enabled: false,             // 룰렛 자동 실행 비활성화 (11월 3일 업데이트 예정)
             subEventNo: '1000000228',   // 룰렛 이벤트 ID
             extraSubEventNo: '1000000230', // 룰렛 EXTRA 이벤트 ID
             drawCost: 100,              // 룰렛 1회당 비용 (FLAKE)
@@ -1051,16 +1051,8 @@
                 commentPromise = (async () => {
                     for (let i = 0; i < maxComments; i++) {
                         try {
-                            let commentId;
-
-                            // 첫 번째 댓글은 할로윈 이벤트 댓글로 작성
-                            if (i === 0) {
-                                commentId = await postHalloweenComment(headers);
-                                log(`✓ 할로윈 댓글 작성 완료: ${commentId} (사탕 🍬)`, 'success');
-                            } else {
-                                commentId = await postComment(headers, articles[i].article_id, CONFIG.comment);
-                                log(`✓ 댓글 작성 완료: ${commentId}`, 'success');
-                            }
+                            const commentId = await postComment(headers, articles[i].article_id, CONFIG.comment);
+                            log(`✓ 댓글 작성 완료: ${commentId}`, 'success');
 
                             state.createdCommentIds.push(commentId);  // Save comment ID
                             state.progress.comments++;
@@ -1073,7 +1065,7 @@
                             await delay(CONFIG.delays.afterComment);
                         }
                     }
-                    log('✓ Step 0 완료: 모든 댓글 작성 완료 (할로윈 이벤트 포함)', 'success');
+                    log('✓ Step 0 완료: 모든 댓글 작성 완료', 'success');
                 })();
             } else {
                 log('⏩ 댓글 작성 스�ip (리워드 초기화 대기 중)', 'info');
@@ -1176,9 +1168,10 @@
             }
 
             // Step 5: Run roulette automatically (before rewards)
+            // 🚧 룰렛 기능 임시 비활성화 (11월 3일 업데이트 예정)
             log('', 'info'); // Empty line for separation
-            log('🎰 룰렛 실행 시작...', 'info');
-            await runRouletteDraws(headers);
+            log('🎰 룰렛 기능은 11월 3일에 업데이트 예정입니다', 'info');
+            // await runRouletteDraws(headers);
 
             // Wait for comment posting to complete before claiming rewards
             if (!skipRewards && commentPromise) {
@@ -1200,9 +1193,10 @@
             await claimMajakDailyShopRewards(headers);
 
             // Step 9: Claim roulette extra rewards
+            // 🚧 룰렛 EXTRA 기능 임시 비활성화 (11월 3일 업데이트 예정)
             log('', 'info'); // Empty line for separation
-            log('🎁 룰렛 EXTRA 수령 시작...', 'info');
-            await claimRouletteExtraRewards(headers);
+            log('🎁 룰렛 EXTRA 기능은 11월 3일에 업데이트 예정입니다', 'info');
+            // await claimRouletteExtraRewards(headers);
 
             // Step 10: Claim daily accumulated rewards
             log('', 'info'); // Empty line for separation
@@ -1712,8 +1706,15 @@
                 for (const reward of unclaimedRewards) {
 
                     try {
-                        // Determine reward type: flake or coupon
-                        const rewardType = reward.item_type === 'FLAKE' ? 'flake' : 'coupon';
+                        // Determine reward type: flake, indie_sale_coupon, or coupon
+                        let rewardType;
+                        if (reward.item_type === 'FLAKE') {
+                            rewardType = 'flake';
+                        } else if (reward.item_type === 'INDIE_SALE_COUPON') {
+                            rewardType = 'indie_sale_coupon';
+                        } else {
+                            rewardType = 'coupon';  // INDIE_GAME_COUPON 등 기타 쿠폰
+                        }
                         const result = await claimDailyReward(headers, reward.item_no, rewardType);
 
                         if (result && result.code === 0) {
@@ -1809,8 +1810,15 @@
                         // Claim each unclaimed reward
                         for (const reward of unclaimedRewards) {
                             try {
-                                // Determine reward type: flake or coupon
-                                const rewardType = reward.item_type === 'FLAKE' ? 'flake' : 'coupon';
+                                // Determine reward type: flake, indie_sale_coupon, or coupon
+                                let rewardType;
+                                if (reward.item_type === 'FLAKE') {
+                                    rewardType = 'flake';
+                                } else if (reward.item_type === 'INDIE_SALE_COUPON') {
+                                    rewardType = 'indie_sale_coupon';
+                                } else {
+                                    rewardType = 'coupon';  // INDIE_GAME_COUPON 등 기타 쿠폰
+                                }
                                 const result = await claimDailyReward(headers, reward.item_no, rewardType);
 
                                 if (result && result.code === 0) {
@@ -2806,8 +2814,8 @@
 
             <div class="stove-controls">
                 <button id="stove-btn-start" class="stove-btn">🚀 전체 자동화</button>
-                <button id="stove-btn-roulette" class="stove-btn">🎰 룰렛만</button>
-                <button id="stove-btn-roulette-extra" class="stove-btn">🎁 룰렛 EXTRA</button>
+                <button id="stove-btn-roulette" class="stove-btn" disabled title="11월 3일 업데이트 예정">🎰 룰렛만 (업데이트 예정)</button>
+                <button id="stove-btn-roulette-extra" class="stove-btn" disabled title="11월 3일 업데이트 예정">🎁 룰렛 EXTRA (업데이트 예정)</button>
                 <button id="stove-btn-daily" class="stove-btn">💝 데일리 보상</button>
                 <button id="stove-btn-daily-accumulated" class="stove-btn">🎁 데일리 누적 보상</button>
                 <button id="stove-btn-majak" class="stove-btn">🀄 마작 리워드</button>
