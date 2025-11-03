@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      1.8.2
+// @version      1.8.3
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -21,8 +21,8 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '1.8.2',
-        lastUpdated: '2025-11-01',
+        version: '1.8.3',
+        lastUpdated: '2025-11-03',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
             startDate: '2025-11-01',          // KST 기준 점검 시작일 (YYYY-MM-DD)
@@ -49,7 +49,7 @@
             'chaoszeronightmare'
         ],
         roulette: {
-            enabled: false,             // 룰렛 자동 실행 비활성화 (11월 3일 업데이트 예정)
+            enabled: true,              // 룰렛 자동 실행 활성화
             subEventNo: '1000000228',   // 룰렛 이벤트 ID
             extraSubEventNo: '1000000230', // 룰렛 EXTRA 이벤트 ID
             drawCost: 100,              // 룰렛 1회당 비용 (FLAKE)
@@ -1168,10 +1168,8 @@
             }
 
             // Step 5: Run roulette automatically (before rewards)
-            // 🚧 룰렛 기능 임시 비활성화 (11월 3일 업데이트 예정)
             log('', 'info'); // Empty line for separation
-            log('🎰 룰렛 기능은 11월 3일에 업데이트 예정입니다', 'info');
-            // await runRouletteDraws(headers);
+            await runRouletteDraws(headers);
 
             // Wait for comment posting to complete before claiming rewards
             if (!skipRewards && commentPromise) {
@@ -1193,10 +1191,8 @@
             await claimMajakDailyShopRewards(headers);
 
             // Step 9: Claim roulette extra rewards
-            // 🚧 룰렛 EXTRA 기능 임시 비활성화 (11월 3일 업데이트 예정)
             log('', 'info'); // Empty line for separation
-            log('🎁 룰렛 EXTRA 기능은 11월 3일에 업데이트 예정입니다', 'info');
-            // await claimRouletteExtraRewards(headers);
+            await claimRouletteExtraRewards(headers);
 
             // Step 10: Claim daily accumulated rewards
             log('', 'info'); // Empty line for separation
@@ -2209,11 +2205,6 @@
     // Status Check Functions
     // ============================================
     async function checkRouletteStatus(headers) {
-        // 🚧 룰렛 횟수 조회 기능 임시 비활성화 (11월 3일 이후 업데이트 예정)
-        log('🎰 룰렛 횟수 조회 기능은 11월 3일 이후에 업데이트 예정입니다', 'info');
-        return { success: false, error: '룰렛 기능 임시 비활성화 (11월 3일 이후 업데이트 예정)' };
-
-        /* 임시 비활성화
         try {
             const participationInfo = await getRouletteParticipationCount(headers, CONFIG.roulette.subEventNo);
             if (participationInfo && participationInfo.value) {
@@ -2226,7 +2217,6 @@
         } catch (e) {
             return { success: false, error: e.message };
         }
-        */
     }
 
     async function checkDailyShopStatus(headers) {
@@ -2820,8 +2810,8 @@
 
             <div class="stove-controls">
                 <button id="stove-btn-start" class="stove-btn">🚀 전체 자동화</button>
-                <button id="stove-btn-roulette" class="stove-btn" disabled title="11월 3일 업데이트 예정">🎰 룰렛만 (업데이트 예정)</button>
-                <button id="stove-btn-roulette-extra" class="stove-btn" disabled title="11월 3일 업데이트 예정">🎁 룰렛 EXTRA (업데이트 예정)</button>
+                <button id="stove-btn-roulette" class="stove-btn">🎰 룰렛만</button>
+                <button id="stove-btn-roulette-extra" class="stove-btn">🎁 룰렛 EXTRA</button>
                 <button id="stove-btn-daily" class="stove-btn">💝 데일리 보상</button>
                 <button id="stove-btn-daily-accumulated" class="stove-btn">🎁 데일리 누적 보상</button>
                 <button id="stove-btn-majak" class="stove-btn">🀄 마작 리워드</button>
