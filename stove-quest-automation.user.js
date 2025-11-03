@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      1.8.3
+// @version      1.8.5
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -21,8 +21,8 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '1.8.3',
-        lastUpdated: '2025-11-03',
+        version: '1.8.5',
+        lastUpdated: '2025-11-04',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
             startDate: '2025-11-01',          // KST 기준 점검 시작일 (YYYY-MM-DD)
@@ -50,10 +50,12 @@
         ],
         roulette: {
             enabled: true,              // 룰렛 자동 실행 활성화
-            subEventNo: '1000000228',   // 룰렛 이벤트 ID
-            extraSubEventNo: '1000000230', // 룰렛 EXTRA 이벤트 ID
+            subEventNo: '1000000237',   // 룰렛 이벤트 ID (11월 업데이트)
+            extraSubEventNo: '1000000239', // 룰렛 EXTRA 이벤트 ID (11월 업데이트)
             drawCost: 100,              // 룰렛 1회당 비용 (FLAKE)
-            maxDraws: 30                // 최대 룰렛 횟수 (일일 제한)
+            maxDraws: 30,               // 최대 룰렛 횟수 (일일 제한)
+            maxRetries: 3,              // API 실패 시 최대 재시도 횟수
+            retryDelay: 1000            // 재시도 간 대기 시간 (ms)
         }
     };
 
@@ -415,8 +417,7 @@
             'caller-detail': headers['X-UUID'] || headers['caller-detail'],
             'x-lang': 'ko',
             'x-nation': 'KR',
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
+            'Accept': '*/*',  // GET 요청은 Content-Type 불필요
             'Origin': 'https://reward.onstove.com',
             'Referer': 'https://reward.onstove.com/'
         };
@@ -501,6 +502,26 @@
 
             // Enhanced response logging
             console.log(`[룰렛 뽑기 실행] ✅ Response received:`, response);
+
+            // Check for API error response
+            if (response && response.code !== 0) {
+                const errorCode = response.code;
+                const errorMessage = response.message || '알 수 없는 오류';
+
+                // Handle specific error codes
+                if (errorCode === 7019) {
+                    console.warn(`[룰렛 뽑기 실행] ⚠️ 이벤트 기간이 아닙니다:`, {
+                        code: errorCode,
+                        message: errorMessage
+                    });
+                } else {
+                    console.error(`[룰렛 뽑기 실행] ❌ API 에러 응답:`, {
+                        code: errorCode,
+                        message: errorMessage
+                    });
+                }
+                return response;
+            }
 
             if (response && response.value && response.value.gift_info) {
                 const giftInfo = response.value.gift_info;
@@ -1578,31 +1599,83 @@
                     log(`룰렛 ${remaining}회 실행 시작...`, 'info');
 
                     let roundSuccessCount = 0;
+                    let shouldStopRoulette = false;  // 룰렛 전체 중단 플래그
 
                     for (let i = 1; i <= remaining; i++) {
+                        let drawSuccess = false;
+                        let retryCount = 0;
 
-                        try {
-                            const drawResult = await executeRouletteDraw(headers, CONFIG.roulette.subEventNo);
+                        // 재시도 루프
+                        while (!drawSuccess && retryCount <= CONFIG.roulette.maxRetries) {
+                            try {
+                                if (retryCount > 0) {
+                                    log(`🔄 룰렛 ${i}/${remaining} 재시도 (${retryCount}/${CONFIG.roulette.maxRetries})...`, 'warning');
+                                    await delay(CONFIG.roulette.retryDelay);
+                                }
 
-                            if (drawResult && drawResult.value) {
-                                const giftPrice = drawResult.value.gift_info?.gift_price || 0;
-                                const giftName = drawResult.value.gift_info?.gift_name || '알 수 없음';
-                                totalRewards += giftPrice;
-                                roundSuccessCount++;
-                                totalSuccessCount++;
+                                const drawResult = await executeRouletteDraw(headers, CONFIG.roulette.subEventNo);
 
-                                log(`✓ 룰렛 ${i}/${remaining} 완료: ${giftName} (${giftPrice} FLAKE)`, 'success');
+                                // Check for API error codes
+                                if (drawResult && drawResult.code !== 0) {
+                                    const errorCode = drawResult.code;
+                                    const errorMessage = drawResult.message || '알 수 없는 오류';
+
+                                    if (errorCode === 7019) {
+                                        log(`⚠️ 룰렛 이벤트 기간이 아닙니다: ${errorMessage}`, 'warning');
+                                        // Stop entire roulette process if event period has ended
+                                        shouldStopRoulette = true;
+                                        break;
+                                    } else {
+                                        log(`✗ 룰렛 ${i}/${remaining} API 오류 (코드: ${errorCode}): ${errorMessage}`, 'error');
+                                        retryCount++;
+                                        continue;
+                                    }
+                                }
+
+                                if (drawResult && drawResult.value) {
+                                    const giftPrice = drawResult.value.gift_info?.gift_price || 0;
+                                    const giftName = drawResult.value.gift_info?.gift_name || '알 수 없음';
+                                    totalRewards += giftPrice;
+                                    roundSuccessCount++;
+                                    totalSuccessCount++;
+
+                                    log(`✓ 룰렛 ${i}/${remaining} 완료: ${giftName} (${giftPrice} FLAKE)`, 'success');
+                                    drawSuccess = true;  // 성공
+                                }
+
+                                await delay(CONFIG.delays.betweenActions);
+                            } catch (e) {
+                                log(`✗ 룰렛 ${i}/${remaining} 실패: ${e.message}`, 'error');
+                                retryCount++;
+
+                                if (retryCount > CONFIG.roulette.maxRetries) {
+                                    log(`❌ 룰렛 ${i}/${remaining} 최대 재시도 횟수 초과 - 전체 중단`, 'error');
+                                    shouldStopRoulette = true;
+                                    break;
+                                }
                             }
+                        }
 
-                            await delay(CONFIG.delays.betweenActions);
-                        } catch (e) {
-                            log(`✗ 룰렛 ${i}/${remaining} 실패: ${e.message}`, 'error');
-                            // Continue with next draw even if one fails
+                        // 전체 룰렛 프로세스 중단
+                        if (shouldStopRoulette) {
+                            log('🛑 룰렛 프로세스를 중단합니다', 'warning');
+                            break;
+                        }
+
+                        // 재시도 실패 시에도 중단
+                        if (!drawSuccess && retryCount > CONFIG.roulette.maxRetries) {
+                            log(`🛑 룰렛 API 호출이 ${CONFIG.roulette.maxRetries}회 연속 실패하여 중단합니다`, 'error');
+                            break;
                         }
                     }
 
 
                     log(`[${roundCount}차] ${roundSuccessCount}/${remaining} 성공`, 'info');
+
+                    // 룰렛 프로세스 중단 플래그가 설정되면 외부 루프도 종료
+                    if (shouldStopRoulette) {
+                        break;
+                    }
 
                     // Wait before checking again
                     await delay(CONFIG.delays.betweenActions);
