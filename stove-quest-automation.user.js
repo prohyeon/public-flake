@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.1.4
+// @version      2.1.5
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.1.4',
+        version: '2.1.5',
         lastUpdated: '2025-11-04',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -1212,40 +1212,25 @@
 
     function setButtonState(running) {
         const btnStart = document.getElementById('stove-btn-start');
-        const btnRewards = document.getElementById('stove-btn-rewards');
         const btnRoulette = document.getElementById('stove-btn-roulette');
+        const btnRewardShop = document.getElementById('stove-btn-reward-shop');
+        const btnTestTab = document.getElementById('stove-btn-test-tab');
 
         if (btnStart) {
             btnStart.disabled = running;
             btnStart.style.opacity = running ? '0.5' : '1';
         }
-        if (btnRewards) {
-            btnRewards.disabled = running;
-            btnRewards.style.opacity = running ? '0.5' : '1';
-        }
         if (btnRoulette) {
             btnRoulette.disabled = running;
             btnRoulette.style.opacity = running ? '0.5' : '1';
         }
-        if (btnRouletteExtra) {
-            btnRouletteExtra.disabled = running;
-            btnRouletteExtra.style.opacity = running ? '0.5' : '1';
+        if (btnRewardShop) {
+            btnRewardShop.disabled = running;
+            btnRewardShop.style.opacity = running ? '0.5' : '1';
         }
-        if (btnDaily) {
-            btnDaily.disabled = running;
-            btnDaily.style.opacity = running ? '0.5' : '1';
-        }
-        if (btnDailyAccumulated) {
-            btnDailyAccumulated.disabled = running;
-            btnDailyAccumulated.style.opacity = running ? '0.5' : '1';
-        }
-        if (btnMajak) {
-            btnMajak.disabled = running;
-            btnMajak.style.opacity = running ? '0.5' : '1';
-        }
-        if (btnArticle) {
-            btnArticle.disabled = running;
-            btnArticle.style.opacity = running ? '0.5' : '1';
+        if (btnTestTab) {
+            btnTestTab.disabled = running;
+            btnTestTab.style.opacity = running ? '0.5' : '1';
         }
     }
 
