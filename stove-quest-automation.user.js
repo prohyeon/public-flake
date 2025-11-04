@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.1.3
+// @version      2.1.4
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.1.3',
+        version: '2.1.4',
         lastUpdated: '2025-11-04',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -1301,9 +1301,13 @@
 
         try {
             // Extract headers
+            log('🚀 전체 자동화 시작', 'info');
             log('헤더 정보 추출 중...', 'info');
             const headers = extractHeaders();
             log('✓ 헤더 정보 추출 완료', 'success');
+            log('📋 헤더 확인:', 'info');
+            log(`  - Authorization: ${headers.Authorization ? '✅ 존재' : '❌ 없음'}`, 'info');
+            log(`  - X-UUID: ${headers['X-UUID'] || headers['caller-detail'] ? '✅ 존재' : '❌ 없음'}`, 'info');
 
             // Check if we're in reward skip period
             let skipRewards = isRewardSkipPeriod();
@@ -1326,8 +1330,10 @@
 
             // Check if daily rewards are already claimed
             if (!skipRewards) {
-                log('데일리 리워드 수령 상태 확인 중...', 'info');
+                log('', 'info');
+                log('📦 데일리 리워드 수령 상태 확인 중...', 'info');
                 const rewardsClaimed = await checkDailyRewardsClaimed(headers);
+                log(`✓ 데일리 리워드 수령 상태: ${rewardsClaimed ? '이미 수령됨' : '수령 가능'}`, 'info');
                 if (rewardsClaimed) {
                     log('', 'info');
                     log('✅ 데일리 리워드가 이미 모두 수령되었습니다', 'success');
@@ -1351,14 +1357,18 @@
 
             // Get article list first
             log('', 'info'); // Empty line for separation
-            log('게시글 목록 가져오는 중...', 'info');
+            log('📰 게시글 목록 가져오는 중...', 'info');
             const articles = await getArticleList(headers, 30);
             log(`✓ 게시글 ${articles.length}개 발견`, 'success');
 
             if (articles.length === 0) {
-                log('게시글이 없습니다', 'error');
+                log('❌ 게시글이 없습니다', 'error');
+                state.isRunning = false;
+                setButtonState(false);
                 return;
             }
+
+            log('✅ 게시글 목록 로드 완료, 작업 시작합니다', 'success');
 
             await delay(CONFIG.delays.betweenActions);
 
@@ -3104,11 +3114,11 @@
                 active: true,
                 insert: true
             });
-            log(`✅ 탭 열기 성공! 반환값: ${tab}`, 'success');
-            log('💡 탭이 열렸다면 GM_openInTab이 정상 작동합니다.', 'success');
+            log('✅ 탭 열기 성공!', 'success');
+            log(`💡 탭 객체 타입: ${typeof tab}`, 'info');
+            log('🎉 GM_openInTab이 정상 작동합니다!', 'success');
         } catch (error) {
             log(`❌ 탭 열기 실패: ${error.message}`, 'error');
-            log(`📋 에러 상세: ${JSON.stringify(error)}`, 'error');
         }
     }
 
