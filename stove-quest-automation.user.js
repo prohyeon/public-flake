@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.1.0
+// @version      2.1.1
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.1.0',
+        version: '2.1.1',
         lastUpdated: '2025-11-04',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -1214,11 +1214,6 @@
         const btnStart = document.getElementById('stove-btn-start');
         const btnRewards = document.getElementById('stove-btn-rewards');
         const btnRoulette = document.getElementById('stove-btn-roulette');
-        const btnRouletteExtra = document.getElementById('stove-btn-roulette-extra');
-        const btnDaily = document.getElementById('stove-btn-daily');
-        const btnDailyAccumulated = document.getElementById('stove-btn-daily-accumulated');
-        const btnMajak = document.getElementById('stove-btn-majak');
-        const btnArticle = document.getElementById('stove-btn-article');
 
         if (btnStart) {
             btnStart.disabled = running;
@@ -2845,28 +2840,6 @@
         return dailyFlakeEarned;
     }
 
-    // Standalone daily reward function (for button)
-    async function runDailyReward() {
-        if (state.isRunning) {
-            log('⚠️ 이미 실행 중입니다', 'warning');
-            return;
-        }
-
-        state.isRunning = true;
-        setButtonState(true);
-
-        try {
-            log('💝 데일리 보상 수령 시작...', 'info');
-            const headers = extractHeaders();
-            await claimDailyShopRewards(headers);
-        } catch (error) {
-            log(`✗ 오류 발생: ${error.message}`, 'error');
-        } finally {
-            state.isRunning = false;
-            setButtonState(false);
-        }
-    }
-
     // Core Majak daily shop reward claim logic (reusable)
     async function claimMajakDailyShopRewards(headers) {
         log('마작 리워드 확인 중...', 'info');
@@ -3016,146 +2989,6 @@
         return majakFlakeEarned;
     }
 
-    // Standalone Majak reward function (for button)
-    async function runMajakReward() {
-        if (state.isRunning) {
-            log('⚠️ 이미 실행 중입니다', 'warning');
-            return;
-        }
-
-        state.isRunning = true;
-        setButtonState(true);
-
-        try {
-            log('🀄 마작 리워드 수령 시작...', 'info');
-            const headers = extractHeaders();
-            await claimMajakDailyShopRewards(headers);
-        } catch (error) {
-            log(`✗ 오류 발생: ${error.message}`, 'error');
-        } finally {
-            state.isRunning = false;
-            setButtonState(false);
-        }
-    }
-
-    // Standalone Daily Accumulated Reward function (for button)
-    async function runDailyAccumulatedReward() {
-        if (state.isRunning) {
-            log('⚠️ 이미 실행 중입니다', 'warning');
-            return;
-        }
-
-        state.isRunning = true;
-        setButtonState(true);
-
-        try {
-            log('🎁 데일리 누적 보상 수령 시작...', 'info');
-            const headers = extractHeaders();
-
-            // Step 1: Get daily shop rewards
-            log('📋 출석 정보 조회 중...', 'info');
-            const dailyShopData = await getDailyShopRewards(headers);
-
-            if (!dailyShopData || !dailyShopData.value || !dailyShopData.value.accumulated_attendances) {
-                log('⚠️ 출석 정보를 가져올 수 없습니다', 'warning');
-                return;
-            }
-
-            const accumulatedRewards = dailyShopData.value.accumulated_attendances.rewards || [];
-            const totalDays = dailyShopData.value.accumulated_attendances.total_attendance_days || 0;
-
-            log(`현재 누적 출석일: ${totalDays}일`, 'info');
-            log('', 'info'); // Empty line for separation
-
-            // Filter claimable rewards (attendance days achieved + not received)
-            const claimableRewards = accumulatedRewards.filter(reward =>
-                totalDays >= reward.rewardable_days && !reward.is_received
-            );
-
-            if (claimableRewards.length === 0) {
-                log('수령 가능한 누적 보상이 없습니다', 'info');
-                return;
-            }
-
-            log(`✓ 수령 가능한 누적 보상: ${claimableRewards.length}개`, 'success');
-            log('', 'info');
-
-            let successCount = 0;
-            let totalFlakeEarned = 0;
-
-            for (const reward of claimableRewards) {
-                try {
-                    log(`처리 중: ${reward.item_name} (${reward.rewardable_days}일 누적 보상)`, 'info');
-
-                    // Step 2: Check game ownership for INDIE_GAME_COUPON
-                    if (reward.item_type === 'INDIE_GAME_COUPON' && reward.game_id) {
-                        log(`  - 게임 소유권 확인 중: ${reward.game_id}`, 'info');
-                        const ownershipData = await checkGameOwnership(headers, reward.game_id);
-
-                        if (ownershipData && ownershipData.value && ownershipData.value.owner_list && ownershipData.value.owner_list.length > 0) {
-                            log(`  ⚠️ 이미 소유한 게임입니다. 수령 건너뜀`, 'warning');
-                            continue;
-                        }
-
-                        log(`  ✓ 게임 미소유 확인 완료`, 'success');
-                        await delay(CONFIG.delays.betweenActions);
-                    }
-
-                    // Step 3: Claim accumulated reward (add to library)
-                    log(`  - 누적 보상 수령 중...`, 'info');
-                    const result = await claimDailyAccumulatedReward(headers, reward.item_no, reward.item_type);
-
-                    if (result && result.code === 0) {
-                        successCount++;
-
-                        // Log based on reward type
-                        if (reward.item_type === 'INDIE_GAME_COUPON') {
-                            log(`✓ 게임 보상 수령 완료 (${reward.rewardable_days}일): ${reward.item_name}`, 'success');
-                            if (result.value && result.value.have_playtime_mission) {
-                                log(`  💡 플레이타임 미션이 활성화되었습니다`, 'info');
-                            }
-                            // NOTE: 게임 쿠폰은 FLAKE로 카운트하지 않음 (실제 지급되지 않음)
-                        } else if (reward.item_type === 'FLAKE') {
-                            const rewardAmount = reward.flake_amount || 0;
-                            totalFlakeEarned += rewardAmount;
-                            log(`✓ FLAKE 보상 수령 완료 (${reward.rewardable_days}일): ${reward.item_name} (${rewardAmount.toLocaleString()} FLAKE)`, 'success');
-                        } else if (reward.item_type === 'INDIE_SALE_COUPON') {
-                            log(`✓ 쿠폰 보상 수령 완료 (${reward.rewardable_days}일): ${reward.item_name}`, 'success');
-                            // NOTE: 쿠폰은 FLAKE로 카운트하지 않음
-                        } else {
-                            log(`✓ 보상 수령 완료 (${reward.rewardable_days}일): ${reward.item_name}`, 'success');
-                        }
-                    } else {
-                        const errorCode = result?.code || 'N/A';
-                        const errorMsg = result?.message || result?.msg || 'N/A';
-                        log(`✗ 보상 수령 실패 (item_no: ${reward.item_no}, 응답 코드: ${errorCode}, 메시지: ${errorMsg})`, 'error');
-                    }
-
-                    await delay(CONFIG.delays.betweenActions);
-                } catch (e) {
-                    log(`✗ 보상 수령 오류 (item_no: ${reward.item_no}): ${e.message}`, 'error');
-                }
-
-                log('', 'info'); // Empty line for separation
-            }
-
-            // Summary
-            if (successCount > 0) {
-                log(`🎁 총 ${successCount}개 누적 보상 수령 완료`, 'success');
-                if (totalFlakeEarned > 0) {
-                    log(`  💰 실제 획득한 FLAKE: ${totalFlakeEarned.toLocaleString()}`, 'success');
-                }
-            }
-
-            log('✅ 데일리 누적 보상 처리 완료!', 'success');
-        } catch (error) {
-            log(`✗ 오류 발생: ${error.message}`, 'error');
-        } finally {
-            state.isRunning = false;
-            setButtonState(false);
-        }
-    }
-
     // Core roulette extra rewards claim logic (reusable)
     async function claimRouletteExtraRewards(headers) {
         log('룰렛 EXTRA 확인 중...', 'info');
@@ -3249,55 +3082,10 @@
         return extraFlakeEarned;
     }
 
-    // Standalone roulette extra function (for button)
-    async function runRouletteExtra() {
-        if (state.isRunning) {
-            log('⚠️ 이미 실행 중입니다', 'warning');
-            return;
-        }
-
-        state.isRunning = true;
-        setButtonState(true);
-
-        try {
-            log('🎁 룰렛 EXTRA 수령 시작...', 'info');
-            const headers = extractHeaders();
-            await claimRouletteExtraRewards(headers);
-        } catch (error) {
-            log(`✗ 오류 발생: ${error.message}`, 'error');
-        } finally {
-            state.isRunning = false;
-            setButtonState(false);
-        }
-    }
-
-    // Standalone article creation function (for button) - Step 0 only
-    async function runArticleCreation() {
-        if (state.isRunning) {
-            log('⚠️ 이미 실행 중입니다', 'warning');
-            return;
-        }
-
-        state.isRunning = true;
-        setButtonState(true);
-
-        try {
-            log('✍️ 출석글 작성 시작...', 'info');
-            const headers = extractHeaders();
-
-            // Step 0: Create article
-            const articleId = await createArticle(headers, '출석', '출석');
-            if (articleId) {
-                log(`✓ 게시글 작성 완료! 게시글 ID: ${articleId}`, 'success');
-            } else {
-                log('⚠️ 게시글 작성 응답에 article_id가 없습니다', 'warning');
-            }
-        } catch (error) {
-            log(`✗ 오류 발생: ${error.message}`, 'error');
-        } finally {
-            state.isRunning = false;
-            setButtonState(false);
-        }
+    // 리워드샵 방문
+    function openRewardShop() {
+        log('🏪 리워드샵 페이지를 새 탭에서 엽니다...', 'info');
+        GM_openInTab('https://reward.onstove.com/ko', { active: true, insert: true });
     }
 
     // ============================================
@@ -4195,11 +3983,7 @@
             <div class="stove-controls">
                 <button id="stove-btn-start" class="stove-btn">🚀 전체 자동화</button>
                 <button id="stove-btn-roulette" class="stove-btn">🎰 룰렛만</button>
-                <button id="stove-btn-roulette-extra" class="stove-btn">🎁 룰렛 EXTRA</button>
-                <button id="stove-btn-daily" class="stove-btn">💝 데일리 보상</button>
-                <button id="stove-btn-daily-accumulated" class="stove-btn">🎁 데일리 누적 보상</button>
-                <button id="stove-btn-majak" class="stove-btn">🀄 마작 리워드</button>
-                <button id="stove-btn-article" class="stove-btn">✍️ 출석글쓰기</button>
+                <button id="stove-btn-reward-shop" class="stove-btn">🏪 리워드샵 방문</button>
             </div>
 
             <div class="stove-status-section">
@@ -4361,11 +4145,7 @@
             const buttons = [
                 'stove-btn-start',
                 'stove-btn-roulette',
-                'stove-btn-roulette-extra',
-                'stove-btn-daily',
-                'stove-btn-daily-accumulated',
-                'stove-btn-majak',
-                'stove-btn-article',
+                'stove-btn-reward-shop',
                 'stove-btn-status-refresh'
             ];
 
@@ -4382,11 +4162,7 @@
             // 정상 모드: 이벤트 리스너 등록
             attachListener('stove-btn-start', runAutomation);
             attachListener('stove-btn-roulette', runRoulette);
-            attachListener('stove-btn-roulette-extra', runRouletteExtra);
-            attachListener('stove-btn-daily', runDailyReward);
-            attachListener('stove-btn-daily-accumulated', runDailyAccumulatedReward);
-            attachListener('stove-btn-majak', runMajakReward);
-            attachListener('stove-btn-article', runArticleCreation);
+            attachListener('stove-btn-reward-shop', openRewardShop);
             attachListener('stove-btn-status-refresh', checkAllStatus);
 
             log('자동화 패널이 준비되었습니다', 'info');
