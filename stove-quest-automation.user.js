@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      1.8.5
+// @version      2.0.0
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
 // @grant        GM_xmlhttpRequest
+// @grant        GM_openInTab
 // @connect      api.onstove.com
 // @connect      reward.onstove.com
 // @updateURL    https://github.com/prohyeon/public-flake/raw/refs/heads/main/stove-quest-automation.user.js
@@ -21,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '1.8.5',
+        version: '2.0.0',
         lastUpdated: '2025-11-04',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -56,6 +57,13 @@
             maxDraws: 30,               // 최대 룰렛 횟수 (일일 제한)
             maxRetries: 3,              // API 실패 시 최대 재시도 횟수
             retryDelay: 1000            // 재시도 간 대기 시간 (ms)
+        },
+        dailyMissions: {
+            enabled: true,              // 데일리 미션 자동 실행 활성화
+            componentNo: 1,             // 미션 컴포넌트 번호
+            visitMissions: [1, 2],      // 방문 미션 번호 (MY홈, 스토브 메인)
+            skipMissions: [3, 8],       // 건너뛸 미션 번호 (앱 로그인, 경품 응모)
+            visitDelay: 1000            // 방문 후 탭 닫기까지 대기 시간 (ms)
         }
     };
 
@@ -70,9 +78,10 @@
             newArticle: 0
         },
         completed: {
-            roulette: false,    // 룰렛 완료 여부
-            dailyShop: false,   // 데일리 샵 완료 여부
-            majak: false        // 마작 완료 여부
+            roulette: false,      // 룰렛 완료 여부
+            dailyShop: false,     // 데일리 샵 완료 여부
+            majak: false,         // 마작 완료 여부
+            dailyMissions: false  // 데일리 미션 완료 여부
         },
         createdCommentIds: [],  // Store created comment IDs for liking
         earnings: {
@@ -80,7 +89,8 @@
             roulette: 0,        // Net profit from roulette (rewards - cost)
             rouletteExtra: 0,   // FLAKE from roulette extra milestones
             dailyShop: 0,       // FLAKE from daily shop rewards
-            majak: 0            // FLAKE from majak rewards
+            majak: 0,           // FLAKE from majak rewards
+            dailyMissions: 0    // FLAKE from daily missions
         }
     };
 
@@ -125,6 +135,77 @@
 
     function getTimestamp() {
         return Date.now();
+    }
+
+    /**
+     * 백그라운드에서 새 탭 열기 (포커스 없이)
+     * @param {string} url - 열 URL
+     * @param {boolean} active - true: 포커스, false: 백그라운드 (기본값: false)
+     * @returns {object} 열린 탭 객체
+     */
+    function openTabInBackground(url, active = false) {
+        if (typeof GM_openInTab === 'undefined') {
+            console.warn('[Tab] GM_openInTab not available, using window.open');
+            return window.open(url, '_blank');
+        }
+
+        // GM_openInTab 옵션
+        // active: false = 백그라운드, true = 포커스
+        // insert: true = 현재 탭 옆에 열림
+        // setParent: true = 부모 탭으로 설정
+        const tab = GM_openInTab(url, {
+            active: active,
+            insert: true,
+            setParent: true
+        });
+
+        console.log(`[Tab] ${active ? '포커스' : '백그라운드'}로 탭 열림: ${url}`);
+        return tab;
+    }
+
+    /**
+     * 열린 탭 닫기
+     * @param {object|array} tabs - 닫을 탭 객체 또는 탭 배열
+     * @returns {number} 닫힌 탭 개수
+     */
+    function closeTab(tabs) {
+        if (!tabs) {
+            console.warn('[Tab] 닫을 탭이 없습니다');
+            return 0;
+        }
+
+        // 배열이 아니면 배열로 변환
+        const tabArray = Array.isArray(tabs) ? tabs : [tabs];
+        let closedCount = 0;
+
+        tabArray.forEach((tab, index) => {
+            try {
+                if (tab && typeof tab.close === 'function') {
+                    tab.close();
+                    closedCount++;
+                    console.log(`[Tab] 탭 ${index + 1} 닫힘`);
+                } else if (tab && typeof tab === 'object') {
+                    console.warn(`[Tab] 탭 ${index + 1}은 close() 메서드가 없습니다`);
+                }
+            } catch (e) {
+                console.error(`[Tab] 탭 ${index + 1} 닫기 실패:`, e.message);
+            }
+        });
+
+        console.log(`[Tab] 총 ${closedCount}/${tabArray.length}개 탭 닫힘`);
+        return closedCount;
+    }
+
+    /**
+     * 지정된 시간 후 자동으로 탭 닫기
+     * @param {object|array} tabs - 닫을 탭 객체 또는 탭 배열
+     * @param {number} delayMs - 대기 시간 (밀리초)
+     * @returns {Promise<number>} 닫힌 탭 개수
+     */
+    async function closeTabAfterDelay(tabs, delayMs = 3000) {
+        console.log(`[Tab] ${delayMs}ms 후 탭 닫기 예약됨`);
+        await delay(delayMs);
+        return closeTab(tabs);
     }
 
     // KST 기준 현재 날짜 확인 (점검 모드용)
@@ -404,6 +485,81 @@
 
     // 퀘스트 API 함수들 제거됨 (퀘스트 리워드 API 제거로 인해)
     // getQuestStatus, claimReward, claimMasterReward 함수 제거됨
+
+    // ============================================
+    // Daily Missions API Functions
+    // ============================================
+    async function getDailyMissions(headers) {
+        const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${CONFIG.dailyMissions.componentNo}`;
+
+        const missionHeaders = {
+            'Authorization': headers['Authorization'],
+            'caller-id': 'flake-fe',
+            'caller-detail': headers['X-UUID'] || headers['caller-detail'],
+            'x-lang': 'ko',
+            'x-nation': 'KR',
+            'Accept': '*/*',
+            'Origin': 'https://reward.onstove.com',
+            'Referer': 'https://reward.onstove.com/'
+        };
+
+        console.log(`[데일리 미션 조회] URL: ${url}`);
+
+        try {
+            const response = await apiRequest(url, 'GET', missionHeaders);
+
+            if (response && response.code === 0 && response.value) {
+                console.log(`[데일리 미션 조회] ✓ 미션 ${response.value.missions?.length || 0}개 조회 완료`);
+                return response.value;
+            } else {
+                console.error(`[데일리 미션 조회] ✗ API 오류:`, response);
+                return null;
+            }
+        } catch (e) {
+            console.error(`[데일리 미션 조회] ✗ 실패:`, e.message);
+            return null;
+        }
+    }
+
+    async function receiveMissionReward(headers, missionNo) {
+        const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/participate`;
+
+        const missionHeaders = {
+            'Authorization': headers['Authorization'],
+            'caller-id': 'flake-fe',
+            'caller-detail': headers['X-UUID'] || headers['caller-detail'],
+            'x-lang': 'ko',
+            'x-nation': 'KR',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Origin': 'https://reward.onstove.com',
+            'Referer': 'https://reward.onstove.com/'
+        };
+
+        const body = {
+            mission_no: missionNo,
+            component_no: CONFIG.dailyMissions.componentNo
+        };
+
+        console.log(`[미션 보상 수령] mission_no: ${missionNo}`);
+
+        try {
+            const response = await apiRequest(url, 'POST', missionHeaders, body);
+
+            if (response && response.code === 0 && response.value) {
+                const reward = response.value.reward_amount || 0;
+                const status = response.value.status;
+                console.log(`[미션 보상 수령] ✓ ${response.value.title}: ${reward} FLAKE (${status})`);
+                return response.value;
+            } else {
+                console.error(`[미션 보상 수령] ✗ API 오류:`, response);
+                return null;
+            }
+        } catch (e) {
+            console.error(`[미션 보상 수령] ✗ 실패:`, e.message);
+            return null;
+        }
+    }
 
     async function getRouletteParticipationCount(headers, subEventNo) {
         const url = `${CONFIG.api.baseUrl}/emsbackapi/v3.0/participationCnt?sub_event_no=${subEventNo}`;
@@ -739,6 +895,99 @@
         return response;
     }
 
+    // Get daily mission status
+    async function getDailyMissionStatus(headers, componentNo = 1) {
+        const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
+        console.log(`[NEW 데일리 미션 조회] component_no: ${componentNo}, URL: ${url}`);
+
+        // Use reward site headers (flake-fe)
+        const rewardHeaders = {
+            'Authorization': headers['Authorization'],
+            'caller-id': 'flake-fe',
+            'caller-detail': headers['X-UUID'] || headers['caller-detail'],
+            'x-lang': 'ko',
+            'x-nation': 'KR',
+            'Accept': '*/*',
+            'Origin': 'https://reward.onstove.com',
+            'Referer': 'https://reward.onstove.com/'
+        };
+
+        console.log(`[NEW 데일리 미션 조회] Request Headers:`, {
+            'Authorization': headers['Authorization'] ? `Bearer ${headers['Authorization'].substring(0, 20)}...` : 'MISSING',
+            'caller-id': rewardHeaders['caller-id'],
+            'caller-detail': rewardHeaders['caller-detail'] || 'MISSING'
+        });
+
+        const response = await apiRequest(url, 'GET', rewardHeaders);
+        console.log(`[NEW 데일리 미션 조회] Response:`, response);
+        return response;
+    }
+
+    // Get all daily mission statuses
+    async function getAllDailyMissions(headers) {
+        const componentNos = [1, 2, 4, 5, 9, 10, 11, 12]; // 모든 component 번호
+        console.log(`[전체 미션 조회] ${componentNos.length}개 component 조회 시작`);
+
+        try {
+            const results = await Promise.all(
+                componentNos.map(no => getDailyMissionStatus(headers, no).catch(err => {
+                    console.error(`[전체 미션 조회] Component ${no} 실패:`, err);
+                    return null;
+                }))
+            );
+
+            // Filter out failed requests and add component_no to each result
+            const validResults = results
+                .map((result, index) => {
+                    if (result && result.value) {
+                        return {
+                            componentNo: componentNos[index],
+                            ...result.value
+                        };
+                    }
+                    return null;
+                })
+                .filter(r => r !== null);
+
+            console.log(`[전체 미션 조회] ${validResults.length}개 성공`);
+            return validResults;
+        } catch (error) {
+            console.error(`[전체 미션 조회] 오류:`, error);
+            return [];
+        }
+    }
+
+    // Participate in a mission (for visit-based missions like "STOVE 메인 방문하기")
+    async function participateMission(headers, missionNo, componentNo) {
+        const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/participate`;
+
+        const rewardHeaders = {
+            'Authorization': headers['Authorization'],
+            'caller-id': 'flake-fe',
+            'caller-detail': headers['X-UUID'] || headers['caller-detail'],
+            'x-lang': 'ko',
+            'x-nation': 'KR',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Origin': 'https://reward.onstove.com',
+            'Referer': 'https://reward.onstove.com/'
+        };
+
+        const body = {
+            mission_no: missionNo,
+            component_no: componentNo
+        };
+
+        console.log(`[미션 참여] mission_no: ${missionNo}, component_no: ${componentNo}`);
+        const response = await apiRequest(url, 'POST', rewardHeaders, body);
+
+        if (response && response.value) {
+            console.log(`[미션 참여] ${response.value.title} - 상태: ${response.value.status}`);
+        }
+
+        return response;
+    }
+
     // Check game ownership by game ID
     async function checkGameOwnership(headers, gameId) {
         const url = `${CONFIG.api.baseUrl}/ownership/v1/check_ownership_by_bgameid?game_id=${gameId}`;
@@ -998,7 +1247,8 @@
             roulette: 0,
             rouletteExtra: 0,
             dailyShop: 0,
-            majak: 0
+            majak: 0,
+            dailyMissions: 0
         };
 
         try {
@@ -1183,10 +1433,25 @@
 
             await delay(CONFIG.delays.betweenActions);
 
+            // Step 3: Auto-participate in SINGLE missions (visit, game play, etc.)
+            if (!skipRewards) {
+                log('', 'info'); // Empty line for separation
+                log('🎯 Step 3: SINGLE 미션 자동 참여 시작...', 'info');
+                await autoParticipateVisitMissions(headers);
+            } else {
+                log('⏩ SINGLE 미션 스킵 (리워드 초기화 대기 중)', 'info');
+            }
+
+            await delay(CONFIG.delays.betweenActions);
+
             log('✅ 퀘스트 주요 작업 완료!', 'success');
             if (!skipRewards) {
                 log('ℹ️ 댓글 작성은 백그라운드에서 계속 진행 중...', 'info');
             }
+
+            // Step 4.5: Execute daily missions (before roulette)
+            log('', 'info'); // Empty line for separation
+            await executeDailyMissions(headers);
 
             // Step 5: Run roulette automatically (before rewards)
             log('', 'info'); // Empty line for separation
@@ -1287,7 +1552,8 @@
 
             // Calculate and display total earnings (quest 제외됨)
             const totalEarnings = questActivityFlake + state.earnings.roulette +
-                                 state.earnings.rouletteExtra + state.earnings.dailyShop + state.earnings.majak + dailyAccumulatedFlake;
+                                 state.earnings.rouletteExtra + state.earnings.dailyShop + state.earnings.majak +
+                                 state.earnings.dailyMissions + dailyAccumulatedFlake;
             const profitSign = totalEarnings >= 0 ? '+' : '';
 
             log('', 'info'); // Empty line for separation
@@ -1300,6 +1566,7 @@
             log(`  👍 게시글 좋아요: ${articleLikeFlake} FLAKE (${state.progress.articleLikes}회 × 3)`, articleLikeFlake > 0 ? 'success' : 'info');
             log(`  💬 댓글 쓰기: ${commentFlake} FLAKE (${state.progress.comments}회 × 30)`, commentFlake > 0 ? 'success' : 'info');
             // 퀘스트 보상 로그 제거됨 (퀘스트 리워드 API 제거로 인해)
+            log(`  📋 데일리 미션: ${state.earnings.dailyMissions} FLAKE`, state.earnings.dailyMissions > 0 ? 'success' : 'info');
             log(`  🎰 룰렛 순수익: ${profitSign}${state.earnings.roulette} FLAKE`, state.earnings.roulette >= 0 ? 'success' : 'warning');
             log(`  🎁 룰렛 EXTRA: ${state.earnings.rouletteExtra} FLAKE`, state.earnings.rouletteExtra > 0 ? 'success' : 'info');
             log(`  💝 데일리 보상: ${state.earnings.dailyShop} FLAKE`, state.earnings.dailyShop > 0 ? 'success' : 'info');
@@ -1709,6 +1976,118 @@
         updateProgress(); // Update progress bar
         log('✅ 룰렛 실행 완료!', 'success');
         return 0;
+    }
+
+    // ============================================
+    // Daily Missions Execution Functions
+    // ============================================
+    async function executeVisitMission(mission) {
+        const { mission_no, title, button_url } = mission;
+
+        try {
+            log(`🌐 ${title} 방문 중...`, 'info');
+
+            // 백그라운드로 탭 열기
+            const tab = openTabInBackground(button_url, false);
+
+            // 지정된 시간만큼 대기 후 탭 닫기
+            await closeTabAfterDelay(tab, CONFIG.dailyMissions.visitDelay);
+
+            log(`✓ ${title} 방문 완료`, 'success');
+            return true;
+        } catch (e) {
+            log(`✗ ${title} 방문 실패: ${e.message}`, 'error');
+            return false;
+        }
+    }
+
+    async function executeDailyMissions(headers) {
+        if (!CONFIG.dailyMissions.enabled) {
+            log('⏭️ 데일리 미션이 비활성화되어 있습니다', 'info');
+            return;
+        }
+
+        log('📋 데일리 미션 시작...', 'info');
+        let totalEarned = 0;
+
+        try {
+            // 1단계: 미션 목록 조회
+            const missionData = await getDailyMissions(headers);
+            if (!missionData || !missionData.missions) {
+                log('✗ 미션 목록 조회 실패', 'error');
+                return;
+            }
+
+            const missions = missionData.missions;
+            log(`📝 총 ${missions.length}개 미션 확인`, 'info');
+
+            // 2단계: 방문 미션 수행 (Mission 1, 2)
+            const visitMissions = missions.filter(m =>
+                CONFIG.dailyMissions.visitMissions.includes(m.mission_no) &&
+                m.status === 'INCOMPLETE'
+            );
+
+            if (visitMissions.length > 0) {
+                log(`🌐 방문 미션 ${visitMissions.length}개 수행 시작...`, 'info');
+
+                for (const mission of visitMissions) {
+                    await executeVisitMission(mission);
+                    await delay(CONFIG.delays.betweenActions);
+                }
+
+                log('✅ 방문 미션 수행 완료', 'success');
+
+                // 방문 후 상태 갱신을 위해 잠시 대기
+                await delay(1000);
+            } else {
+                log('ℹ️ 수행할 방문 미션이 없습니다', 'info');
+            }
+
+            // 3단계: 미션 상태 재조회
+            const updatedMissionData = await getDailyMissions(headers);
+            if (!updatedMissionData || !updatedMissionData.missions) {
+                log('✗ 미션 상태 재조회 실패', 'error');
+                return;
+            }
+
+            // 4단계: 수령 가능한 미션 보상 수령
+            const receivableMissions = updatedMissionData.missions.filter(m =>
+                m.status === 'RECEIVABLE' &&
+                !CONFIG.dailyMissions.skipMissions.includes(m.mission_no)
+            );
+
+            if (receivableMissions.length > 0) {
+                log(`🎁 수령 가능한 보상 ${receivableMissions.length}개 발견`, 'info');
+
+                for (const mission of receivableMissions) {
+                    const result = await receiveMissionReward(headers, mission.mission_no);
+
+                    if (result && result.reward_amount) {
+                        totalEarned += result.reward_amount;
+                    }
+
+                    await delay(CONFIG.delays.betweenActions);
+                }
+
+                log(`✅ 데일리 미션 보상 수령 완료: +${totalEarned} FLAKE`, 'success');
+            } else {
+                log('ℹ️ 수령 가능한 보상이 없습니다', 'info');
+            }
+
+            // 상태 업데이트
+            state.earnings.dailyMissions = totalEarned;
+            state.completed.dailyMissions = true;
+
+            // 완료 상태 표시
+            const completedCount = updatedMissionData.missions.filter(m => m.status === 'COMPLETE').length;
+            const totalCount = updatedMissionData.missions.length;
+            log(`📊 미션 진행 상황: ${completedCount}/${totalCount} 완료`, 'info');
+
+        } catch (error) {
+            log(`✗ 데일리 미션 오류: ${error.message}`, 'error');
+        }
+
+        log('✅ 데일리 미션 처리 완료!', 'success');
     }
 
     // Standalone roulette function (for button)
@@ -2376,6 +2755,150 @@
 
     // checkQuestRewardStatus 함수 제거됨 (퀘스트 리워드 API 제거로 인해)
 
+    async function checkDailyMissionStatus(headers) {
+        try {
+            const allMissions = await getAllDailyMissions(headers);
+            if (!allMissions || allMissions.length === 0) {
+                return { success: false, error: '데이터 없음' };
+            }
+
+            // Categorize missions by component type
+            const categories = {
+                daily: { components: [], missions: [] },      // SINGLE
+                weekly: { components: [], missions: [] },     // ACCUMULATION (위클리)
+                achievement: { components: [], missions: [] }, // ACHIEVEMENT
+                content: { components: [], missions: [] },    // CONTENT1
+                attendance: { components: [], missions: [] }  // 출석 관련
+            };
+
+            // Group by category
+            allMissions.forEach(comp => {
+                const type = comp.component_info.component_type;
+                const title = comp.component_info.title;
+                const missions = comp.missions || [];
+
+                if (type === 'SINGLE') {
+                    categories.daily.components.push(comp.component_info);
+                    categories.daily.missions.push(...missions);
+                } else if (type === 'ACCUMULATION') {
+                    if (title.includes('출석')) {
+                        categories.attendance.components.push(comp.component_info);
+                        categories.attendance.missions.push(...missions);
+                    } else {
+                        categories.weekly.components.push(comp.component_info);
+                        categories.weekly.missions.push(...missions);
+                    }
+                } else if (type === 'ACHIEVEMENT') {
+                    categories.achievement.components.push(comp.component_info);
+                    categories.achievement.missions.push(...missions);
+                } else if (type === 'CONTENT1') {
+                    categories.content.components.push(comp.component_info);
+                    categories.content.missions.push(...missions);
+                }
+            });
+
+            // Calculate stats for each category
+            const result = {};
+            Object.keys(categories).forEach(key => {
+                const missions = categories[key].missions;
+                if (missions.length > 0) {
+                    result[key] = {
+                        total: missions.length,
+                        completed: missions.filter(m => m.status === 'COMPLETED').length,
+                        receivable: missions.filter(m => m.status === 'RECEIVABLE').length,
+                        incomplete: missions.filter(m => m.status === 'INCOMPLETE').length,
+                        components: categories[key].components,
+                        missions: missions
+                    };
+                }
+            });
+
+            return { success: true, categories: result };
+        } catch (e) {
+            console.error('[데일리 미션 상태 체크 오류]', e);
+            return { success: false, error: e.message };
+        }
+    }
+
+    // Auto-participate in SINGLE type missions (방문형, 게임 플레이 등 SINGLE 미션 자동 참여)
+    async function autoParticipateVisitMissions(headers) {
+        try {
+            log('[SINGLE 미션] 자동 참여 시작', 'info');
+
+            // Get all daily missions
+            const allMissions = await getAllDailyMissions(headers);
+            if (!allMissions || allMissions.length === 0) {
+                log('[SINGLE 미션] 조회된 미션 없음', 'warning');
+                return { success: false, participated: 0, completed: 0 };
+            }
+
+            // Find SINGLE type missions that are incomplete
+            const singleMissions = [];
+            allMissions.forEach(comp => {
+                const missions = comp.missions || [];
+                missions.forEach(mission => {
+                    // SINGLE 타입이고 INCOMPLETE 상태인 미션만 필터링
+                    if (mission.mission_type === 'SINGLE' && mission.status === 'INCOMPLETE') {
+                        singleMissions.push({
+                            mission_no: mission.mission_no,
+                            component_no: comp.componentNo,
+                            title: mission.title,
+                            reward_amount: mission.reward_amount,
+                            is_visit_mission: mission.is_visit_mission
+                        });
+                    }
+                });
+            });
+
+            if (singleMissions.length === 0) {
+                log('[SINGLE 미션] 참여 가능한 미션 없음', 'info');
+                return { success: true, participated: 0, completed: 0 };
+            }
+
+            log(`[SINGLE 미션] ${singleMissions.length}개 발견`, 'info');
+
+            // Participate in each mission
+            let participated = 0;
+            let completed = 0;
+            for (const mission of singleMissions) {
+                try {
+                    log(`[SINGLE 미션] "${mission.title}" 참여 중... (보상: ${mission.reward_amount} 플레이크)`, 'info');
+                    const result = await participateMission(headers, mission.mission_no, mission.component_no);
+
+                    if (result && result.value) {
+                        const status = result.value.status;
+
+                        if (status === 'RECEIVABLE') {
+                            // 방문형 미션: 참여만 완료, 별도 수령 필요
+                            log(`[SINGLE 미션] ✅ "${mission.title}" 참여 완료 (수령 가능)`, 'success');
+                            participated++;
+                        } else if (status === 'COMPLETE' || status === 'COMPLETED') {
+                            // 게임 플레이 등: 즉시 보상 지급
+                            const residueFlake = result.value.residue_flake ? ` (잔액: ${result.value.residue_flake})` : '';
+                            log(`[SINGLE 미션] 🎁 "${mission.title}" 보상 수령 완료 (+${mission.reward_amount} 플레이크)${residueFlake}`, 'success');
+                            completed++;
+                        } else {
+                            log(`[SINGLE 미션] ⚠️ "${mission.title}" 참여 실패 (상태: ${status})`, 'warning');
+                        }
+                    } else {
+                        log(`[SINGLE 미션] ⚠️ "${mission.title}" 응답 없음`, 'warning');
+                    }
+
+                    await sleep(1000); // 1초 대기
+                } catch (error) {
+                    log(`[SINGLE 미션] ❌ "${mission.title}" 오류: ${error.message}`, 'error');
+                }
+            }
+
+            log(`[SINGLE 미션] 총 참여: ${participated}개, 즉시 완료: ${completed}개 (전체: ${singleMissions.length})`, 'success');
+            return { success: true, participated, completed, total: singleMissions.length };
+
+        } catch (error) {
+            log(`[SINGLE 미션] 오류: ${error.message}`, 'error');
+            return { success: false, error: error.message };
+        }
+    }
+
     async function checkArticleWriteStatus(headers) {
         try {
             // 1. Get my profile to get user_id
@@ -2439,6 +2962,7 @@
             console.log('[상태 확인] 로딩 상태 표시');
             updateStatusUI({
                 articleWrite: { loading: true },
+                dailyMission: { loading: true },
                 roulette: { loading: true },
                 dailyShop: { loading: true },
                 majakShop: { loading: true }
@@ -2446,8 +2970,9 @@
 
             // Fetch all statuses in parallel
             console.log('[상태 확인] API 호출 시작...');
-            const [articleWriteStatus, rouletteStatus, dailyShopStatus, majakShopStatus] = await Promise.all([
+            const [articleWriteStatus, dailyMissionStatus, rouletteStatus, dailyShopStatus, majakShopStatus] = await Promise.all([
                 checkArticleWriteStatus(headers),
+                checkDailyMissionStatus(headers),
                 checkRouletteStatus(headers),
                 checkDailyShopStatus(headers),
                 checkMajakShopStatus(headers)
@@ -2458,6 +2983,7 @@
             console.log('[상태 확인] UI 업데이트 중...');
             updateStatusUI({
                 articleWrite: articleWriteStatus,
+                dailyMission: dailyMissionStatus,
                 roulette: rouletteStatus,
                 dailyShop: dailyShopStatus,
                 majakShop: majakShopStatus
@@ -2469,6 +2995,7 @@
             alert(`상태 확인 실패: ${error.message}`);
             updateStatusUI({
                 articleWrite: { success: false, error: '확인 실패' },
+                dailyMission: { success: false, error: '확인 실패' },
                 roulette: { success: false, error: '확인 실패' },
                 dailyShop: { success: false, error: '확인 실패' },
                 majakShop: { success: false, error: '확인 실패' }
@@ -2494,6 +3021,86 @@
                 }
             } else {
                 articleWriteEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
+            }
+        }
+
+        // Update daily mission status by category
+        if (statusData.dailyMission) {
+            if (statusData.dailyMission.loading) {
+                // Show loading for all categories
+                ['daily', 'weekly', 'achievement', 'content', 'attendance'].forEach(cat => {
+                    const el = document.getElementById(`stove-status-mission-${cat}`);
+                    if (el) el.innerHTML = '<span style="color: #3b82f6">⏳</span>';
+                });
+            } else if (statusData.dailyMission.success && statusData.dailyMission.categories) {
+                const categories = statusData.dailyMission.categories;
+
+                // Update each category
+                ['daily', 'weekly', 'achievement', 'content', 'attendance'].forEach(catKey => {
+                    const el = document.getElementById(`stove-status-mission-${catKey}`);
+                    const cat = categories[catKey];
+
+                    if (el) {
+                        if (!cat || cat.total === 0) {
+                            el.innerHTML = '<span style="color: #6b7280">-</span>';
+                            return;
+                        }
+
+                        const { completed, receivable, total, missions } = cat;
+
+                        // Status text
+                        let statusHTML = '';
+                        if (completed === total) {
+                            statusHTML = '<span style="color: #10b981">✅ 완료</span>';
+                        } else if (receivable > 0) {
+                            statusHTML = `<span style="color: #f59e0b">🎁 ${receivable}개</span>`;
+                        } else {
+                            statusHTML = `<span style="color: #6b7280">${completed}/${total}</span>`;
+                        }
+
+                        el.innerHTML = statusHTML;
+
+                        // Create tooltip
+                        const parentItem = el.closest('.stove-mission-item');
+                        if (parentItem && missions && missions.length > 0) {
+                            // Remove existing tooltip
+                            const existingTooltip = parentItem.querySelector('.stove-mission-tooltip');
+                            if (existingTooltip) existingTooltip.remove();
+
+                            // Create new tooltip
+                            const tooltip = document.createElement('div');
+                            tooltip.className = 'stove-mission-tooltip';
+
+                            let tooltipHTML = `<div class="stove-mission-tooltip-title">${catKey === 'daily' ? '📅 데일리 미션' :
+                                catKey === 'weekly' ? '📆 위클리 미션' :
+                                catKey === 'achievement' ? '🏆 업적' :
+                                catKey === 'content' ? '💬 컨텐츠' : '📆 출석'}</div>`;
+
+                            missions.forEach(mission => {
+                                const statusIcon = mission.status === 'COMPLETED' ? '✅' :
+                                                  mission.status === 'RECEIVABLE' ? '🎁' : '⏳';
+                                const statusColor = mission.status === 'COMPLETED' ? '#10b981' :
+                                                   mission.status === 'RECEIVABLE' ? '#f59e0b' : '#6b7280';
+
+                                tooltipHTML += `
+                                    <div class="stove-mission-tooltip-item">
+                                        <span class="stove-mission-tooltip-name">${mission.title}</span>
+                                        <span class="stove-mission-tooltip-status" style="color: ${statusColor}">${statusIcon}</span>
+                                    </div>
+                                `;
+                            });
+
+                            tooltip.innerHTML = tooltipHTML;
+                            parentItem.appendChild(tooltip);
+                        }
+                    }
+                });
+            } else {
+                // Show error for all categories
+                ['daily', 'weekly', 'achievement', 'content', 'attendance'].forEach(cat => {
+                    const el = document.getElementById(`stove-status-mission-${cat}`);
+                    if (el) el.innerHTML = '<span style="color: #ef4444">❌</span>';
+                });
             }
         }
 
@@ -2836,6 +3443,63 @@
                     font-family: 'Courier New', monospace;
                 }
 
+                .stove-mission-item {
+                    position: relative;
+                    cursor: help;
+                }
+
+                .stove-mission-item:hover {
+                    background: #252525;
+                    border-color: #3a3a3a;
+                }
+
+                .stove-mission-tooltip {
+                    position: absolute;
+                    left: 0;
+                    top: 100%;
+                    margin-top: 8px;
+                    background: #2a2a2a;
+                    border: 1px solid #3a3a3a;
+                    border-radius: 6px;
+                    padding: 12px;
+                    min-width: 300px;
+                    max-width: 400px;
+                    z-index: 10000;
+                    font-size: 13px;
+                    line-height: 1.5;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+                    display: none;
+                }
+
+                .stove-mission-item:hover .stove-mission-tooltip {
+                    display: block;
+                }
+
+                .stove-mission-tooltip-title {
+                    font-weight: 600;
+                    color: #10b981;
+                    margin-bottom: 8px;
+                    border-bottom: 1px solid #3a3a3a;
+                    padding-bottom: 6px;
+                }
+
+                .stove-mission-tooltip-item {
+                    padding: 4px 0;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+
+                .stove-mission-tooltip-name {
+                    flex: 1;
+                    color: #d0d0d0;
+                }
+
+                .stove-mission-tooltip-status {
+                    margin-left: 12px;
+                    font-size: 12px;
+                }
+
                 .stove-maintenance-notice {
                     background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
                     border: 2px solid #b71c1c;
@@ -2900,6 +3564,26 @@
                     <div class="stove-status-item">
                         <span class="stove-status-label">✍️ 오늘 글쓰기</span>
                         <span class="stove-status-value" id="stove-status-article">-</span>
+                    </div>
+                    <div class="stove-status-item stove-mission-item" data-category="daily">
+                        <span class="stove-status-label">📅 데일리</span>
+                        <span class="stove-status-value" id="stove-status-mission-daily">-</span>
+                    </div>
+                    <div class="stove-status-item stove-mission-item" data-category="weekly">
+                        <span class="stove-status-label">📆 위클리</span>
+                        <span class="stove-status-value" id="stove-status-mission-weekly">-</span>
+                    </div>
+                    <div class="stove-status-item stove-mission-item" data-category="achievement">
+                        <span class="stove-status-label">🏆 업적</span>
+                        <span class="stove-status-value" id="stove-status-mission-achievement">-</span>
+                    </div>
+                    <div class="stove-status-item stove-mission-item" data-category="content">
+                        <span class="stove-status-label">💬 컨텐츠</span>
+                        <span class="stove-status-value" id="stove-status-mission-content">-</span>
+                    </div>
+                    <div class="stove-status-item stove-mission-item" data-category="attendance">
+                        <span class="stove-status-label">📆 출석</span>
+                        <span class="stove-status-value" id="stove-status-mission-attendance">-</span>
                     </div>
                     <div class="stove-status-item">
                         <span class="stove-status-label">🎰 룰렛 횟수</span>
