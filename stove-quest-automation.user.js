@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.1.7
+// @version      2.1.8
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.1.7',   
+        version: '2.1.8',   
         lastUpdated: '2025-11-04',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -1491,6 +1491,10 @@
             if (!skipRewards) {
                 log('ℹ️ 댓글 작성은 백그라운드에서 계속 진행 중...', 'info');
             }
+
+            // Step 4: Visit required pages (reward shop & stove main)
+            log('', 'info'); // Empty line for separation
+            await visitRequiredPages();
 
             // Step 4.5: Execute daily missions (before roulette)
             log('', 'info'); // Empty line for separation
@@ -3082,7 +3086,7 @@
         return extraFlakeEarned;
     }
 
-    // 리워드샵 방문
+    // 리워드샵 방문 (버튼용 - 수동 클릭)
     function openRewardShop() {
         log('🏪 리워드샵 페이지를 새 탭에서 엽니다...', 'info');
         try {
@@ -3090,6 +3094,32 @@
             log('✅ 리워드샵 탭이 열렸습니다!', 'success');
         } catch (error) {
             log(`❌ 탭 열기 실패: ${error.message}`, 'error');
+        }
+    }
+
+    // 필수 페이지 방문 (자동화용 - 백그라운드에서 열고 1초 후 자동 닫기)
+    async function visitRequiredPages() {
+        log('🌐 필수 페이지 방문 시작...', 'info');
+
+        try {
+            // 리워드샵 방문 (백그라운드)
+            log('  📋 리워드샵 페이지 방문 중...', 'info');
+            const rewardTab = openTabInBackground('https://reward.onstove.com/ko', false);
+
+            // 스토브 메인 방문 (백그라운드)
+            log('  🏠 스토브 메인 페이지 방문 중...', 'info');
+            const stoveTab = openTabInBackground('https://www.onstove.com/ko', false);
+
+            // 1초 대기
+            await delay(1000);
+
+            // 탭 닫기
+            await closeTabAfterDelay(rewardTab, 0);
+            await closeTabAfterDelay(stoveTab, 0);
+
+            log('✓ 필수 페이지 방문 완료', 'success');
+        } catch (error) {
+            log(`⚠️ 페이지 방문 중 오류: ${error.message}`, 'warning');
         }
     }
 
