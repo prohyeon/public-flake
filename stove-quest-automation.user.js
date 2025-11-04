@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.0.0
+// @version      2.0.1
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.0.0',
+        version: '2.0.1',
         lastUpdated: '2025-11-04',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -64,6 +64,27 @@
             visitMissions: [1, 2],      // 방문 미션 번호 (MY홈, 스토브 메인)
             skipMissions: [3, 8],       // 건너뛸 미션 번호 (앱 로그인, 경품 응모)
             visitDelay: 1000            // 방문 후 탭 닫기까지 대기 시간 (ms)
+        },
+        contentMissions: {
+            enabled: true,              // 컨텐츠 미션 자동 실행 활성화
+            componentNo: 4              // 미션 컴포넌트 번호 (인기 게시글 보기)
+        },
+        weeklyMissions: {
+            enabled: true,              // 위클리 미션 자동 실행 활성화
+            componentNo: 2              // 미션 컴포넌트 번호 (위클리 미션)
+        },
+        eventMissions: {
+            enabled: true,              // 이벤트 미션 자동 실행 활성화
+            componentNo: 9              // 미션 컴포넌트 번호 (오픈기념 이벤트)
+        },
+        bannerMissions: {
+            enabled: true,              // 배너 미션 자동 실행 활성화
+            componentNo: 12,            // 미션 컴포넌트 번호 (11월 배너 미션)
+            visitDelay: 1000            // 방문 후 탭 닫기까지 대기 시간 (ms)
+        },
+        attendanceMissions: {
+            enabled: true,              // 출석 미션 자동 실행 활성화
+            componentNo: 10             // 미션 컴포넌트 번호 (매일 출석 보너스)
         }
     };
 
@@ -78,19 +99,29 @@
             newArticle: 0
         },
         completed: {
-            roulette: false,      // 룰렛 완료 여부
-            dailyShop: false,     // 데일리 샵 완료 여부
-            majak: false,         // 마작 완료 여부
-            dailyMissions: false  // 데일리 미션 완료 여부
+            roulette: false,        // 룰렛 완료 여부
+            dailyShop: false,       // 데일리 샵 완료 여부
+            majak: false,           // 마작 완료 여부
+            dailyMissions: false,   // 데일리 미션 완료 여부
+            contentMissions: false, // 컨텐츠 미션 완료 여부
+            weeklyMissions: false,  // 위클리 미션 완료 여부
+            eventMissions: false,   // 이벤트 미션 완료 여부
+            bannerMissions: false,  // 배너 미션 완료 여부
+            attendanceMissions: false // 출석 미션 완료 여부
         },
         createdCommentIds: [],  // Store created comment IDs for liking
         earnings: {
             // quest: 0 제거됨 (퀘스트 리워드 API 제거로 인해)
-            roulette: 0,        // Net profit from roulette (rewards - cost)
-            rouletteExtra: 0,   // FLAKE from roulette extra milestones
-            dailyShop: 0,       // FLAKE from daily shop rewards
-            majak: 0,           // FLAKE from majak rewards
-            dailyMissions: 0    // FLAKE from daily missions
+            roulette: 0,         // Net profit from roulette (rewards - cost)
+            rouletteExtra: 0,    // FLAKE from roulette extra milestones
+            dailyShop: 0,        // FLAKE from daily shop rewards
+            majak: 0,            // FLAKE from majak rewards
+            dailyMissions: 0,    // FLAKE from daily missions
+            contentMissions: 0,  // FLAKE from content missions
+            weeklyMissions: 0,   // FLAKE from weekly missions
+            eventMissions: 0,    // FLAKE from event missions
+            bannerMissions: 0,   // FLAKE from banner missions
+            attendanceMissions: 0 // FLAKE from attendance missions
         }
     };
 
@@ -1453,6 +1484,26 @@
             log('', 'info'); // Empty line for separation
             await executeDailyMissions(headers);
 
+            // Step 4.6: Execute content missions (after daily missions)
+            log('', 'info'); // Empty line for separation
+            await executeContentMissions(headers);
+
+            // Step 4.7: Execute weekly missions (after content missions)
+            log('', 'info'); // Empty line for separation
+            await executeWeeklyMissions(headers);
+
+            // Step 4.8: Execute event missions (after weekly missions)
+            log('', 'info'); // Empty line for separation
+            await executeEventMissions(headers);
+
+            // Step 4.9: Execute banner missions (after event missions)
+            log('', 'info'); // Empty line for separation
+            await executeBannerMissions(headers);
+
+            // Step 4.10: Execute attendance missions (after banner missions)
+            log('', 'info'); // Empty line for separation
+            await executeAttendanceMissions(headers);
+
             // Step 5: Run roulette automatically (before rewards)
             log('', 'info'); // Empty line for separation
             await runRouletteDraws(headers);
@@ -1553,7 +1604,9 @@
             // Calculate and display total earnings (quest 제외됨)
             const totalEarnings = questActivityFlake + state.earnings.roulette +
                                  state.earnings.rouletteExtra + state.earnings.dailyShop + state.earnings.majak +
-                                 state.earnings.dailyMissions + dailyAccumulatedFlake;
+                                 state.earnings.dailyMissions + state.earnings.contentMissions +
+                                 state.earnings.weeklyMissions + state.earnings.eventMissions +
+                                 state.earnings.bannerMissions + state.earnings.attendanceMissions + dailyAccumulatedFlake;
             const profitSign = totalEarnings >= 0 ? '+' : '';
 
             log('', 'info'); // Empty line for separation
@@ -1567,6 +1620,11 @@
             log(`  💬 댓글 쓰기: ${commentFlake} FLAKE (${state.progress.comments}회 × 30)`, commentFlake > 0 ? 'success' : 'info');
             // 퀘스트 보상 로그 제거됨 (퀘스트 리워드 API 제거로 인해)
             log(`  📋 데일리 미션: ${state.earnings.dailyMissions} FLAKE`, state.earnings.dailyMissions > 0 ? 'success' : 'info');
+            log(`  📰 컨텐츠 미션: ${state.earnings.contentMissions} FLAKE`, state.earnings.contentMissions > 0 ? 'success' : 'info');
+            log(`  📅 위클리 미션: ${state.earnings.weeklyMissions} FLAKE`, state.earnings.weeklyMissions > 0 ? 'success' : 'info');
+            log(`  🎉 이벤트 미션: ${state.earnings.eventMissions} FLAKE`, state.earnings.eventMissions > 0 ? 'success' : 'info');
+            log(`  🎨 배너 미션: ${state.earnings.bannerMissions} FLAKE`, state.earnings.bannerMissions > 0 ? 'success' : 'info');
+            log(`  📆 출석 미션: ${state.earnings.attendanceMissions} FLAKE`, state.earnings.attendanceMissions > 0 ? 'success' : 'info');
             log(`  🎰 룰렛 순수익: ${profitSign}${state.earnings.roulette} FLAKE`, state.earnings.roulette >= 0 ? 'success' : 'warning');
             log(`  🎁 룰렛 EXTRA: ${state.earnings.rouletteExtra} FLAKE`, state.earnings.rouletteExtra > 0 ? 'success' : 'info');
             log(`  💝 데일리 보상: ${state.earnings.dailyShop} FLAKE`, state.earnings.dailyShop > 0 ? 'success' : 'info');
@@ -2088,6 +2146,477 @@
         }
 
         log('✅ 데일리 미션 처리 완료!', 'success');
+    }
+
+    async function executeContentMissions(headers) {
+        if (!CONFIG.contentMissions.enabled) {
+            log('⏭️ 컨텐츠 미션이 비활성화되어 있습니다', 'info');
+            return;
+        }
+
+        log('📰 컨텐츠 미션 시작...', 'info');
+        let totalEarned = 0;
+
+        try {
+            // 1단계: 미션 목록 조회
+            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${CONFIG.contentMissions.componentNo}`;
+
+            const missionHeaders = {
+                'Authorization': headers['Authorization'],
+                'caller-id': 'flake-fe',
+                'caller-detail': headers['X-UUID'] || headers['caller-detail'],
+                'x-lang': 'ko',
+                'x-nation': 'KR',
+                'Accept': '*/*',
+                'Origin': 'https://reward.onstove.com',
+                'Referer': 'https://reward.onstove.com/'
+            };
+
+            const missionData = await apiRequest(url, 'GET', missionHeaders);
+
+            if (!missionData || missionData.code !== 0 || !missionData.value || !missionData.value.missions) {
+                log('✗ 컨텐츠 미션 목록 조회 실패', 'error');
+                return;
+            }
+
+            const missions = missionData.value.missions;
+            log(`📝 총 ${missions.length}개 컨텐츠 미션 확인`, 'info');
+
+            // 2단계: INCOMPLETE 미션 방문 처리
+            const incompleteMissions = missions.filter(m =>
+                m.status === 'INCOMPLETE' && m.url && m.url.trim() !== ''
+            );
+
+            if (incompleteMissions.length > 0) {
+                log(`🌐 미완료 컨텐츠 미션 ${incompleteMissions.length}개 방문 시작...`, 'info');
+
+                for (const mission of incompleteMissions) {
+                    try {
+                        log(`  🌐 "${mission.title.substring(0, 30)}..." 방문 중...`, 'info');
+
+                        // 백그라운드로 탭 열기
+                        const tab = openTabInBackground(mission.url, false);
+
+                        // 1초 대기 후 탭 닫기
+                        await closeTabAfterDelay(tab, 1000);
+
+                        log(`  ✓ "${mission.title.substring(0, 30)}..." 방문 완료`, 'success');
+                    } catch (e) {
+                        log(`  ✗ "${mission.title.substring(0, 30)}..." 방문 실패: ${e.message}`, 'error');
+                    }
+
+                    await delay(CONFIG.delays.betweenActions);
+                }
+
+                log('✅ 컨텐츠 미션 방문 완료', 'success');
+                await delay(1000); // 상태 반영 대기
+            } else {
+                log('ℹ️ 방문할 미완료 컨텐츠 미션이 없습니다', 'info');
+            }
+
+            // 3단계: 미션 상태 재조회
+            const updatedMissionData = await apiRequest(url, 'GET', missionHeaders);
+            if (!updatedMissionData || updatedMissionData.code !== 0 || !updatedMissionData.value || !updatedMissionData.value.missions) {
+                log('✗ 컨텐츠 미션 상태 재조회 실패', 'error');
+                return;
+            }
+
+            // 4단계: 수령 가능한 미션 필터링
+            const receivableMissions = updatedMissionData.value.missions.filter(m => m.status === 'RECEIVABLE');
+
+            if (receivableMissions.length === 0) {
+                log('ℹ️ 수령 가능한 컨텐츠 미션이 없습니다', 'info');
+            } else {
+                log(`🎁 수령 가능한 컨텐츠 미션 ${receivableMissions.length}개 발견`, 'info');
+
+                // 5단계: 미션 보상 수령
+                for (const mission of receivableMissions) {
+                    const result = await receiveMissionReward(headers, mission.mission_no);
+
+                    if (result && result.reward_amount) {
+                        totalEarned += result.reward_amount;
+                        log(`  ✓ "${mission.title.substring(0, 30)}...": +${result.reward_amount} FLAKE`, 'success');
+                    }
+
+                    await delay(CONFIG.delays.betweenActions);
+                }
+
+                log(`✅ 컨텐츠 미션 보상 수령 완료: +${totalEarned} FLAKE`, 'success');
+            }
+
+            // 상태 업데이트
+            state.earnings.contentMissions = totalEarned;
+            state.completed.contentMissions = true;
+
+            // 완료 상태 표시
+            const completedCount = updatedMissionData.value.missions.filter(m => m.status === 'COMPLETE' || m.status === 'COMPLETED').length;
+            const totalCount = updatedMissionData.value.missions.length;
+            log(`📊 컨텐츠 미션 진행 상황: ${completedCount}/${totalCount} 완료`, 'info');
+
+        } catch (error) {
+            log(`✗ 컨텐츠 미션 오류: ${error.message}`, 'error');
+        }
+
+        log('✅ 컨텐츠 미션 처리 완료!', 'success');
+    }
+
+    async function executeWeeklyMissions(headers) {
+        if (!CONFIG.weeklyMissions.enabled) {
+            log('⏭️ 위클리 미션이 비활성화되어 있습니다', 'info');
+            return;
+        }
+
+        log('📅 위클리 미션 시작...', 'info');
+        let totalEarned = 0;
+
+        try {
+            // 1단계: 미션 목록 조회
+            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${CONFIG.weeklyMissions.componentNo}`;
+
+            const missionHeaders = {
+                'Authorization': headers['Authorization'],
+                'caller-id': 'flake-fe',
+                'caller-detail': headers['X-UUID'] || headers['caller-detail'],
+                'x-lang': 'ko',
+                'x-nation': 'KR',
+                'Accept': '*/*',
+                'Origin': 'https://reward.onstove.com',
+                'Referer': 'https://reward.onstove.com/'
+            };
+
+            const missionData = await apiRequest(url, 'GET', missionHeaders);
+
+            if (!missionData || missionData.code !== 0 || !missionData.value || !missionData.value.missions) {
+                log('✗ 위클리 미션 목록 조회 실패', 'error');
+                return;
+            }
+
+            const missions = missionData.value.missions;
+            log(`📝 총 ${missions.length}개 위클리 미션 확인`, 'info');
+
+            // 2단계: 수령 가능한 미션 필터링 (RECEIVABLE 상태)
+            const receivableMissions = missions.filter(m => m.status === 'RECEIVABLE');
+
+            if (receivableMissions.length === 0) {
+                log('ℹ️ 수령 가능한 위클리 미션이 없습니다', 'info');
+            } else {
+                log(`🎁 수령 가능한 위클리 미션 ${receivableMissions.length}개 발견`, 'info');
+
+                // 3단계: 미션 보상 수령
+                for (const mission of receivableMissions) {
+                    const result = await receiveMissionReward(headers, mission.mission_no);
+
+                    if (result && result.reward_amount) {
+                        totalEarned += result.reward_amount;
+                        log(`  ✓ "${mission.title}": +${result.reward_amount} FLAKE`, 'success');
+                    }
+
+                    await delay(CONFIG.delays.betweenActions);
+                }
+
+                log(`✅ 위클리 미션 보상 수령 완료: +${totalEarned} FLAKE`, 'success');
+            }
+
+            // 상태 업데이트
+            state.earnings.weeklyMissions = totalEarned;
+            state.completed.weeklyMissions = true;
+
+            // 완료 상태 표시
+            const completedCount = missions.filter(m => m.status === 'COMPLETE' || m.status === 'COMPLETED').length;
+            const totalCount = missions.length;
+            log(`📊 위클리 미션 진행 상황: ${completedCount}/${totalCount} 완료`, 'info');
+
+            // 진행 중인 미션 상태 표시
+            const incompleteMissions = missions.filter(m => m.status === 'INCOMPLETE');
+            if (incompleteMissions.length > 0) {
+                log(`ℹ️ 진행 중인 미션:`, 'info');
+                for (const mission of incompleteMissions) {
+                    const progress = `${mission.user_complete_cnt || 0}/${mission.milestone_total_cnt || 0}`;
+                    log(`  📌 ${mission.title}: ${progress}`, 'info');
+                }
+            }
+
+        } catch (error) {
+            log(`✗ 위클리 미션 오류: ${error.message}`, 'error');
+        }
+
+        log('✅ 위클리 미션 처리 완료!', 'success');
+    }
+
+    /**
+     * 이벤트 미션 자동 수령 (component_no=9)
+     * - RECEIVABLE 상태인 미션만 바로 수령
+     * - INCOMPLETE, COMPLETE 상태는 스킵
+     */
+    async function executeEventMissions(headers) {
+        if (!CONFIG.eventMissions.enabled) {
+            log('⏭️ 이벤트 미션이 비활성화되어 있습니다', 'info');
+            return;
+        }
+
+        log('🎉 이벤트 미션 시작...', 'info');
+        let totalEarned = 0;
+
+        try {
+            // Step 1: 미션 목록 조회
+            const missionHeaders = {
+                ...headers,
+                'accept': 'application/json',
+                'content-type': 'application/json'
+            };
+
+            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${CONFIG.eventMissions.componentNo}`;
+            const missionData = await apiRequest(url, 'GET', missionHeaders);
+
+            if (!missionData || !missionData.value || !missionData.value.missions) {
+                log('⚠️ 이벤트 미션 데이터를 찾을 수 없습니다', 'warning');
+                return;
+            }
+
+            const missions = missionData.value.missions;
+            log(`📋 이벤트 미션 ${missions.length}개 발견`, 'info');
+
+            // Step 2: RECEIVABLE 상태만 필터링 (INCOMPLETE, COMPLETE 스킵)
+            const receivableMissions = missions.filter(m => m.status === 'RECEIVABLE');
+
+            if (receivableMissions.length === 0) {
+                log('ℹ️ 수령 가능한 이벤트 미션이 없습니다', 'info');
+
+                // 진행 중이거나 완료된 미션 표시
+                const incompleteMissions = missions.filter(m => m.status === 'INCOMPLETE');
+                const completeMissions = missions.filter(m => m.status === 'COMPLETE');
+
+                if (incompleteMissions.length > 0) {
+                    log(`  📌 진행 중: ${incompleteMissions.length}개`, 'info');
+                }
+                if (completeMissions.length > 0) {
+                    log(`  ✓ 완료됨: ${completeMissions.length}개`, 'info');
+                }
+            } else {
+                log(`💰 수령 가능한 미션: ${receivableMissions.length}개`, 'info');
+
+                // Step 3: RECEIVABLE 미션 보상 수령
+                for (const mission of receivableMissions) {
+                    log(`⏳ "${mission.title}" 수령 중... (보상: ${mission.reward_amount} 플레이크)`, 'info');
+
+                    const result = await receiveMissionReward(headers, mission.mission_no, 1);
+
+                    if (result && result.reward_amount) {
+                        totalEarned += result.reward_amount;
+                        log(`  ✓ "${mission.title}": +${result.reward_amount} FLAKE`, 'success');
+                    } else {
+                        log(`  ✗ "${mission.title}" 수령 실패`, 'error');
+                    }
+
+                    // API 부하 방지를 위한 짧은 대기
+                    await delay(500);
+                }
+            }
+
+            // Step 4: 결과 저장
+            state.earnings.eventMissions = totalEarned;
+            state.completed.eventMissions = true;
+
+            if (totalEarned > 0) {
+                log(`✅ 이벤트 미션 ${receivableMissions.length}개 완료! 총 ${totalEarned} FLAKE 획득`, 'success');
+            }
+
+        } catch (error) {
+            log(`✗ 이벤트 미션 오류: ${error.message}`, 'error');
+            console.error('Event missions error details:', error);
+        }
+
+        log('✅ 이벤트 미션 처리 완료!', 'success');
+    }
+
+    /**
+     * 배너 미션 자동 수령 (component_no=12)
+     * - button_url을 백그라운드 탭에서 열고 1초 후 닫음
+     * - 그 후 mission_no로 수령 API 호출
+     */
+    async function executeBannerMissions(headers) {
+        if (!CONFIG.bannerMissions.enabled) {
+            log('⏭️ 배너 미션이 비활성화되어 있습니다', 'info');
+            return;
+        }
+
+        log('🎨 배너 미션 시작...', 'info');
+        let totalEarned = 0;
+
+        try {
+            // Step 1: 미션 목록 조회
+            const missionHeaders = {
+                ...headers,
+                'accept': 'application/json',
+                'content-type': 'application/json'
+            };
+
+            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${CONFIG.bannerMissions.componentNo}`;
+            const missionData = await apiRequest(url, 'GET', missionHeaders);
+
+            if (!missionData || !missionData.value || !missionData.value.missions) {
+                log('⚠️ 배너 미션 데이터를 찾을 수 없습니다', 'warning');
+                return;
+            }
+
+            const missions = missionData.value.missions;
+            log(`📋 배너 미션 ${missions.length}개 발견`, 'info');
+
+            if (missions.length === 0) {
+                log('ℹ️ 처리할 배너 미션이 없습니다', 'info');
+                return;
+            }
+
+            // Step 2: 모든 미션의 button_url을 백그라운드 탭에서 열기
+            log(`🌐 배너 URL ${missions.length}개 방문 중...`, 'info');
+            const tabs = [];
+
+            for (const mission of missions) {
+                if (mission.button_url && mission.button_url.trim() !== '') {
+                    log(`  ⏳ "${mission.title.replace(/<br>/g, ' ')}" 방문 중...`, 'info');
+                    const tab = openTabInBackground(mission.button_url, false);
+                    tabs.push({ tab, mission });
+                } else {
+                    log(`  ⚠️ "${mission.title.replace(/<br>/g, ' ')}" - URL 없음, 스킵`, 'warning');
+                }
+
+                // 탭 열기 사이에 짧은 대기 (브라우저 부하 방지)
+                await delay(200);
+            }
+
+            // Step 3: 설정된 시간만큼 대기 후 모든 탭 닫기
+            if (tabs.length > 0) {
+                log(`⏳ ${CONFIG.bannerMissions.visitDelay}ms 대기 후 탭 닫기...`, 'info');
+                await delay(CONFIG.bannerMissions.visitDelay);
+
+                for (const { tab, mission } of tabs) {
+                    await closeTabAfterDelay(tab, 0); // 즉시 닫기
+                    log(`  ✓ "${mission.title.replace(/<br>/g, ' ')}" 방문 완료`, 'success');
+                }
+            }
+
+            // Step 4: 미션 보상 수령
+            log(`💰 배너 미션 보상 수령 중...`, 'info');
+
+            for (const mission of missions) {
+                log(`⏳ "${mission.title.replace(/<br>/g, ' ')}" 수령 중... (보상: ${mission.reward_amount} 플레이크)`, 'info');
+
+                const result = await receiveMissionReward(headers, mission.mission_no, 1);
+
+                if (result && result.reward_amount) {
+                    totalEarned += result.reward_amount;
+                    log(`  ✓ "${mission.title.replace(/<br>/g, ' ')}" 수령 완료: +${result.reward_amount} FLAKE`, 'success');
+                } else {
+                    log(`  ✗ "${mission.title.replace(/<br>/g, ' ')}" 수령 실패`, 'error');
+                }
+
+                // API 부하 방지를 위한 짧은 대기
+                await delay(500);
+            }
+
+            // Step 5: 결과 저장
+            state.earnings.bannerMissions = totalEarned;
+            state.completed.bannerMissions = true;
+
+            if (totalEarned > 0) {
+                log(`✅ 배너 미션 ${missions.length}개 완료! 총 ${totalEarned} FLAKE 획득`, 'success');
+            }
+
+        } catch (error) {
+            log(`✗ 배너 미션 오류: ${error.message}`, 'error');
+            console.error('Banner missions error details:', error);
+        }
+
+        log('✅ 배너 미션 처리 완료!', 'success');
+    }
+
+    /**
+     * 출석 미션 자동 수령 (component_no=10)
+     * - RECEIVABLE 상태인 미션만 바로 수령
+     * - INCOMPLETE, COMPLETE 상태는 스킵
+     */
+    async function executeAttendanceMissions(headers) {
+        if (!CONFIG.attendanceMissions.enabled) {
+            log('⏭️ 출석 미션이 비활성화되어 있습니다', 'info');
+            return;
+        }
+
+        log('📅 출석 미션 시작...', 'info');
+        let totalEarned = 0;
+
+        try {
+            // Step 1: 미션 목록 조회
+            const missionHeaders = {
+                ...headers,
+                'accept': 'application/json',
+                'content-type': 'application/json'
+            };
+
+            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${CONFIG.attendanceMissions.componentNo}`;
+            const missionData = await apiRequest(url, 'GET', missionHeaders);
+
+            if (!missionData || !missionData.value || !missionData.value.missions) {
+                log('⚠️ 출석 미션 데이터를 찾을 수 없습니다', 'warning');
+                return;
+            }
+
+            const missions = missionData.value.missions;
+            log(`📋 출석 미션 ${missions.length}개 발견`, 'info');
+
+            // Step 2: RECEIVABLE 상태만 필터링 (INCOMPLETE, COMPLETE 스킵)
+            const receivableMissions = missions.filter(m => m.status === 'RECEIVABLE');
+
+            if (receivableMissions.length === 0) {
+                log('ℹ️ 수령 가능한 출석 미션이 없습니다', 'info');
+
+                // 진행 중이거나 완료된 미션 표시
+                const incompleteMissions = missions.filter(m => m.status === 'INCOMPLETE');
+                const completeMissions = missions.filter(m => m.status === 'COMPLETE');
+
+                if (incompleteMissions.length > 0) {
+                    for (const mission of incompleteMissions) {
+                        const progress = `${mission.user_complete_cnt || 0}/${mission.milestone_per_cnt || 0}`;
+                        log(`  📌 ${mission.title}: ${progress} (목표: ${mission.milestone_total_cnt}회)`, 'info');
+                    }
+                }
+                if (completeMissions.length > 0) {
+                    log(`  ✓ 완료됨: ${completeMissions.length}개`, 'info');
+                }
+            } else {
+                log(`💰 수령 가능한 미션: ${receivableMissions.length}개`, 'info');
+
+                // Step 3: RECEIVABLE 미션 보상 수령
+                for (const mission of receivableMissions) {
+                    log(`⏳ "${mission.title}" 수령 중... (보상: ${mission.reward_amount} 플레이크)`, 'info');
+
+                    const result = await receiveMissionReward(headers, mission.mission_no, 1);
+
+                    if (result && result.reward_amount) {
+                        totalEarned += result.reward_amount;
+                        log(`  ✓ "${mission.title}": +${result.reward_amount} FLAKE`, 'success');
+                    } else {
+                        log(`  ✗ "${mission.title}" 수령 실패`, 'error');
+                    }
+
+                    // API 부하 방지를 위한 짧은 대기
+                    await delay(500);
+                }
+            }
+
+            // Step 4: 결과 저장
+            state.earnings.attendanceMissions = totalEarned;
+            state.completed.attendanceMissions = true;
+
+            if (totalEarned > 0) {
+                log(`✅ 출석 미션 ${receivableMissions.length}개 완료! 총 ${totalEarned} FLAKE 획득`, 'success');
+            }
+
+        } catch (error) {
+            log(`✗ 출석 미션 오류: ${error.message}`, 'error');
+            console.error('Attendance missions error details:', error);
+        }
+
+        log('✅ 출석 미션 처리 완료!', 'success');
     }
 
     // Standalone roulette function (for button)
@@ -2804,7 +3333,7 @@
                 if (missions.length > 0) {
                     result[key] = {
                         total: missions.length,
-                        completed: missions.filter(m => m.status === 'COMPLETED').length,
+                        completed: missions.filter(m => m.status === 'COMPLETE' || m.status === 'COMPLETED').length,
                         receivable: missions.filter(m => m.status === 'RECEIVABLE').length,
                         incomplete: missions.filter(m => m.status === 'INCOMPLETE').length,
                         components: categories[key].components,
@@ -2884,7 +3413,7 @@
                         log(`[SINGLE 미션] ⚠️ "${mission.title}" 응답 없음`, 'warning');
                     }
 
-                    await sleep(1000); // 1초 대기
+                    await delay(1000); // 1초 대기
                 } catch (error) {
                     log(`[SINGLE 미션] ❌ "${mission.title}" 오류: ${error.message}`, 'error');
                 }
@@ -3077,9 +3606,9 @@
                                 catKey === 'content' ? '💬 컨텐츠' : '📆 출석'}</div>`;
 
                             missions.forEach(mission => {
-                                const statusIcon = mission.status === 'COMPLETED' ? '✅' :
+                                const statusIcon = (mission.status === 'COMPLETE' || mission.status === 'COMPLETED') ? '✅' :
                                                   mission.status === 'RECEIVABLE' ? '🎁' : '⏳';
-                                const statusColor = mission.status === 'COMPLETED' ? '#10b981' :
+                                const statusColor = (mission.status === 'COMPLETE' || mission.status === 'COMPLETED') ? '#10b981' :
                                                    mission.status === 'RECEIVABLE' ? '#f59e0b' : '#6b7280';
 
                                 tooltipHTML += `
