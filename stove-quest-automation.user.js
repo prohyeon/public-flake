@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.1.9
+// @version      2.1.10
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -2096,6 +2096,8 @@
             const missionData = await getDailyMissions(headers);
             if (!missionData || !missionData.missions) {
                 log('✗ 미션 목록 조회 실패', 'error');
+                state.earnings.dailyMissions = 0;
+                state.completed.dailyMissions = true;
                 return;
             }
 
@@ -2128,6 +2130,8 @@
             const updatedMissionData = await getDailyMissions(headers);
             if (!updatedMissionData || !updatedMissionData.missions) {
                 log('✗ 미션 상태 재조회 실패', 'error');
+                state.earnings.dailyMissions = 0;
+                state.completed.dailyMissions = true;
                 return;
             }
 
@@ -2199,6 +2203,8 @@
 
             if (!missionData || missionData.code !== 0 || !missionData.value || !missionData.value.missions) {
                 log('✗ 컨텐츠 미션 목록 조회 실패', 'error');
+                state.earnings.contentMissions = 0;
+                state.completed.contentMissions = true;
                 return;
             }
 
@@ -2311,6 +2317,8 @@
 
             if (!missionData || missionData.code !== 0 || !missionData.value || !missionData.value.missions) {
                 log('✗ 위클리 미션 목록 조회 실패', 'error');
+                state.earnings.weeklyMissions = 0;
+                state.completed.weeklyMissions = true;
                 return;
             }
 
@@ -2393,6 +2401,8 @@
 
             if (!missionData || !missionData.value || !missionData.value.missions) {
                 log('⚠️ 이벤트 미션 데이터를 찾을 수 없습니다', 'warning');
+                state.earnings.eventMissions = 0;
+                state.completed.eventMissions = true;
                 return;
             }
 
@@ -2479,6 +2489,8 @@
 
             if (!missionData || !missionData.value || !missionData.value.missions) {
                 log('⚠️ 배너 미션 데이터를 찾을 수 없습니다', 'warning');
+                state.earnings.bannerMissions = 0;
+                state.completed.bannerMissions = true;
                 return;
             }
 
@@ -2487,6 +2499,8 @@
 
             if (missions.length === 0) {
                 log('ℹ️ 처리할 배너 미션이 없습니다', 'info');
+                state.earnings.bannerMissions = 0;
+                state.completed.bannerMissions = true;
                 return;
             }
 
@@ -2501,6 +2515,8 @@
 
             if (incompleteMissions.length === 0 && receivableMissions.length === 0) {
                 log('ℹ️ 수령 가능하거나 진행 필요한 배너 미션이 없습니다', 'info');
+                state.earnings.bannerMissions = 0;
+                state.completed.bannerMissions = true;
                 return;
             }
 
@@ -2605,6 +2621,8 @@
 
             if (!missionData || !missionData.value || !missionData.value.missions) {
                 log('⚠️ 출석 미션 데이터를 찾을 수 없습니다', 'warning');
+                state.earnings.attendanceMissions = 0;
+                state.completed.attendanceMissions = true;
                 return;
             }
 
@@ -2676,6 +2694,8 @@
     async function executePrizeEntry(headers) {
         if (!CONFIG.prizeEntry.enabled) {
             log('⏭️ 경품 응모가 비활성화되어 있습니다', 'info');
+            state.earnings.prizeEntry = 0;
+            state.completed.prizeEntry = true;
             return;
         }
 
@@ -2690,6 +2710,7 @@
             if (lastEntryDate === today) {
                 log('ℹ️ 오늘 이미 경품 응모를 완료했습니다', 'info');
                 log(`  📅 마지막 응모 날짜: ${lastEntryDate} (KST)`, 'info');
+                state.earnings.prizeEntry = 0;
                 state.completed.prizeEntry = true;
                 return;
             }
