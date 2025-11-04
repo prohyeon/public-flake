@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.1.5
+// @version      2.1.6
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.1.5',
+        version: '2.1.6',
         lastUpdated: '2025-11-04',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -2669,10 +2669,15 @@
             log(`⏳ 경품 응모 진행 중... (비용: ${CONFIG.prizeEntry.flakeCost} FLAKE)`, 'info');
 
             const applyHeaders = {
-                ...headers,
-                'accept': 'application/json',
-                'content-type': 'application/json',
-                'caller-id': 'flake-fe'
+                'Authorization': headers['Authorization'],
+                'caller-id': 'flake-fe',
+                'caller-detail': headers['X-UUID'] || headers['caller-detail'],
+                'x-lang': 'ko',
+                'x-nation': 'KR',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Origin': 'https://reward.onstove.com',
+                'Referer': 'https://reward.onstove.com/'
             };
 
             const applyUrl = `${CONFIG.api.baseUrl}/emsbackapi/v3.0/apply/${CONFIG.prizeEntry.eventNo}`;
@@ -3088,24 +3093,6 @@
         }
     }
 
-    // 탭 테스트 함수
-    function testTabOpening() {
-        log('🧪 탭 열기 테스트를 시작합니다...', 'info');
-        log(`🔍 GM_openInTab 사용 가능 여부: ${typeof GM_openInTab !== 'undefined' ? '✅ 사용 가능' : '❌ 사용 불가'}`, 'info');
-
-        try {
-            log('📂 구글 페이지를 새 탭에서 엽니다...', 'info');
-            const tab = GM_openInTab('https://www.google.com', {
-                active: true,
-                insert: true
-            });
-            log('✅ 탭 열기 성공!', 'success');
-            log(`💡 탭 객체 타입: ${typeof tab}`, 'info');
-            log('🎉 GM_openInTab이 정상 작동합니다!', 'success');
-        } catch (error) {
-            log(`❌ 탭 열기 실패: ${error.message}`, 'error');
-        }
-    }
 
     // ============================================
     // Status Check Functions
@@ -4005,7 +3992,6 @@
                 <button id="stove-btn-start" class="stove-btn">🚀 전체 자동화</button>
                 <button id="stove-btn-roulette" class="stove-btn">🎰 룰렛만</button>
                 <button id="stove-btn-reward-shop" class="stove-btn">🏪 리워드샵 방문</button>
-                <button id="stove-btn-test-tab" class="stove-btn" style="background: #8b5cf6;">🧪 탭 테스트</button>
             </div>
 
             <div class="stove-status-section">
@@ -4185,7 +4171,6 @@
             attachListener('stove-btn-start', runAutomation);
             attachListener('stove-btn-roulette', runRoulette);
             attachListener('stove-btn-reward-shop', openRewardShop);
-            attachListener('stove-btn-test-tab', testTabOpening);
             attachListener('stove-btn-status-refresh', checkAllStatus);
 
             log('자동화 패널이 준비되었습니다', 'info');
