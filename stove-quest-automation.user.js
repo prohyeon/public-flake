@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.0.1
+// @version      2.1.0
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.0.1',
+        version: '2.1.0',
         lastUpdated: '2025-11-04',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -85,6 +85,13 @@
         attendanceMissions: {
             enabled: true,              // 출석 미션 자동 실행 활성화
             componentNo: 10             // 미션 컴포넌트 번호 (매일 출석 보너스)
+        },
+        prizeEntry: {
+            enabled: true,              // 경품 응모 자동 실행 활성화
+            missionNo: 8,               // mission_no (경품 응모하기)
+            eventNo: 1000000238,        // event_no for API endpoint
+            giftNo: 1000001184,         // gift_no for request body
+            flakeCost: 500              // 응모 시 소모되는 FLAKE
         }
     };
 
@@ -107,7 +114,8 @@
             weeklyMissions: false,  // 위클리 미션 완료 여부
             eventMissions: false,   // 이벤트 미션 완료 여부
             bannerMissions: false,  // 배너 미션 완료 여부
-            attendanceMissions: false // 출석 미션 완료 여부
+            attendanceMissions: false, // 출석 미션 완료 여부
+            prizeEntry: false       // 경품 응모 완료 여부
         },
         createdCommentIds: [],  // Store created comment IDs for liking
         earnings: {
@@ -121,13 +129,27 @@
             weeklyMissions: 0,   // FLAKE from weekly missions
             eventMissions: 0,    // FLAKE from event missions
             bannerMissions: 0,   // FLAKE from banner missions
-            attendanceMissions: 0 // FLAKE from attendance missions
+            attendanceMissions: 0, // FLAKE from attendance missions
+            prizeEntry: 0        // FLAKE from prize entry (net: reward - cost)
         }
     };
 
     // ============================================
     // Utility Functions
     // ============================================
+    /**
+     * Get current date in KST timezone (YYYY-MM-DD format)
+     */
+    function getKSTDate() {
+        const now = new Date();
+        // Convert to KST (UTC+9)
+        const kstTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+        const year = kstTime.getUTCFullYear();
+        const month = String(kstTime.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(kstTime.getUTCDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
     function getCookie(name) {
         const value = `; ${document.cookie}`;
         const parts = value.split(`; ${name}=`);
@@ -552,7 +574,7 @@
         }
     }
 
-    async function receiveMissionReward(headers, missionNo) {
+    async function receiveMissionReward(headers, missionNo, componentNo) {
         const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/participate`;
 
         const missionHeaders = {
@@ -569,7 +591,7 @@
 
         const body = {
             mission_no: missionNo,
-            component_no: CONFIG.dailyMissions.componentNo
+            component_no: componentNo
         };
 
         console.log(`[미션 보상 수령] mission_no: ${missionNo}`);
@@ -1504,6 +1526,10 @@
             log('', 'info'); // Empty line for separation
             await executeAttendanceMissions(headers);
 
+            // Step 4.11: Execute prize entry (after attendance missions)
+            log('', 'info'); // Empty line for separation
+            await executePrizeEntry(headers);
+
             // Step 5: Run roulette automatically (before rewards)
             log('', 'info'); // Empty line for separation
             await runRouletteDraws(headers);
@@ -1606,7 +1632,8 @@
                                  state.earnings.rouletteExtra + state.earnings.dailyShop + state.earnings.majak +
                                  state.earnings.dailyMissions + state.earnings.contentMissions +
                                  state.earnings.weeklyMissions + state.earnings.eventMissions +
-                                 state.earnings.bannerMissions + state.earnings.attendanceMissions + dailyAccumulatedFlake;
+                                 state.earnings.bannerMissions + state.earnings.attendanceMissions +
+                                 state.earnings.prizeEntry + dailyAccumulatedFlake;
             const profitSign = totalEarnings >= 0 ? '+' : '';
 
             log('', 'info'); // Empty line for separation
@@ -1625,6 +1652,8 @@
             log(`  🎉 이벤트 미션: ${state.earnings.eventMissions} FLAKE`, state.earnings.eventMissions > 0 ? 'success' : 'info');
             log(`  🎨 배너 미션: ${state.earnings.bannerMissions} FLAKE`, state.earnings.bannerMissions > 0 ? 'success' : 'info');
             log(`  📆 출석 미션: ${state.earnings.attendanceMissions} FLAKE`, state.earnings.attendanceMissions > 0 ? 'success' : 'info');
+            const prizeEntrySign = state.earnings.prizeEntry >= 0 ? '+' : '';
+            log(`  🎁 경품 응모: ${prizeEntrySign}${state.earnings.prizeEntry} FLAKE (응모비 제외)`, state.earnings.prizeEntry >= 0 ? 'success' : 'warning');
             log(`  🎰 룰렛 순수익: ${profitSign}${state.earnings.roulette} FLAKE`, state.earnings.roulette >= 0 ? 'success' : 'warning');
             log(`  🎁 룰렛 EXTRA: ${state.earnings.rouletteExtra} FLAKE`, state.earnings.rouletteExtra > 0 ? 'success' : 'info');
             log(`  💝 데일리 보상: ${state.earnings.dailyShop} FLAKE`, state.earnings.dailyShop > 0 ? 'success' : 'info');
@@ -2118,7 +2147,7 @@
                 log(`🎁 수령 가능한 보상 ${receivableMissions.length}개 발견`, 'info');
 
                 for (const mission of receivableMissions) {
-                    const result = await receiveMissionReward(headers, mission.mission_no);
+                    const result = await receiveMissionReward(headers, mission.mission_no, CONFIG.dailyMissions.componentNo);
 
                     if (result && result.reward_amount) {
                         totalEarned += result.reward_amount;
@@ -2231,7 +2260,7 @@
 
                 // 5단계: 미션 보상 수령
                 for (const mission of receivableMissions) {
-                    const result = await receiveMissionReward(headers, mission.mission_no);
+                    const result = await receiveMissionReward(headers, mission.mission_no, CONFIG.contentMissions.componentNo);
 
                     if (result && result.reward_amount) {
                         totalEarned += result.reward_amount;
@@ -2304,7 +2333,7 @@
 
                 // 3단계: 미션 보상 수령
                 for (const mission of receivableMissions) {
-                    const result = await receiveMissionReward(headers, mission.mission_no);
+                    const result = await receiveMissionReward(headers, mission.mission_no, CONFIG.weeklyMissions.componentNo);
 
                     if (result && result.reward_amount) {
                         totalEarned += result.reward_amount;
@@ -2399,7 +2428,7 @@
                 for (const mission of receivableMissions) {
                     log(`⏳ "${mission.title}" 수령 중... (보상: ${mission.reward_amount} 플레이크)`, 'info');
 
-                    const result = await receiveMissionReward(headers, mission.mission_no, 1);
+                    const result = await receiveMissionReward(headers, mission.mission_no, CONFIG.eventMissions.componentNo);
 
                     if (result && result.reward_amount) {
                         totalEarned += result.reward_amount;
@@ -2501,7 +2530,7 @@
             for (const mission of missions) {
                 log(`⏳ "${mission.title.replace(/<br>/g, ' ')}" 수령 중... (보상: ${mission.reward_amount} 플레이크)`, 'info');
 
-                const result = await receiveMissionReward(headers, mission.mission_no, 1);
+                const result = await receiveMissionReward(headers, mission.mission_no, CONFIG.bannerMissions.componentNo);
 
                 if (result && result.reward_amount) {
                     totalEarned += result.reward_amount;
@@ -2589,7 +2618,7 @@
                 for (const mission of receivableMissions) {
                     log(`⏳ "${mission.title}" 수령 중... (보상: ${mission.reward_amount} 플레이크)`, 'info');
 
-                    const result = await receiveMissionReward(headers, mission.mission_no, 1);
+                    const result = await receiveMissionReward(headers, mission.mission_no, CONFIG.attendanceMissions.componentNo);
 
                     if (result && result.reward_amount) {
                         totalEarned += result.reward_amount;
@@ -2617,6 +2646,95 @@
         }
 
         log('✅ 출석 미션 처리 완료!', 'success');
+    }
+
+    /**
+     * 경품 응모 자동화 (mission_no=8)
+     * - KST 날짜 기준으로 하루 한 번만 실행
+     * - sessionStorage에 날짜 기록하여 중복 방지
+     * - 응모 후 RECEIVABLE 상태면 보상 수령
+     */
+    async function executePrizeEntry(headers) {
+        if (!CONFIG.prizeEntry.enabled) {
+            log('⏭️ 경품 응모가 비활성화되어 있습니다', 'info');
+            return;
+        }
+
+        log('🎁 경품 응모 시작...', 'info');
+        let netEarnings = 0; // Net profit (reward - cost)
+
+        try {
+            // Step 1: Check if already entered today (KST timezone)
+            const today = getKSTDate();
+            const lastEntryDate = sessionStorage.getItem('prize_entry_last_date');
+
+            if (lastEntryDate === today) {
+                log('ℹ️ 오늘 이미 경품 응모를 완료했습니다', 'info');
+                log(`  📅 마지막 응모 날짜: ${lastEntryDate} (KST)`, 'info');
+                state.completed.prizeEntry = true;
+                return;
+            }
+
+            // Step 2: Apply for prize (costs 500 FLAKE)
+            log(`⏳ 경품 응모 진행 중... (비용: ${CONFIG.prizeEntry.flakeCost} FLAKE)`, 'info');
+
+            const applyHeaders = {
+                ...headers,
+                'accept': 'application/json',
+                'content-type': 'application/json',
+                'caller-id': 'flake-fe'
+            };
+
+            const applyUrl = `${CONFIG.api.baseUrl}/emsbackapi/v3.0/apply/${CONFIG.prizeEntry.eventNo}`;
+            const applyBody = {
+                gift_no: CONFIG.prizeEntry.giftNo,
+                req_cnt: 1
+            };
+
+            const applyResult = await apiRequest(applyUrl, 'POST', applyHeaders, applyBody);
+
+            if (!applyResult || applyResult.code !== 0) {
+                log(`✗ 경품 응모 실패: ${applyResult?.message || '알 수 없는 오류'}`, 'error');
+                return;
+            }
+
+            log(`  ✓ 경품 응모 완료! (응모 번호: ${applyResult.value.user_apply_cnt})`, 'success');
+            log(`  💰 잔여 FLAKE: ${applyResult.value.residue_flake}`, 'info');
+            netEarnings -= CONFIG.prizeEntry.flakeCost; // Deduct cost
+
+            // Step 3: Save today's date to sessionStorage
+            sessionStorage.setItem('prize_entry_last_date', today);
+            log(`  📅 응모 날짜 기록: ${today} (KST)`, 'info');
+
+            // Step 4: Claim mission reward if RECEIVABLE
+            log(`⏳ 경품 응모 미션 보상 확인 중...`, 'info');
+
+            const result = await receiveMissionReward(headers, CONFIG.prizeEntry.missionNo, CONFIG.dailyMissions.componentNo);
+
+            if (result && result.reward_amount) {
+                netEarnings += result.reward_amount;
+                log(`  ✓ 미션 보상 수령 완료: +${result.reward_amount} FLAKE`, 'success');
+            } else {
+                log(`  ℹ️ 미션 보상이 아직 수령 가능하지 않습니다`, 'info');
+            }
+
+            // Step 5: Save results
+            state.earnings.prizeEntry = netEarnings;
+            state.completed.prizeEntry = true;
+
+            const profitSign = netEarnings >= 0 ? '+' : '';
+            if (netEarnings !== 0) {
+                log(`✅ 경품 응모 완료! 순수익: ${profitSign}${netEarnings} FLAKE (응모비 ${CONFIG.prizeEntry.flakeCost} 제외)`, netEarnings >= 0 ? 'success' : 'info');
+            } else {
+                log(`✅ 경품 응모 완료! 미션 보상은 추후 수령 가능`, 'info');
+            }
+
+        } catch (error) {
+            log(`✗ 경품 응모 오류: ${error.message}`, 'error');
+            console.error('Prize entry error details:', error);
+        }
+
+        log('✅ 경품 응모 처리 완료!', 'success');
     }
 
     // Standalone roulette function (for button)
