@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.1.8
+// @version      2.1.9
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.1.8',   
+        version: '2.1.9',   
         lastUpdated: '2025-11-04',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -2490,21 +2490,39 @@
                 return;
             }
 
-            // Step 2: 모든 미션의 button_url을 백그라운드 탭에서 열기
-            log(`🌐 배너 URL ${missions.length}개 방문 중...`, 'info');
+            // Step 1.5: INCOMPLETE 상태 미션만 필터링 (URL 방문 필요)
+            const incompleteMissions = missions.filter(m => m.status === 'INCOMPLETE');
+            const receivableMissions = missions.filter(m => m.status === 'RECEIVABLE');
+            const completedMissions = missions.filter(m => m.status === 'COMPLETE' || m.status === 'COMPLETED');
+
+            if (completedMissions.length > 0) {
+                log(`  ✓ 이미 완료됨: ${completedMissions.length}개`, 'info');
+            }
+
+            if (incompleteMissions.length === 0 && receivableMissions.length === 0) {
+                log('ℹ️ 수령 가능하거나 진행 필요한 배너 미션이 없습니다', 'info');
+                return;
+            }
+
+            // Step 2: INCOMPLETE 미션의 button_url을 백그라운드 탭에서 열기
             const tabs = [];
+            if (incompleteMissions.length > 0) {
+                log(`🌐 배너 URL ${incompleteMissions.length}개 방문 중...`, 'info');
 
-            for (const mission of missions) {
-                if (mission.button_url && mission.button_url.trim() !== '') {
-                    log(`  ⏳ "${mission.title.replace(/<br>/g, ' ')}" 방문 중...`, 'info');
-                    const tab = openTabInBackground(mission.button_url, false);
-                    tabs.push({ tab, mission });
-                } else {
-                    log(`  ⚠️ "${mission.title.replace(/<br>/g, ' ')}" - URL 없음, 스킵`, 'warning');
+                for (const mission of incompleteMissions) {
+                    if (mission.button_url && mission.button_url.trim() !== '') {
+                        log(`  ⏳ "${mission.title.replace(/<br>/g, ' ')}" 방문 중...`, 'info');
+                        const tab = openTabInBackground(mission.button_url, false);
+                        tabs.push({ tab, mission });
+                    } else {
+                        log(`  ⚠️ "${mission.title.replace(/<br>/g, ' ')}" - URL 없음, 스킵`, 'warning');
+                    }
+
+                    // 탭 열기 사이에 짧은 대기 (브라우저 부하 방지)
+                    await delay(200);
                 }
-
-                // 탭 열기 사이에 짧은 대기 (브라우저 부하 방지)
-                await delay(200);
+            } else {
+                log('ℹ️ 방문이 필요한 배너 미션이 없습니다', 'info');
             }
 
             // Step 3: 설정된 시간만큼 대기 후 모든 탭 닫기
@@ -2518,23 +2536,30 @@
                 }
             }
 
-            // Step 4: 미션 보상 수령
-            log(`💰 배너 미션 보상 수령 중...`, 'info');
+            // Step 4: RECEIVABLE 상태 미션 보상 수령
+            const claimableMissions = receivableMissions.length > 0 ? receivableMissions :
+                                      missions.filter(m => m.status === 'RECEIVABLE'); // 방문 후 상태 변경된 경우 대비
 
-            for (const mission of missions) {
-                log(`⏳ "${mission.title.replace(/<br>/g, ' ')}" 수령 중... (보상: ${mission.reward_amount} 플레이크)`, 'info');
+            if (claimableMissions.length > 0) {
+                log(`💰 배너 미션 보상 수령 중... (${claimableMissions.length}개)`, 'info');
 
-                const result = await receiveMissionReward(headers, mission.mission_no, CONFIG.bannerMissions.componentNo);
+                for (const mission of claimableMissions) {
+                    log(`⏳ "${mission.title.replace(/<br>/g, ' ')}" 수령 중... (보상: ${mission.reward_amount} 플레이크)`, 'info');
 
-                if (result && result.reward_amount) {
-                    totalEarned += result.reward_amount;
-                    log(`  ✓ "${mission.title.replace(/<br>/g, ' ')}" 수령 완료: +${result.reward_amount} FLAKE`, 'success');
-                } else {
-                    log(`  ✗ "${mission.title.replace(/<br>/g, ' ')}" 수령 실패`, 'error');
+                    const result = await receiveMissionReward(headers, mission.mission_no, CONFIG.bannerMissions.componentNo);
+
+                    if (result && result.reward_amount) {
+                        totalEarned += result.reward_amount;
+                        log(`  ✓ "${mission.title.replace(/<br>/g, ' ')}" 수령 완료: +${result.reward_amount} FLAKE`, 'success');
+                    } else {
+                        log(`  ✗ "${mission.title.replace(/<br>/g, ' ')}" 수령 실패`, 'error');
+                    }
+
+                    // API 부하 방지를 위한 짧은 대기
+                    await delay(500);
                 }
-
-                // API 부하 방지를 위한 짧은 대기
-                await delay(500);
+            } else {
+                log('ℹ️ 수령 가능한 배너 미션이 없습니다', 'info');
             }
 
             // Step 5: 결과 저장
