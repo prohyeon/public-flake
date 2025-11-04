@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.1.2
+// @version      2.1.3
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.1.2',
+        version: '2.1.3',
         lastUpdated: '2025-11-04',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -3093,6 +3093,25 @@
         }
     }
 
+    // 탭 테스트 함수
+    function testTabOpening() {
+        log('🧪 탭 열기 테스트를 시작합니다...', 'info');
+        log(`🔍 GM_openInTab 사용 가능 여부: ${typeof GM_openInTab !== 'undefined' ? '✅ 사용 가능' : '❌ 사용 불가'}`, 'info');
+
+        try {
+            log('📂 구글 페이지를 새 탭에서 엽니다...', 'info');
+            const tab = GM_openInTab('https://www.google.com', {
+                active: true,
+                insert: true
+            });
+            log(`✅ 탭 열기 성공! 반환값: ${tab}`, 'success');
+            log('💡 탭이 열렸다면 GM_openInTab이 정상 작동합니다.', 'success');
+        } catch (error) {
+            log(`❌ 탭 열기 실패: ${error.message}`, 'error');
+            log(`📋 에러 상세: ${JSON.stringify(error)}`, 'error');
+        }
+    }
+
     // ============================================
     // Status Check Functions
     // ============================================
@@ -3991,6 +4010,7 @@
                 <button id="stove-btn-start" class="stove-btn">🚀 전체 자동화</button>
                 <button id="stove-btn-roulette" class="stove-btn">🎰 룰렛만</button>
                 <button id="stove-btn-reward-shop" class="stove-btn">🏪 리워드샵 방문</button>
+                <button id="stove-btn-test-tab" class="stove-btn" style="background: #8b5cf6;">🧪 탭 테스트</button>
             </div>
 
             <div class="stove-status-section">
@@ -4170,6 +4190,7 @@
             attachListener('stove-btn-start', runAutomation);
             attachListener('stove-btn-roulette', runRoulette);
             attachListener('stove-btn-reward-shop', openRewardShop);
+            attachListener('stove-btn-test-tab', testTabOpening);
             attachListener('stove-btn-status-refresh', checkAllStatus);
 
             log('자동화 패널이 준비되었습니다', 'info');
