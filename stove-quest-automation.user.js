@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.1.6
+// @version      2.1.7
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.1.6',
+        version: '2.1.7',   
         lastUpdated: '2025-11-04',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -3207,7 +3207,6 @@
             const categories = {
                 daily: { components: [], missions: [] },      // SINGLE
                 weekly: { components: [], missions: [] },     // ACCUMULATION (위클리)
-                achievement: { components: [], missions: [] }, // ACHIEVEMENT
                 content: { components: [], missions: [] },    // CONTENT1
                 attendance: { components: [], missions: [] }  // 출석 관련
             };
@@ -3229,9 +3228,6 @@
                         categories.weekly.components.push(comp.component_info);
                         categories.weekly.missions.push(...missions);
                     }
-                } else if (type === 'ACHIEVEMENT') {
-                    categories.achievement.components.push(comp.component_info);
-                    categories.achievement.missions.push(...missions);
                 } else if (type === 'CONTENT1') {
                     categories.content.components.push(comp.component_info);
                     categories.content.missions.push(...missions);
@@ -3469,7 +3465,7 @@
         if (statusData.dailyMission) {
             if (statusData.dailyMission.loading) {
                 // Show loading for all categories
-                ['daily', 'weekly', 'achievement', 'content', 'attendance'].forEach(cat => {
+                ['daily', 'weekly', 'content', 'attendance'].forEach(cat => {
                     const el = document.getElementById(`stove-status-mission-${cat}`);
                     if (el) el.innerHTML = '<span style="color: #3b82f6">⏳</span>';
                 });
@@ -3477,7 +3473,7 @@
                 const categories = statusData.dailyMission.categories;
 
                 // Update each category
-                ['daily', 'weekly', 'achievement', 'content', 'attendance'].forEach(catKey => {
+                ['daily', 'weekly', 'content', 'attendance'].forEach(catKey => {
                     const el = document.getElementById(`stove-status-mission-${catKey}`);
                     const cat = categories[catKey];
 
@@ -3491,14 +3487,31 @@
 
                         // Status text
                         let statusHTML = '';
-                        if (completed === total) {
-                            statusHTML = '<span style="color: #10b981">✅ 완료</span>';
-                        } else if (receivable > 0) {
-                            statusHTML = `<span style="color: #f59e0b">🎁 ${receivable}개</span>`;
-                        } else if (completed === 0) {
-                            statusHTML = '<span style="color: #6b7280">받을 보상 없음</span>';
+
+                        // Special handling for attendance (월간출석)
+                        if (catKey === 'attendance') {
+                            // Find first mission to get attendance progress
+                            const attendanceMission = missions.find(m => m.milestone_per_cnt && m.user_complete_cnt !== undefined);
+                            if (attendanceMission) {
+                                const totalDays = attendanceMission.milestone_per_cnt;
+                                const completedDays = attendanceMission.user_complete_cnt;
+                                statusHTML = `<span style="color: #6b7280">${totalDays}일중 ${completedDays}일출석</span>`;
+                            } else if (receivable > 0) {
+                                statusHTML = `<span style="color: #f59e0b">🎁 ${receivable}개</span>`;
+                            } else {
+                                statusHTML = '<span style="color: #6b7280">-</span>';
+                            }
                         } else {
-                            statusHTML = `<span style="color: #6b7280">${completed}/${total}</span>`;
+                            // Default handling for other categories
+                            if (completed === total) {
+                                statusHTML = '<span style="color: #10b981">✅ 완료</span>';
+                            } else if (receivable > 0) {
+                                statusHTML = `<span style="color: #f59e0b">🎁 ${receivable}개</span>`;
+                            } else if (completed === 0) {
+                                statusHTML = '<span style="color: #6b7280">받을 보상 없음</span>';
+                            } else {
+                                statusHTML = `<span style="color: #6b7280">${completed}/${total}</span>`;
+                            }
                         }
 
                         el.innerHTML = statusHTML;
@@ -3516,8 +3529,7 @@
 
                             let tooltipHTML = `<div class="stove-mission-tooltip-title">${catKey === 'daily' ? '📅 데일리 미션' :
                                 catKey === 'weekly' ? '📆 위클리 미션' :
-                                catKey === 'achievement' ? '🏆 업적' :
-                                catKey === 'content' ? '💬 컨텐츠' : '📆 출석'}</div>`;
+                                catKey === 'content' ? '💬 컨텐츠' : '📆 월간출석'}</div>`;
 
                             missions.forEach(mission => {
                                 const statusIcon = (mission.status === 'COMPLETE' || mission.status === 'COMPLETED') ? '✅' :
@@ -3540,7 +3552,7 @@
                 });
             } else {
                 // Show error for all categories
-                ['daily', 'weekly', 'achievement', 'content', 'attendance'].forEach(cat => {
+                ['daily', 'weekly', 'content', 'attendance'].forEach(cat => {
                     const el = document.getElementById(`stove-status-mission-${cat}`);
                     if (el) el.innerHTML = '<span style="color: #ef4444">❌</span>';
                 });
@@ -4012,16 +4024,12 @@
                         <span class="stove-status-label">📆 위클리</span>
                         <span class="stove-status-value" id="stove-status-mission-weekly">-</span>
                     </div>
-                    <div class="stove-status-item stove-mission-item" data-category="achievement">
-                        <span class="stove-status-label">🏆 업적</span>
-                        <span class="stove-status-value" id="stove-status-mission-achievement">-</span>
-                    </div>
                     <div class="stove-status-item stove-mission-item" data-category="content">
                         <span class="stove-status-label">💬 컨텐츠</span>
                         <span class="stove-status-value" id="stove-status-mission-content">-</span>
                     </div>
                     <div class="stove-status-item stove-mission-item" data-category="attendance">
-                        <span class="stove-status-label">📆 출석</span>
+                        <span class="stove-status-label">📆 월간출석</span>
                         <span class="stove-status-value" id="stove-status-mission-attendance">-</span>
                     </div>
                     <div class="stove-status-item">
