@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.1.1
+// @version      2.1.2
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.1.1',
+        version: '2.1.2',
         lastUpdated: '2025-11-04',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -3085,7 +3085,12 @@
     // 리워드샵 방문
     function openRewardShop() {
         log('🏪 리워드샵 페이지를 새 탭에서 엽니다...', 'info');
-        GM_openInTab('https://reward.onstove.com/ko', { active: true, insert: true });
+        try {
+            GM_openInTab('https://reward.onstove.com/ko', { active: true, insert: true });
+            log('✅ 리워드샵 탭이 열렸습니다!', 'success');
+        } catch (error) {
+            log(`❌ 탭 열기 실패: ${error.message}`, 'error');
+        }
     }
 
     // ============================================
@@ -3489,6 +3494,8 @@
                             statusHTML = '<span style="color: #10b981">✅ 완료</span>';
                         } else if (receivable > 0) {
                             statusHTML = `<span style="color: #f59e0b">🎁 ${receivable}개</span>`;
+                        } else if (completed === 0) {
+                            statusHTML = '<span style="color: #6b7280">받을 보상 없음</span>';
                         } else {
                             statusHTML = `<span style="color: #6b7280">${completed}/${total}</span>`;
                         }
