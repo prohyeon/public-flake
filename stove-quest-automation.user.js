@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.1.10
+// @version      2.1.11
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -1110,9 +1110,23 @@
     }
 
     // Claim Majak accumulated reward (5/10/15/20 day milestones)
-    async function claimMajakAccumulatedReward(headers, itemNo) {
-        const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/attendances/accumulate/coupon?item_no=${itemNo}`;
-        console.log(`[마작 누적 보상 수령] item_no: ${itemNo}`);
+    // Supports different reward types: FLAKE, COUPON, INDIE_GAME_COUPON
+    async function claimMajakAccumulatedReward(headers, itemNo, itemType = 'COUPON') {
+        // Determine endpoint type based on item type
+        let endpointType;
+        if (itemType === 'INDIE_GAME_COUPON') {
+            endpointType = 'LIBRARY';
+        } else if (itemType === 'FLAKE') {
+            endpointType = 'flake';
+        } else if (itemType === 'COUPON' || itemType === 'INDIE_SALE_COUPON') {
+            endpointType = 'coupon';
+        } else {
+            console.error(`[마작 누적 보상] 알 수 없는 item_type: ${itemType}`);
+            endpointType = 'coupon'; // fallback to coupon
+        }
+
+        const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/attendances/accumulate/${endpointType}?item_no=${itemNo}`;
+        console.log(`[마작 누적 보상 수령] item_no: ${itemNo}, item_type: ${itemType}, endpoint: ${endpointType}`);
 
         // Use event site headers (event-hub)
         const eventHeaders = {
@@ -2993,7 +3007,8 @@
 
                         for (const reward of claimableAccumulated) {
                             try {
-                                const result = await claimMajakAccumulatedReward(headers, reward.item_no);
+                                // Pass item_type to use correct endpoint (flake/coupon/LIBRARY)
+                                const result = await claimMajakAccumulatedReward(headers, reward.item_no, reward.item_type);
 
                                 if (result && result.code === 0) {
                                     const rewardAmount = reward.flake_amount || 0;
