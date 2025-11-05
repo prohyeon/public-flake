@@ -22,8 +22,8 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.1.9',   
-        lastUpdated: '2025-11-04',
+        version: '2.1.11',   
+        lastUpdated: '2025-11-05',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
             startDate: '2025-11-01',          // KST 기준 점검 시작일 (YYYY-MM-DD)
