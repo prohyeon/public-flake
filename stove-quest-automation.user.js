@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.2.3
+// @version      2.2.4
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.2.3',   
+        version: '2.2.4',   
         lastUpdated: '2025-11-09',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -1179,12 +1179,18 @@
         return response;
     }
 
-    // Claim Daily accumulated reward (5/10/20/25 day milestones)
-    // Supports different reward types: INDIE_GAME_COUPON (LIBRARY), FLAKE, INDIE_SALE_COUPON (coupon)
-    async function claimDailyAccumulatedReward(headers, itemNo, itemType = 'LIBRARY') {
+    // Claim Daily accumulated reward (3/6/10/15 day milestones)
+    // Supports different reward types:
+    //   - ITEMBOX: requires guid & characterSeq, endpoint: /accumulate/itembox
+    //   - INDIE_GAME_COUPON: endpoint: /accumulate/LIBRARY
+    //   - FLAKE: endpoint: /accumulate/flake
+    //   - INDIE_SALE_COUPON: endpoint: /accumulate/coupon
+    async function claimDailyAccumulatedReward(headers, itemNo, itemType = 'LIBRARY', guid = null, characterSeq = null) {
         // Determine endpoint type based on item type
         let endpointType;
-        if (itemType === 'INDIE_GAME_COUPON') {
+        if (itemType === 'ITEMBOX') {
+            endpointType = 'itembox';  // ✓ ITEMBOX는 itembox endpoint 사용
+        } else if (itemType === 'INDIE_GAME_COUPON') {
             endpointType = 'LIBRARY';
         } else if (itemType === 'FLAKE') {
             endpointType = 'flake';
@@ -1194,8 +1200,14 @@
             endpointType = 'LIBRARY'; // fallback
         }
 
-        const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/attendances/accumulate/${endpointType}?item_no=${itemNo}`;
-        console.log(`[데일리 누적 보상 수령] item_no: ${itemNo}, item_type: ${itemType}, endpoint: ${endpointType}`);
+        // Build query parameters
+        let queryParams = `item_no=${itemNo}`;
+        if (guid && characterSeq) {
+            queryParams += `&guid=${guid}&character_seq=${characterSeq}`;
+        }
+
+        const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/attendances/accumulate/${endpointType}?${queryParams}`;
+        console.log(`[데일리 누적 보상 수령] item_no: ${itemNo}, item_type: ${itemType}, endpoint: ${endpointType}${guid ? `, guid: ${guid}, character_seq: ${characterSeq}` : ''}`);
 
         // Use event site headers (event-hub)
         const eventHeaders = {
@@ -1214,7 +1226,12 @@
             'Referer': 'https://event.onstove.com/'
         };
 
+        // Build request body
         const body = { item_no: itemNo };
+        if (guid && characterSeq) {
+            body.guid = guid;
+            body.character_seq = characterSeq;
+        }
 
         const response = await apiRequest(url, 'POST', eventHeaders, body);
         console.log(`[데일리 누적 보상 수령] Response:`, response);
@@ -3102,8 +3119,25 @@
                             }
                         }
 
-                        // 누적 보상 수령 (기존 함수 재사용)
-                        const result = await claimDailyAccumulatedReward(headers, reward.item_no, reward.item_type);
+                        // 캐릭터 정보 준비 (ITEMBOX 타입의 경우)
+                        let guid = null;
+                        let characterSeq = null;
+
+                        if (reward.has_game_character && characterInfo) {
+                            // 이전에 조회한 캐릭터 정보 재활용
+                            guid = characterInfo.value.guid;
+                            characterSeq = characterInfo.value.characters[0].character_seq;
+                            log(`  🎭 캐릭터 정보 사용: ${characterInfo.value.characters[0].name}`, 'info');
+                        }
+
+                        // 누적 보상 수령 (캐릭터 정보 포함)
+                        const result = await claimDailyAccumulatedReward(
+                            headers,
+                            reward.item_no,
+                            reward.item_type,
+                            guid,
+                            characterSeq
+                        );
 
                         if (result && result.code === 0) {
                             if (reward.item_type === 'FLAKE') {
