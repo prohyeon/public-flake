@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.2.2
+// @version      2.2.3
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,8 +22,8 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.2.2',   
-        lastUpdated: '2025-11-07',
+        version: '2.2.3',   
+        lastUpdated: '2025-11-09',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
             startDate: '2025-11-01',          // KST 기준 점검 시작일 (YYYY-MM-DD)
@@ -3050,17 +3050,44 @@
             log('', 'info');
             log('📦 누적 출석 보상 확인 중...', 'info');
 
-            const totalDays = shopData.value.accumulated_attendances?.total_attendance_days || 0;
-            log(`현재 누적 출석일: ${totalDays}일`, 'info');
+            // 🆕 데일리 보상 수령 후 최신 데이터 재조회
+            // 이유: 데일리 보상 수령 시 서버에서 total_attendance_days가 증가하므로
+            //       최신 값을 가져와야 정확한 누적 보상 조건 확인 가능
+            log('🔄 최신 누적 출석일 확인을 위해 데이터 재조회 중...', 'info');
+            const updatedShopData = await getGameDailyShopData(headers, gameId);
 
-            const claimableAccumulated = accumulatedRewards.filter(reward =>
+            let totalDays = 0;
+            let currentAccumulatedRewards = accumulatedRewards; // 기본값
+
+            if (updatedShopData && updatedShopData.code === 0 && updatedShopData.value) {
+                // 재조회 성공 - 최신 값 사용
+                totalDays = updatedShopData.value.accumulated_attendances?.total_attendance_days || 0;
+                currentAccumulatedRewards = updatedShopData.value.accumulated_attendances?.rewards || [];
+                log(`✓ 최신 누적 출석일: ${totalDays}일`, 'success');
+            } else {
+                // 재조회 실패 - 기존 값 사용 (fallback)
+                totalDays = shopData.value.accumulated_attendances?.total_attendance_days || 0;
+                log(`⚠️ 데이터 재조회 실패 - 기존 값 사용: ${totalDays}일`, 'warning');
+            }
+
+            const claimableAccumulated = currentAccumulatedRewards.filter(reward =>
                 totalDays >= reward.rewardable_days && !reward.is_received
             );
 
             if (claimableAccumulated.length === 0) {
-                log('ℹ️ 수령 가능한 누적 보상이 없습니다', 'info');
+                log(`ℹ️ 수령 가능한 누적 보상이 없습니다 (현재: ${totalDays}일 출석)`, 'info');
+
+                // 다음 누적 보상 안내
+                const nextReward = currentAccumulatedRewards
+                    .filter(r => !r.is_received && r.rewardable_days > totalDays)
+                    .sort((a, b) => a.rewardable_days - b.rewardable_days)[0];
+
+                if (nextReward) {
+                    const daysNeeded = nextReward.rewardable_days - totalDays;
+                    log(`  📅 다음 누적 보상: ${nextReward.item_name} (${nextReward.rewardable_days}일 - 앞으로 ${daysNeeded}일 필요)`, 'info');
+                }
             } else {
-                log(`💰 수령 가능한 누적 보상: ${claimableAccumulated.length}개`, 'info');
+                log(`💰 수령 가능한 누적 보상: ${claimableAccumulated.length}개 (현재: ${totalDays}일 출석)`, 'info');
 
                 for (const reward of claimableAccumulated) {
                     try {
