@@ -63,7 +63,7 @@
             componentNo: 1,             // 미션 컴포넌트 번호
             visitMissions: [1, 2],      // 방문 미션 번호 (MY홈, 스토브 메인)
             skipMissions: [3, 8],       // 건너뛸 미션 번호 (앱 로그인, 경품 응모)
-            visitDelay: 1000            // 방문 후 탭 닫기까지 대기 시간 (ms)
+            visitDelay: 3000            // 방문 후 탭 닫기까지 대기 시간 (ms)
         },
         contentMissions: {
             enabled: true,              // 컨텐츠 미션 자동 실행 활성화
@@ -71,7 +71,7 @@
         },
         weeklyMissions: {
             enabled: true,              // 위클리 미션 자동 실행 활성화
-            componentNo: 2              // 미션 컴포넌트 번호 (위클리 미션)
+            componentNo: 3              // 미션 컴포넌트 번호 (위클리 미션 2주차)
         },
         eventMissions: {
             enabled: true,              // 이벤트 미션 자동 실행 활성화
@@ -80,7 +80,7 @@
         bannerMissions: {
             enabled: true,              // 배너 미션 자동 실행 활성화
             componentNo: 12,            // 미션 컴포넌트 번호 (11월 배너 미션)
-            visitDelay: 1000            // 방문 후 탭 닫기까지 대기 시간 (ms)
+            visitDelay: 3000            // 방문 후 탭 닫기까지 대기 시간 (ms)
         },
         attendanceMissions: {
             enabled: true,              // 출석 미션 자동 실행 활성화
@@ -2374,8 +2374,8 @@
                         // 백그라운드로 탭 열기
                         const tab = openTabInBackground(mission.url, false);
 
-                        // 1초 대기 후 탭 닫기
-                        await closeTabAfterDelay(tab, 1000);
+                        // 3초 대기 후 탭 닫기
+                        await closeTabAfterDelay(tab, 3000);
 
                         log(`  ✓ "${mission.title.substring(0, 30)}..." 방문 완료`, 'success');
                     } catch (e) {
@@ -3553,8 +3553,8 @@
             log('  🏠 스토브 메인 페이지 방문 중...', 'info');
             const stoveTab = openTabInBackground('https://www.onstove.com/ko', false);
 
-            // 1초 대기
-            await delay(1000);
+            // 3초 대기
+            await delay(3000);
 
             // 탭 닫기
             await closeTabAfterDelay(rewardTab, 0);
