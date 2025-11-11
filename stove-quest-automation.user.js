@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.2.4
+// @version      2.2.5
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,8 +22,8 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.2.4',   
-        lastUpdated: '2025-11-09',
+        version: '2.2.5',   
+        lastUpdated: '2025-11-11',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
             startDate: '2025-11-01',          // KST 기준 점검 시작일 (YYYY-MM-DD)
@@ -86,6 +86,11 @@
             enabled: true,              // 출석 미션 자동 실행 활성화
             componentNo: 10             // 미션 컴포넌트 번호 (매일 출석 보너스)
         },
+        surveyMissions: {
+            enabled: true,              // 설문조사 미션 자동 실행 활성화
+            componentNo: 11,            // 미션 컴포넌트 번호 (설문조사)
+            voteStrategy: 'highest'     // 투표 전략: 'highest' (최다 득표), 'lowest' (최소 득표), 'random' (랜덤)
+        },
         prizeEntry: {
             enabled: true,              // 경품 응모 자동 실행 활성화
             missionNo: 8,               // mission_no (경품 응모하기)
@@ -119,6 +124,7 @@
             eventMissions: false,   // 이벤트 미션 완료 여부
             bannerMissions: false,  // 배너 미션 완료 여부
             attendanceMissions: false, // 출석 미션 완료 여부
+            surveyMissions: false,  // 설문조사 미션 완료 여부
             prizeEntry: false,      // 경품 응모 완료 여부
             gameDailyShop: false    // 게임 데일리샵 출석 보상 완료 여부
         },
@@ -135,6 +141,7 @@
             eventMissions: 0,    // FLAKE from event missions
             bannerMissions: 0,   // FLAKE from banner missions
             attendanceMissions: 0, // FLAKE from attendance missions
+            surveyMissions: 0,   // FLAKE from survey missions
             prizeEntry: 0,       // FLAKE from prize entry (net: reward - cost)
             gameDailyShop: 0     // FLAKE from game daily shop attendance rewards
         }
@@ -1663,7 +1670,11 @@
             log('', 'info'); // Empty line for separation
             await executeAttendanceMissions(headers);
 
-            // Step 4.11: Execute prize entry (after attendance missions)
+            // Step 4.11: Execute survey missions (after attendance missions)
+            log('', 'info'); // Empty line for separation
+            await executeSurveyMissions(headers);
+
+            // Step 4.12: Execute prize entry (after survey missions)
             log('', 'info'); // Empty line for separation
             await executePrizeEntry(headers);
 
@@ -1774,7 +1785,8 @@
                                  state.earnings.dailyMissions + state.earnings.contentMissions +
                                  state.earnings.weeklyMissions + state.earnings.eventMissions +
                                  state.earnings.bannerMissions + state.earnings.attendanceMissions +
-                                 state.earnings.prizeEntry + state.earnings.gameDailyShop + dailyAccumulatedFlake;
+                                 state.earnings.surveyMissions + state.earnings.prizeEntry +
+                                 state.earnings.gameDailyShop + dailyAccumulatedFlake;
             const profitSign = totalEarnings >= 0 ? '+' : '';
 
             log('', 'info'); // Empty line for separation
@@ -2831,6 +2843,183 @@
         }
 
         log('✅ 출석 미션 처리 완료!', 'success');
+    }
+
+    /**
+     * 설문조사 미션 자동 투표 (component_no=11)
+     * - RECEIVABLE 상태인 설문조사에 자동 투표
+     * - 투표 전략: 최다 득표 항목 선택 (설정 가능)
+     * - 투표 후 즉시 보상 지급 (status: COMPLETE)
+     */
+    async function executeSurveyMissions(headers) {
+        if (!CONFIG.surveyMissions.enabled) {
+            log('⏭️ 설문조사 미션이 비활성화되어 있습니다', 'info');
+            return;
+        }
+
+        log('📊 설문조사 미션 시작...', 'info');
+        let totalEarned = 0;
+
+        try {
+            // Step 1: 미션 목록 조회
+            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${CONFIG.surveyMissions.componentNo}`;
+
+            const missionHeaders = {
+                'Authorization': headers['Authorization'],
+                'caller-id': 'flake-fe',
+                'caller-detail': headers['X-UUID'] || headers['caller-detail'],
+                'x-lang': 'ko',
+                'x-nation': 'KR',
+                'Accept': '*/*',
+                'Origin': 'https://reward.onstove.com',
+                'Referer': 'https://reward.onstove.com/'
+            };
+
+            const missionData = await apiRequest(url, 'GET', missionHeaders);
+
+            if (!missionData || missionData.code !== 0 || !missionData.value || !missionData.value.missions) {
+                log('✗ 설문조사 미션 목록 조회 실패', 'error');
+                state.earnings.surveyMissions = 0;
+                state.completed.surveyMissions = true;
+                return;
+            }
+
+            const missions = missionData.value.missions;
+            log(`📝 총 ${missions.length}개 설문조사 확인`, 'info');
+
+            // Step 2: RECEIVABLE 상태 미션 필터링 (투표 가능)
+            const votableMissions = missions.filter(m => m.status === 'RECEIVABLE' && m.mission_type === 'SURVEY');
+
+            if (votableMissions.length === 0) {
+                log('ℹ️ 투표 가능한 설문조사가 없습니다', 'info');
+                
+                // 완료된 미션 표시
+                const completedMissions = missions.filter(m => m.status === 'COMPLETE' || m.status === 'COMPLETED');
+                if (completedMissions.length > 0) {
+                    log(`  ✓ 이미 완료됨: ${completedMissions.length}개`, 'info');
+                }
+            } else {
+                log(`🗳️ 투표 가능한 설문조사 ${votableMissions.length}개 발견`, 'info');
+
+                // Step 3: 각 설문조사에 투표
+                for (const mission of votableMissions) {
+                    try {
+                        log(`📊 "${mission.title}" 투표 중...`, 'info');
+
+                        // 투표할 항목 선택
+                        const selectedContentNo = selectSurveyOption(mission.survey_infos, CONFIG.surveyMissions.voteStrategy);
+                        const selectedOption = mission.survey_infos.find(info => info.content_no === selectedContentNo);
+
+                        if (!selectedContentNo) {
+                            log(`  ⚠️ 투표할 항목을 찾을 수 없습니다`, 'warning');
+                            continue;
+                        }
+
+                        log(`  🎯 선택: "${selectedOption.content}" (${selectedOption.percent}%)`, 'info');
+
+                        // 투표 API 호출 (participateMission 사용)
+                        const voteHeaders = {
+                            'Authorization': headers['Authorization'],
+                            'caller-id': 'flake-fe',
+                            'caller-detail': headers['X-UUID'] || headers['caller-detail'],
+                            'x-lang': 'ko',
+                            'x-nation': 'KR',
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'Origin': 'https://reward.onstove.com',
+                            'Referer': 'https://reward.onstove.com/'
+                        };
+
+                        const voteBody = {
+                            mission_no: mission.mission_no,
+                            component_no: CONFIG.surveyMissions.componentNo,
+                            content_nos: [selectedContentNo]
+                        };
+
+                        const voteUrl = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/participate`;
+                        const voteResult = await apiRequest(voteUrl, 'POST', voteHeaders, voteBody);
+
+                        if (voteResult && voteResult.code === 0 && voteResult.value) {
+                            const reward = voteResult.value.reward_amount || 0;
+                            totalEarned += reward;
+                            log(`  ✓ 투표 완료: +${reward} FLAKE`, 'success');
+                            
+                            // 투표 결과 표시
+                            if (voteResult.value.survey_infos) {
+                                const updatedOption = voteResult.value.survey_infos.find(info => info.is_selected);
+                                if (updatedOption) {
+                                    log(`  📈 최종 득표율: ${updatedOption.content} (${updatedOption.percent}%)`, 'info');
+                                }
+                            }
+                        } else {
+                            log(`  ✗ 투표 실패`, 'error');
+                        }
+
+                    } catch (error) {
+                        log(`  ✗ "${mission.title}" 투표 실패: ${error.message}`, 'error');
+                    }
+
+                    await delay(CONFIG.delays.betweenActions);
+                }
+
+                log(`✅ 설문조사 투표 완료: +${totalEarned} FLAKE`, 'success');
+            }
+
+            // 상태 업데이트
+            state.earnings.surveyMissions = totalEarned;
+            state.completed.surveyMissions = true;
+
+            // 진행 상황 표시
+            const completedCount = missions.filter(m => m.status === 'COMPLETE' || m.status === 'COMPLETED').length;
+            const totalCount = missions.length;
+            log(`📊 설문조사 진행 상황: ${completedCount}/${totalCount} 완료`, 'info');
+
+        } catch (error) {
+            log(`✗ 설문조사 미션 오류: ${error.message}`, 'error');
+            console.error('Survey missions error details:', error);
+        }
+
+        log('✅ 설문조사 미션 처리 완료!', 'success');
+    }
+
+    /**
+     * 설문조사 투표 항목 선택 로직
+     * @param {Array} surveyInfos - 투표 항목 배열
+     * @param {string} strategy - 투표 전략 ('highest', 'lowest', 'random')
+     * @returns {number} 선택된 content_no
+     */
+    function selectSurveyOption(surveyInfos, strategy = 'highest') {
+        if (!surveyInfos || surveyInfos.length === 0) {
+            return null;
+        }
+
+        switch (strategy) {
+            case 'highest':
+                // 가장 득표율이 높은 항목 선택
+                const highest = surveyInfos.reduce((max, info) => 
+                    info.percent > max.percent ? info : max
+                );
+                return highest.content_no;
+
+            case 'lowest':
+                // 가장 득표율이 낮은 항목 선택
+                const lowest = surveyInfos.reduce((min, info) => 
+                    info.percent < min.percent ? info : min
+                );
+                return lowest.content_no;
+
+            case 'random':
+                // 랜덤 선택
+                const randomIndex = Math.floor(Math.random() * surveyInfos.length);
+                return surveyInfos[randomIndex].content_no;
+
+            default:
+                // 기본값: 가장 득표율이 높은 항목
+                const defaultHighest = surveyInfos.reduce((max, info) => 
+                    info.percent > max.percent ? info : max
+                );
+                return defaultHighest.content_no;
+        }
     }
 
     /**
