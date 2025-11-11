@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.2.5
+// @version      2.2.6
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.2.5',   
+        version: '2.2.6',   
         lastUpdated: '2025-11-11',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -201,6 +201,35 @@
 
     function getTimestamp() {
         return Date.now();
+    }
+
+    /**
+     * Get current month's date range in KST timezone
+     * Returns start and end timestamps for the current month (KST)
+     * @returns {Object} { startDate: timestamp, endDate: timestamp }
+     */
+    function getCurrentMonthDateRange() {
+        const now = new Date();
+        // Convert to KST (UTC+9)
+        const kstOffset = 9 * 60 * 60 * 1000;
+        const kstNow = new Date(now.getTime() + kstOffset);
+
+        // Get year and month in KST
+        const year = kstNow.getUTCFullYear();
+        const month = kstNow.getUTCMonth(); // 0-based
+
+        // Start of month: YYYY-MM-01 00:00:00 KST
+        const startDate = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+        const startTimestamp = startDate.getTime() - kstOffset; // Convert back to UTC timestamp
+
+        // End of month: YYYY-MM-LastDay 23:59:59.999 KST
+        const endDate = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999));
+        const endTimestamp = endDate.getTime() - kstOffset; // Convert back to UTC timestamp
+
+        return {
+            startDate: startTimestamp,
+            endDate: endTimestamp
+        };
     }
 
     /**
@@ -1805,6 +1834,7 @@
             log(`  🎉 이벤트 미션: ${state.earnings.eventMissions} FLAKE`, state.earnings.eventMissions > 0 ? 'success' : 'info');
             log(`  🎨 배너 미션: ${state.earnings.bannerMissions} FLAKE`, state.earnings.bannerMissions > 0 ? 'success' : 'info');
             log(`  📆 출석 미션: ${state.earnings.attendanceMissions} FLAKE`, state.earnings.attendanceMissions > 0 ? 'success' : 'info');
+            log(`  📊 설문조사: ${state.earnings.surveyMissions} FLAKE`, state.earnings.surveyMissions > 0 ? 'success' : 'info');
             const prizeEntrySign = state.earnings.prizeEntry >= 0 ? '+' : '';
             log(`  🎁 경품 응모: ${prizeEntrySign}${state.earnings.prizeEntry} FLAKE (응모비 제외)`, state.earnings.prizeEntry >= 0 ? 'success' : 'warning');
             log(`  🎰 룰렛 순수익: ${profitSign}${state.earnings.roulette} FLAKE`, state.earnings.roulette >= 0 ? 'success' : 'warning');
@@ -1816,6 +1846,21 @@
             log('───────────────────────────────────────', 'info');
             log(`  📊 총 순수익: ${profitSign}${totalEarnings} FLAKE`, totalEarnings >= 0 ? 'success' : 'warning');
             log('═══════════════════════════════════════', 'info');
+
+            // 이번 달 총 획득 플레이크 조회
+            log('', 'info');
+            log('📅 이번 달 플레이크 현황 조회 중...', 'info');
+            const monthlyTotal = await getMonthlyFlakeTotal(headers);
+            if (monthlyTotal > 0) {
+                const kstDate = getKSTDate();
+                const currentMonth = kstDate.substring(0, 7); // YYYY-MM
+                log('═══════════════════════════════════════', 'info');
+                log(`📆 ${currentMonth} 누적 플레이크`, 'success');
+                log('═══════════════════════════════════════', 'info');
+                log(`  💎 이번 달 총 획득: ${monthlyTotal.toLocaleString()} FLAKE`, 'success');
+                log('═══════════════════════════════════════', 'info');
+            }
+            log('', 'info');
 
             // Play completion sound
             playCompletionSound();
@@ -3119,6 +3164,73 @@
         log('✅ 경품 응모 처리 완료!', 'success');
     }
 
+    /**
+     * 이번 달 총 획득 플레이크 조회
+     * - mileage API를 통해 이번 달 누적 플레이크 확인
+     * - KST 기준 이번 달 1일 00:00:00 ~ 말일 23:59:59.999
+     * @returns {number} 이번 달 총 획득 플레이크
+     */
+    async function getMonthlyFlakeTotal(headers) {
+        try {
+            const dateRange = getCurrentMonthDateRange();
+            
+            const url = `${CONFIG.api.baseUrl}/mileage/v1.0/master/deposit/total?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`;
+
+            const mileageHeaders = {
+                'Authorization': headers['Authorization'],
+                'caller-id': 'flake-fe',
+                'caller-detail': headers['X-UUID'] || headers['caller-detail'],
+                'Content-Type': 'application/json;charset=utf-8',
+                'Accept': '*/*',
+                'Origin': 'https://reward.onstove.com',
+                'Referer': 'https://reward.onstove.com/'
+            };
+
+            const response = await apiRequest(url, 'GET', mileageHeaders);
+
+            if (response && response.code === 0 && response.value) {
+                return response.value.total_deposit_amount || 0;
+            }
+
+            return 0;
+        } catch (error) {
+            log(`⚠️ 월간 플레이크 조회 실패: ${error.message}`, 'warning');
+            return 0;
+        }
+    }
+
+    /**
+     * 현재 총 플레이크 잔액 조회
+     * - 현재 보유 중인 총 플레이크 확인
+     * @returns {number} 총 플레이크 잔액
+     */
+    async function getTotalFlakeBalance(headers) {
+        try {
+            const url = `${CONFIG.api.baseUrl}/mileage/v1.0/balance?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY`;
+
+            const mileageHeaders = {
+                'Authorization': headers['Authorization'],
+                'caller-id': 'flake-fe',
+                'caller-detail': headers['X-UUID'] || headers['caller-detail'],
+                'Content-Type': 'application/json;charset=utf-8',
+                'Accept': '*/*',
+                'Origin': 'https://reward.onstove.com',
+                'Referer': 'https://reward.onstove.com/'
+            };
+
+            const response = await apiRequest(url, 'GET', mileageHeaders);
+
+            if (response && response.code === 0 && response.value) {
+                return response.value.mileage_amount || 0;
+            }
+
+            return 0;
+        } catch (error) {
+            console.error('[FLAKE] 총 플레이크 조회 실패:', error);
+            return 0;
+        }
+    }
+
     async function executeGameDailyShopRewards(headers) {
         if (!CONFIG.gameDailyShop.enabled) {
             log('⏩ 아스텔리아 출석 보상이 비활성화되어 있습니다', 'info');
@@ -3900,6 +4012,57 @@
 
     // checkQuestRewardStatus 함수 제거됨 (퀘스트 리워드 API 제거로 인해)
 
+    async function checkSurveyStatus(headers) {
+        try {
+            if (!CONFIG.surveyMissions.enabled) {
+                return { success: true, notAvailable: true };
+            }
+
+            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${CONFIG.surveyMissions.componentNo}`;
+            const response = await apiRequest(url, 'GET', headers);
+
+            console.log('[설문조사 상태 확인]', response);
+
+            if (response && response.code === 0 && response.value && response.value.missions) {
+                const missions = response.value.missions;
+
+                // 미션이 없으면 비활성 상태
+                if (missions.length === 0) {
+                    return { success: true, noMissions: true };
+                }
+
+                // 상태별 카운트
+                let completed = 0;
+                let receivable = 0;
+                let total = missions.length;
+
+                missions.forEach(mission => {
+                    if (mission.status === 'COMPLETE' || mission.status === 'COMPLETED') {
+                        completed++;
+                    } else if (mission.status === 'RECEIVABLE') {
+                        receivable++;
+                    }
+                });
+
+                console.log(`[설문조사] 총 ${total}개, 완료 ${completed}개, 투표 가능 ${receivable}개`);
+
+                return {
+                    success: true,
+                    completed,
+                    receivable,
+                    total,
+                    allCompleted: completed === total
+                };
+            }
+
+            console.log('[설문조사] ❌ API 응답 구조 오류:', response);
+            return { success: false, error: '데이터 없음' };
+        } catch (e) {
+            console.error('[설문조사 상태 확인 오류]', e);
+            return { success: false, error: e.message };
+        }
+    }
+
     async function checkDailyMissionStatus(headers) {
         try {
             const allMissions = await getAllDailyMissions(headers);
@@ -4107,18 +4270,24 @@
                 roulette: { loading: true },
                 dailyShop: { loading: true },
                 majakShop: { loading: true },
-                gameDailyShop: { loading: true }
+                gameDailyShop: { loading: true },
+                survey: { loading: true },
+                totalFlake: { loading: true },
+                monthlyFlake: { loading: true }
             });
 
             // Fetch all statuses in parallel
             console.log('[상태 확인] API 호출 시작...');
-            const [articleWriteStatus, dailyMissionStatus, rouletteStatus, dailyShopStatus, majakShopStatus, gameDailyShopStatus] = await Promise.all([
+            const [articleWriteStatus, dailyMissionStatus, rouletteStatus, dailyShopStatus, majakShopStatus, gameDailyShopStatus, surveyStatus, totalFlake, monthlyFlake] = await Promise.all([
                 checkArticleWriteStatus(headers),
                 checkDailyMissionStatus(headers),
                 checkRouletteStatus(headers),
                 checkDailyShopStatus(headers),
                 checkMajakShopStatus(headers),
-                checkGameDailyShopStatus(headers)
+                checkGameDailyShopStatus(headers),
+                checkSurveyStatus(headers),
+                getTotalFlakeBalance(headers),
+                getMonthlyFlakeTotal(headers)
             ]);
             console.log('[상태 확인] API 호출 완료');
 
@@ -4130,7 +4299,10 @@
                 roulette: rouletteStatus,
                 dailyShop: dailyShopStatus,
                 majakShop: majakShopStatus,
-                gameDailyShop: gameDailyShopStatus
+                gameDailyShop: gameDailyShopStatus,
+                survey: surveyStatus,
+                totalFlake: totalFlake,
+                monthlyFlake: monthlyFlake
             });
             console.log('[상태 확인] ✅ 완료');
 
@@ -4143,7 +4315,10 @@
                 roulette: { success: false, error: '확인 실패' },
                 dailyShop: { success: false, error: '확인 실패' },
                 majakShop: { success: false, error: '확인 실패' },
-                gameDailyShop: { success: false, error: '확인 실패' }
+                gameDailyShop: { success: false, error: '확인 실패' },
+                survey: { success: false, error: '확인 실패' },
+                totalFlake: { error: true },
+                monthlyFlake: { error: true }
             });
         }
     }
@@ -4360,6 +4535,64 @@
         }
 
         // 퀘스트 리워드 상태 UI 업데이트 제거됨 (퀘스트 리워드 API 제거로 인해)
+
+        // Update survey status
+        const surveyEl = document.getElementById('stove-status-survey');
+        if (surveyEl && statusData.survey) {
+            if (statusData.survey.loading) {
+                surveyEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
+            } else if (statusData.survey.success) {
+                const { notAvailable, noMissions, completed, receivable, total, allCompleted } = statusData.survey;
+
+                if (notAvailable) {
+                    // 설문조사 기능이 비활성화됨
+                    surveyEl.innerHTML = '<span style="color: #6b7280">비활성화</span>';
+                } else if (noMissions) {
+                    // 미션이 없음
+                    surveyEl.innerHTML = '<span style="color: #6b7280">미션 없음</span>';
+                } else if (allCompleted) {
+                    // 모든 설문 완료
+                    surveyEl.innerHTML = '<span style="color: #10b981">✅ 전부 완료</span>';
+                } else if (receivable > 0) {
+                    // 투표 가능한 설문이 있음
+                    surveyEl.innerHTML = `<span style="color: #f59e0b">📊 ${receivable}개 투표 가능</span>`;
+                } else if (completed > 0) {
+                    // 일부 완료됨
+                    surveyEl.innerHTML = `<span style="color: #6b7280">${completed}/${total}</span>`;
+                } else {
+                    // 알 수 없는 상태
+                    surveyEl.innerHTML = '<span style="color: #6b7280">-</span>';
+                }
+            } else {
+                surveyEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
+            }
+        }
+
+        // Update total flake balance status
+        const totalFlakeEl = document.getElementById('stove-status-total-flake');
+        if (totalFlakeEl && statusData.totalFlake !== undefined) {
+            if (statusData.totalFlake.loading) {
+                totalFlakeEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
+            } else if (statusData.totalFlake.error) {
+                totalFlakeEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
+            } else {
+                const amount = statusData.totalFlake;
+                totalFlakeEl.innerHTML = `<span style="color: #10b981">${amount.toLocaleString()} F</span>`;
+            }
+        }
+
+        // Update monthly flake total status
+        const monthlyFlakeEl = document.getElementById('stove-status-monthly-flake');
+        if (monthlyFlakeEl && statusData.monthlyFlake !== undefined) {
+            if (statusData.monthlyFlake.loading) {
+                monthlyFlakeEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
+            } else if (statusData.monthlyFlake.error) {
+                monthlyFlakeEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
+            } else {
+                const amount = statusData.monthlyFlake;
+                monthlyFlakeEl.innerHTML = `<span style="color: #10b981">+${amount.toLocaleString()} F</span>`;
+            }
+        }
     }
 
 
@@ -4781,6 +5014,18 @@
                     <div class="stove-status-item">
                         <span class="stove-status-label">🎮 아스텔리아</span>
                         <span class="stove-status-value" id="stove-status-game-daily">-</span>
+                    </div>
+                    <div class="stove-status-item">
+                        <span class="stove-status-label">📊 설문조사</span>
+                        <span class="stove-status-value" id="stove-status-survey">-</span>
+                    </div>
+                    <div class="stove-status-item" style="border-top: 2px solid #3a3a3a; margin-top: 8px; padding-top: 16px;">
+                        <span class="stove-status-label">💎 현재 보유</span>
+                        <span class="stove-status-value" id="stove-status-total-flake">-</span>
+                    </div>
+                    <div class="stove-status-item">
+                        <span class="stove-status-label">📅 이번 달 획득</span>
+                        <span class="stove-status-value" id="stove-status-monthly-flake">-</span>
                     </div>
                 </div>
             </div>
