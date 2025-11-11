@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.2.6
+// @version      2.2.7
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.2.6',   
+        version: '2.2.7',   
         lastUpdated: '2025-11-11',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -1126,7 +1126,7 @@
 
     // Get all daily mission statuses
     async function getAllDailyMissions(headers) {
-        const componentNos = [1, 2, 4, 5, 9, 10, 11, 12]; // 모든 component 번호
+        const componentNos = [1, 2, 3, 4, 5, 9, 10, 11, 12]; // 모든 component 번호 (3: 위클리)
         console.log(`[전체 미션 조회] ${componentNos.length}개 component 조회 시작`);
 
         try {
