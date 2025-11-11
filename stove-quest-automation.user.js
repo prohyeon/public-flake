@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.2.7
+// @version      2.2.8
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.2.7',   
+        version: '2.2.8',   
         lastUpdated: '2025-11-11',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -62,7 +62,7 @@
             enabled: true,              // 데일리 미션 자동 실행 활성화
             componentNo: 1,             // 미션 컴포넌트 번호
             visitMissions: [1, 2],      // 방문 미션 번호 (MY홈, 스토브 메인)
-            skipMissions: [3, 8],       // 건너뛸 미션 번호 (앱 로그인, 경품 응모)
+            skipMissions: [3],          // 건너뛸 미션 번호 (3: 스토브 앱 로그인)
             visitDelay: 3000            // 방문 후 탭 닫기까지 대기 시간 (ms)
         },
         contentMissions: {
@@ -1675,6 +1675,10 @@
             log('', 'info'); // Empty line for separation
             await visitRequiredPages();
 
+            // Step 4.4: Execute prize entry (before SINGLE missions to avoid timeout)
+            log('', 'info'); // Empty line for separation
+            await executePrizeEntry(headers);
+
             // Step 4.5: Execute daily missions (before roulette)
             log('', 'info'); // Empty line for separation
             await executeDailyMissions(headers);
@@ -1702,10 +1706,6 @@
             // Step 4.11: Execute survey missions (after attendance missions)
             log('', 'info'); // Empty line for separation
             await executeSurveyMissions(headers);
-
-            // Step 4.12: Execute prize entry (after survey missions)
-            log('', 'info'); // Empty line for separation
-            await executePrizeEntry(headers);
 
             // Step 5: Run roulette automatically (before rewards)
             log('', 'info'); // Empty line for separation
@@ -1846,21 +1846,6 @@
             log('───────────────────────────────────────', 'info');
             log(`  📊 총 순수익: ${profitSign}${totalEarnings} FLAKE`, totalEarnings >= 0 ? 'success' : 'warning');
             log('═══════════════════════════════════════', 'info');
-
-            // 이번 달 총 획득 플레이크 조회
-            log('', 'info');
-            log('📅 이번 달 플레이크 현황 조회 중...', 'info');
-            const monthlyTotal = await getMonthlyFlakeTotal(headers);
-            if (monthlyTotal > 0) {
-                const kstDate = getKSTDate();
-                const currentMonth = kstDate.substring(0, 7); // YYYY-MM
-                log('═══════════════════════════════════════', 'info');
-                log(`📆 ${currentMonth} 누적 플레이크`, 'success');
-                log('═══════════════════════════════════════', 'info');
-                log(`  💎 이번 달 총 획득: ${monthlyTotal.toLocaleString()} FLAKE`, 'success');
-                log('═══════════════════════════════════════', 'info');
-            }
-            log('', 'info');
 
             // Play completion sound
             playCompletionSound();
@@ -4141,8 +4126,10 @@
             allMissions.forEach(comp => {
                 const missions = comp.missions || [];
                 missions.forEach(mission => {
-                    // SINGLE 타입이고 INCOMPLETE 상태인 미션만 필터링
-                    if (mission.mission_type === 'SINGLE' && mission.status === 'INCOMPLETE') {
+                    // SINGLE 타입이고 INCOMPLETE 상태이며, skipMissions에 없는 미션만 필터링
+                    if (mission.mission_type === 'SINGLE' &&
+                        mission.status === 'INCOMPLETE' &&
+                        !CONFIG.dailyMissions.skipMissions.includes(mission.mission_no)) {
                         singleMissions.push({
                             mission_no: mission.mission_no,
                             component_no: comp.componentNo,
