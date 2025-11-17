@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.2.9
+// @version      2.2.10
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,8 +22,8 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.2.9',   
-        lastUpdated: '2025-11-17',
+        version: '2.2.10',   
+        lastUpdated: '2025-11-18',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
             startDate: '2025-11-01',          // KST 기준 점검 시작일 (YYYY-MM-DD)
@@ -337,15 +337,9 @@
     }
 
     // Check if current time is in reward skip period (KST 00:00 ~ 01:00)
+    // DISABLED: Flakes now reset at midnight (0시), so no need to skip this period
     function isRewardSkipPeriod() {
-        const now = new Date();
-        const kstOffset = 9 * 60; // KST is UTC+9
-        const utcMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-        const kstMinutes = (utcMinutes + kstOffset) % (24 * 60);
-        const kstHour = Math.floor(kstMinutes / 60);
-
-        // Return true if KST hour is 0 (00:00 ~ 00:59)
-        return kstHour === 0;
+        return false; // Always allow reward tasks now
     }
 
     // checkDailyRewardsClaimed 함수 제거됨 (퀘스트 리워드 API 제거로 인해)
@@ -1473,24 +1467,8 @@
             log(`  - Authorization: ${headers.Authorization ? '✅ 존재' : '❌ 없음'}`, 'info');
             log(`  - X-UUID: ${headers['X-UUID'] || headers['caller-detail'] ? '✅ 존재' : '❌ 없음'}`, 'info');
 
-            // Check if we're in reward skip period
-            let skipRewards = isRewardSkipPeriod();
-            if (skipRewards) {
-                log('', 'info');
-                log('⏰ KST 새벽 0시~1시 사이 실행 감지', 'warning');
-                log('📌 리워드 관련 작업은 스킵됩니다 (글쓰기, 댓글좋아요, 글좋아요, 태그팔로우)', 'warning');
-                log('', 'info');
-
-                // Fill progress bar immediately for skipped tasks
-                state.progress.articleLikes = CONFIG.targets.articleLikes;
-                state.progress.comments = CONFIG.targets.comments;
-                state.progress.newArticle = CONFIG.targets.newArticle;
-
-                // Update progress displays
-                updateProgress('article-likes', state.progress.articleLikes, CONFIG.targets.articleLikes);
-                updateProgress('comments', state.progress.comments, CONFIG.targets.comments);
-                updateProgress('new-article', state.progress.newArticle, CONFIG.targets.newArticle);
-            }
+            // Check if we're in reward skip period (disabled - flakes now reset at midnight)
+            let skipRewards = false; // isRewardSkipPeriod() always returns false now
 
             // Check if daily rewards are already claimed
             if (!skipRewards) {
@@ -1872,22 +1850,15 @@
             await checkAllStatus();
             log('✅ 상태 업데이트 완료!', 'success');
 
-            // Display reward notice if in skip period
+            // Display reward notice if already claimed
             if (skipRewards) {
-                const skipReason = isRewardSkipPeriod() ? '새벽 0시~1시 사이' : '이미 수령 완료';
                 log('', 'info');
-                log('═══════════════════════════════════════', 'warning');
-                log('⏰ 데일리 리워드 안내', 'warning');
-                log('═══════════════════════════════════════', 'warning');
-                if (isRewardSkipPeriod()) {
-                    log('데일리 리워드(글쓰기, 댓글좋아요, 글좋아요, 태그팔로우)는', 'warning');
-                    log('새벽 1시에 초기화됩니다.', 'warning');
-                    log('해당 리워드를 놓칠 수 있으니 참고해주세요!', 'warning');
-                } else {
-                    log('데일리 리워드가 이미 모두 수령되었습니다.', 'info');
-                    log('내일 다시 시도해주세요!', 'info');
-                }
-                log('═══════════════════════════════════════', 'warning');
+                log('═══════════════════════════════════════', 'info');
+                log('⏰ 데일리 리워드 안내', 'info');
+                log('═══════════════════════════════════════', 'info');
+                log('데일리 리워드가 이미 모두 수령되었습니다.', 'info');
+                log('내일 다시 시도해주세요!', 'info');
+                log('═══════════════════════════════════════', 'info');
             }
 
             log('', 'info');
