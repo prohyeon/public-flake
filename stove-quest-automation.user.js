@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.2.10
+// @version      2.3.0
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,8 +22,8 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.2.10',   
-        lastUpdated: '2025-11-18',
+        version: '2.3.0',   
+        lastUpdated: '2025-11-25',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
             startDate: '2025-11-01',          // KST 기준 점검 시작일 (YYYY-MM-DD)
@@ -71,7 +71,7 @@
         },
         weeklyMissions: {
             enabled: true,              // 위클리 미션 자동 실행 활성화
-            componentNo: 27             // 미션 컴포넌트 번호 (위클리 미션 3주차)
+            componentNo: 28             // 미션 컴포넌트 번호 (위클리 미션 4주차)
         },
         eventMissions: {
             enabled: true,              // 이벤트 미션 자동 실행 활성화
@@ -97,10 +97,6 @@
             eventNo: 1000000238,        // event_no for API endpoint
             giftNo: 1000001184,         // gift_no for request body
             flakeCost: 500              // 응모 시 소모되는 FLAKE
-        },
-        gameDailyShop: {
-            enabled: true,              // 게임 데일리샵 출석 보상 자동 수령 활성화
-            gameId: 'ASTELLIA_IND'      // 게임 ID
         }
     };
 
@@ -125,8 +121,7 @@
             bannerMissions: false,  // 배너 미션 완료 여부
             attendanceMissions: false, // 출석 미션 완료 여부
             surveyMissions: false,  // 설문조사 미션 완료 여부
-            prizeEntry: false,      // 경품 응모 완료 여부
-            gameDailyShop: false    // 게임 데일리샵 출석 보상 완료 여부
+            prizeEntry: false       // 경품 응모 완료 여부
         },
         createdCommentIds: [],  // Store created comment IDs for liking
         earnings: {
@@ -142,8 +137,7 @@
             bannerMissions: 0,   // FLAKE from banner missions
             attendanceMissions: 0, // FLAKE from attendance missions
             surveyMissions: 0,   // FLAKE from survey missions
-            prizeEntry: 0,       // FLAKE from prize entry (net: reward - cost)
-            gameDailyShop: 0     // FLAKE from game daily shop attendance rewards
+            prizeEntry: 0        // FLAKE from prize entry (net: reward - cost)
         }
     };
 
@@ -890,105 +884,6 @@
         return response;
     }
 
-    async function getGameDailyShopData(headers, gameId = 'ASTELLIA_IND') {
-        const now = new Date();
-        const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-        const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/${yearMonth}/services/${gameId}`;
-
-        console.log(`[아스텔리아 조회] URL: ${url}, Game: ${gameId}`);
-
-        const eventHeaders = {
-            'Authorization': headers['Authorization'],
-            'caller-id': 'event-hub',
-            'caller-detail': headers['X-UUID'] || headers['caller-detail'],
-            'x-lang': 'ko',
-            'x-nation': 'KR',
-            'x-timezone': 'Asia/Seoul',
-            'x-utc-offset': '540',
-            'x-device-type': 'pc',
-            'x-client-lang': 'ko',
-            'accept': 'application/json, text/plain, */*',
-            'Origin': 'https://event.onstove.com',
-            'Referer': 'https://event.onstove.com/'
-        };
-
-        const response = await apiRequest(url, 'GET', eventHeaders);
-        console.log(`[아스텔리아 조회] Response code:`, response?.code);
-        return response;
-    }
-
-    async function getGameCharacters(headers, gameId = 'ASTELLIA_IND') {
-        const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/game/${gameId}/characters`;
-
-        console.log(`[게임 캐릭터 조회] URL: ${url}, Game: ${gameId}`);
-
-        const eventHeaders = {
-            'Authorization': headers['Authorization'],
-            'caller-id': 'event-hub',
-            'caller-detail': headers['X-UUID'] || headers['caller-detail'],
-            'x-lang': 'ko',
-            'x-nation': 'KR',
-            'x-timezone': 'Asia/Seoul',
-            'x-utc-offset': '540',
-            'x-device-type': 'pc',
-            'x-client-lang': 'ko',
-            'accept': 'application/json, text/plain, */*',
-            'Origin': 'https://event.onstove.com',
-            'Referer': 'https://event.onstove.com/'
-        };
-
-        const response = await apiRequest(url, 'GET', eventHeaders);
-        console.log(`[게임 캐릭터 조회] Response:`, response);
-        return response;
-    }
-
-    async function claimGameDailyReward(headers, itemNo, rewardType, guid, characterSeq) {
-        const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/attendances/daily/${rewardType}`;
-
-        console.log(`[게임 데일리 보상 수령] item_no: ${itemNo}, type: ${rewardType}`);
-
-        const eventHeaders = {
-            'Authorization': headers['Authorization'],
-            'caller-id': 'event-hub',
-            'caller-detail': headers['X-UUID'] || headers['caller-detail'],
-            'content-type': 'application/json',
-            'x-lang': 'ko',
-            'x-nation': 'KR',
-            'x-timezone': 'Asia/Seoul',
-            'x-utc-offset': '540',
-            'x-device-type': 'pc',
-            'x-client-lang': 'ko',
-            'accept': 'application/json, text/plain, */*',
-            'Origin': 'https://event.onstove.com',
-            'Referer': 'https://event.onstove.com/'
-        };
-
-        // Query params
-        const queryParams = new URLSearchParams({
-            item_no: itemNo,
-            reward_type: rewardType
-        });
-
-        // 캐릭터 정보가 있으면 추가
-        if (guid) queryParams.append('guid', guid);
-        if (characterSeq) queryParams.append('character_seq', characterSeq);
-
-        const fullUrl = `${url}?${queryParams.toString()}`;
-
-        const body = {
-            item_no: itemNo,
-            reward_type: rewardType
-        };
-
-        // 캐릭터 정보가 있으면 body에도 추가
-        if (guid) body.guid = guid;
-        if (characterSeq) body.character_seq = characterSeq;
-
-        const response = await apiRequest(fullUrl, 'POST', eventHeaders, body);
-        console.log(`[게임 데일리 보상 수령] Response:`, response);
-        return response;
-    }
-
     async function getMyProfile(headers) {
         const url = `${CONFIG.api.baseUrl}/postie/v1.0/user/me?timestemp=${getTimestamp()}`;
         console.log(`[내 프로필 조회] URL: ${url}`);
@@ -1120,7 +1015,7 @@
 
     // Get all daily mission statuses
     async function getAllDailyMissions(headers) {
-        const componentNos = [1, 2, 27, 4, 5, 9, 10, 11, 12]; // 모든 component 번호 (27: 위클리 3주차)
+        const componentNos = [1, 2, 28, 4, 5, 9, 10, 11, 12]; // 모든 component 번호 (28: 위클리 4주차)
         console.log(`[전체 미션 조회] ${componentNos.length}개 component 조회 시작`);
 
         try {
@@ -1776,10 +1671,6 @@
                 log(`✗ 데일리 누적 보상 처리 실패: ${e.message}`, 'error');
             }
 
-            // Step 11: Claim game daily shop attendance rewards
-            log('', 'info'); // Empty line for separation
-            await executeGameDailyShopRewards(headers);
-
             // Calculate quest activity earnings (0 if skipped)
             const articleWriteFlake = skipRewards ? 0 : 200; // 글쓰기 1회
             const articleLikeFlake = skipRewards ? 0 : state.progress.articleLikes * 3; // 게시글 좋아요 1회당 3 FLAKE
@@ -1793,7 +1684,7 @@
                                  state.earnings.weeklyMissions + state.earnings.eventMissions +
                                  state.earnings.bannerMissions + state.earnings.attendanceMissions +
                                  state.earnings.surveyMissions + state.earnings.prizeEntry +
-                                 state.earnings.gameDailyShop + dailyAccumulatedFlake;
+                                 dailyAccumulatedFlake;
             const profitSign = totalEarnings >= 0 ? '+' : '';
 
             log('', 'info'); // Empty line for separation
@@ -1820,7 +1711,6 @@
             log(`  💝 데일리 보상: ${state.earnings.dailyShop} FLAKE`, state.earnings.dailyShop > 0 ? 'success' : 'info');
             log(`  🎁 데일리 누적 보상: ${dailyAccumulatedFlake} FLAKE`, dailyAccumulatedFlake > 0 ? 'success' : 'info');
             log(`  🀄 마작 리워드: ${state.earnings.majak} FLAKE`, state.earnings.majak > 0 ? 'success' : 'info');
-            log(`  🎮 아스텔리아: ${state.earnings.gameDailyShop} FLAKE`, state.earnings.gameDailyShop > 0 ? 'success' : 'info');
             log('───────────────────────────────────────', 'info');
             log(`  📊 총 순수익: ${profitSign}${totalEarnings} FLAKE`, totalEarnings >= 0 ? 'success' : 'warning');
             log('═══════════════════════════════════════', 'info');
@@ -3187,254 +3077,6 @@
         }
     }
 
-    async function executeGameDailyShopRewards(headers) {
-        if (!CONFIG.gameDailyShop.enabled) {
-            log('⏩ 아스텔리아 출석 보상이 비활성화되어 있습니다', 'info');
-            return;
-        }
-
-        log('🎮 아스텔리아 출석 보상 시작...', 'info');
-        let totalFlakeEarned = 0;
-
-        try {
-            const gameId = CONFIG.gameDailyShop.gameId;
-
-            // Step 1: 보상 데이터 조회
-            log('📋 보상 데이터 조회 중...', 'info');
-            const shopData = await getGameDailyShopData(headers, gameId);
-
-            if (!shopData || shopData.code !== 0 || !shopData.value) {
-                log('⚠️ 아스텔리아 데이터를 가져올 수 없습니다', 'warning');
-                state.earnings.gameDailyShop = 0;
-                state.completed.gameDailyShop = true;
-                return;
-            }
-
-            log(`✓ 게임 정보: ${shopData.value.game_info.game_name}`, 'success');
-
-            // Step 2: 캐릭터 필요 여부 확인
-            const dailyRewards = shopData.value.daily_attendances?.rewards || [];
-            const accumulatedRewards = shopData.value.accumulated_attendances?.rewards || [];
-
-            const needsCharacter = [...dailyRewards, ...accumulatedRewards].some(
-                reward => reward.has_game_character === true
-            );
-
-            let characterInfo = null;
-            if (needsCharacter) {
-                log('🎭 캐릭터 정보 조회 중...', 'info');
-                characterInfo = await getGameCharacters(headers, gameId);
-
-                if (!characterInfo || characterInfo.code !== 0 || !characterInfo.value) {
-                    log('⚠️ 캐릭터 정보를 가져올 수 없습니다', 'warning');
-                    state.earnings.gameDailyShop = 0;
-                    state.completed.gameDailyShop = true;
-                    return;
-                }
-
-                const characters = characterInfo.value.characters || [];
-                if (characters.length === 0) {
-                    log('⚠️ 등록된 캐릭터가 없습니다', 'warning');
-                    state.earnings.gameDailyShop = 0;
-                    state.completed.gameDailyShop = true;
-                    return;
-                }
-
-                // 첫 번째 캐릭터 선택
-                const selectedCharacter = characters[0];
-                log(`✓ 선택된 캐릭터: ${selectedCharacter.name} (${selectedCharacter.server_id})`, 'success');
-            }
-
-            // Step 3: 데일리 출석 보상 수령 (오늘 날짜 + 미수령)
-            log('', 'info');
-            log('📅 데일리 출석 보상 확인 중...', 'info');
-
-            // KST 기준 오늘 날짜
-            const today = new Date();
-            const kstOffset = 9 * 60; // KST = UTC+9
-            const kstDate = new Date(today.getTime() + kstOffset * 60 * 1000);
-            const todayStr = kstDate.toISOString().split('T')[0]; // "2025-11-07"
-
-            log(`📆 오늘 날짜 (KST): ${todayStr}`, 'info');
-
-            const todayRewards = dailyRewards.filter(reward =>
-                reward.attendance_date === todayStr && !reward.is_received
-            );
-
-            if (todayRewards.length === 0) {
-                log('ℹ️ 오늘 수령 가능한 데일리 보상이 없습니다', 'info');
-            } else {
-                log(`💰 수령 가능한 데일리 보상: ${todayRewards.length}개`, 'info');
-
-                for (const reward of todayRewards) {
-                    try {
-                        log(`⏳ "${reward.item_name}" 수령 중...`, 'info');
-
-                        // reward_type 결정
-                        let rewardType;
-                        if (reward.item_type === 'ITEMBOX') {
-                            rewardType = 'itembox';
-                        } else if (reward.item_type === 'FLAKE') {
-                            rewardType = 'flake';
-                        } else {
-                            log(`  ⚠️ 알 수 없는 보상 타입: ${reward.item_type}`, 'warning');
-                            continue;
-                        }
-
-                        // 캐릭터 정보 추출
-                        let guid = null;
-                        let characterSeq = null;
-
-                        if (reward.has_game_character && characterInfo) {
-                            guid = characterInfo.value.guid;
-                            characterSeq = characterInfo.value.characters[0].character_seq;
-                        }
-
-                        // 보상 수령
-                        const result = await claimGameDailyReward(
-                            headers,
-                            reward.item_no,
-                            rewardType,
-                            guid,
-                            characterSeq
-                        );
-
-                        if (result && result.code === 0) {
-                            if (reward.item_type === 'FLAKE') {
-                                const rewardAmount = reward.flake_amount || 0;
-                                totalFlakeEarned += rewardAmount;
-                                log(`  ✓ "${reward.item_name}": +${rewardAmount.toLocaleString()} FLAKE`, 'success');
-                            } else {
-                                log(`  ✓ "${reward.item_name}" 수령 완료`, 'success');
-                            }
-                        } else {
-                            const errorCode = result?.code || 'N/A';
-                            const errorMsg = result?.message || 'N/A';
-                            log(`  ✗ 수령 실패: ${reward.item_name} (코드: ${errorCode}, 메시지: ${errorMsg})`, 'error');
-                        }
-
-                        await delay(500);
-                    } catch (e) {
-                        log(`  ✗ 수령 오류 (${reward.item_name}): ${e.message}`, 'error');
-                    }
-                }
-            }
-
-            // Step 4: 누적 출석 보상 수령
-            log('', 'info');
-            log('📦 누적 출석 보상 확인 중...', 'info');
-
-            // 🆕 데일리 보상 수령 후 최신 데이터 재조회
-            // 이유: 데일리 보상 수령 시 서버에서 total_attendance_days가 증가하므로
-            //       최신 값을 가져와야 정확한 누적 보상 조건 확인 가능
-            log('🔄 최신 누적 출석일 확인을 위해 데이터 재조회 중...', 'info');
-            const updatedShopData = await getGameDailyShopData(headers, gameId);
-
-            let totalDays = 0;
-            let currentAccumulatedRewards = accumulatedRewards; // 기본값
-
-            if (updatedShopData && updatedShopData.code === 0 && updatedShopData.value) {
-                // 재조회 성공 - 최신 값 사용
-                totalDays = updatedShopData.value.accumulated_attendances?.total_attendance_days || 0;
-                currentAccumulatedRewards = updatedShopData.value.accumulated_attendances?.rewards || [];
-                log(`✓ 최신 누적 출석일: ${totalDays}일`, 'success');
-            } else {
-                // 재조회 실패 - 기존 값 사용 (fallback)
-                totalDays = shopData.value.accumulated_attendances?.total_attendance_days || 0;
-                log(`⚠️ 데이터 재조회 실패 - 기존 값 사용: ${totalDays}일`, 'warning');
-            }
-
-            const claimableAccumulated = currentAccumulatedRewards.filter(reward =>
-                totalDays >= reward.rewardable_days && !reward.is_received
-            );
-
-            if (claimableAccumulated.length === 0) {
-                log(`ℹ️ 수령 가능한 누적 보상이 없습니다 (현재: ${totalDays}일 출석)`, 'info');
-
-                // 다음 누적 보상 안내
-                const nextReward = currentAccumulatedRewards
-                    .filter(r => !r.is_received && r.rewardable_days > totalDays)
-                    .sort((a, b) => a.rewardable_days - b.rewardable_days)[0];
-
-                if (nextReward) {
-                    const daysNeeded = nextReward.rewardable_days - totalDays;
-                    log(`  📅 다음 누적 보상: ${nextReward.item_name} (${nextReward.rewardable_days}일 - 앞으로 ${daysNeeded}일 필요)`, 'info');
-                }
-            } else {
-                log(`💰 수령 가능한 누적 보상: ${claimableAccumulated.length}개 (현재: ${totalDays}일 출석)`, 'info');
-
-                for (const reward of claimableAccumulated) {
-                    try {
-                        log(`⏳ "${reward.item_name}" 수령 중... (${reward.rewardable_days}일 달성)`, 'info');
-
-                        // 게임 소유권 체크 (INDIE_GAME_COUPON만)
-                        if (reward.item_type === 'INDIE_GAME_COUPON' && reward.game_id) {
-                            const ownershipData = await checkGameOwnership(headers, reward.game_id);
-                            if (ownershipData && ownershipData.value && ownershipData.value.owner_list && ownershipData.value.owner_list.length > 0) {
-                                log(`  ⚠️ 이미 소유한 게임: ${reward.item_name} - 수령 건너뜀`, 'warning');
-                                continue;
-                            }
-                        }
-
-                        // 캐릭터 정보 준비 (ITEMBOX 타입의 경우)
-                        let guid = null;
-                        let characterSeq = null;
-
-                        if (reward.has_game_character && characterInfo) {
-                            // 이전에 조회한 캐릭터 정보 재활용
-                            guid = characterInfo.value.guid;
-                            characterSeq = characterInfo.value.characters[0].character_seq;
-                            log(`  🎭 캐릭터 정보 사용: ${characterInfo.value.characters[0].name}`, 'info');
-                        }
-
-                        // 누적 보상 수령 (캐릭터 정보 포함)
-                        const result = await claimDailyAccumulatedReward(
-                            headers,
-                            reward.item_no,
-                            reward.item_type,
-                            guid,
-                            characterSeq
-                        );
-
-                        if (result && result.code === 0) {
-                            if (reward.item_type === 'FLAKE') {
-                                const rewardAmount = reward.flake_amount || 0;
-                                totalFlakeEarned += rewardAmount;
-                                log(`  ✓ "${reward.item_name}": +${rewardAmount.toLocaleString()} FLAKE`, 'success');
-                            } else {
-                                log(`  ✓ "${reward.item_name}" 수령 완료`, 'success');
-                            }
-                        } else {
-                            const errorCode = result?.code || 'N/A';
-                            const errorMsg = result?.message || 'N/A';
-                            log(`  ✗ 수령 실패: ${reward.item_name} (코드: ${errorCode}, 메시지: ${errorMsg})`, 'error');
-                        }
-
-                        await delay(500);
-                    } catch (e) {
-                        log(`  ✗ 수령 오류 (${reward.item_name}): ${e.message}`, 'error');
-                    }
-                }
-            }
-
-            // 상태 업데이트
-            state.earnings.gameDailyShop = totalFlakeEarned;
-            state.completed.gameDailyShop = true;
-
-            if (totalFlakeEarned > 0) {
-                log(`✅ 아스텔리아 출석 보상 완료! 총 ${totalFlakeEarned.toLocaleString()} FLAKE 획득`, 'success');
-            } else {
-                log('✅ 아스텔리아 출석 보상 처리 완료 (FLAKE 수령 없음)', 'success');
-            }
-
-        } catch (error) {
-            log(`✗ 아스텔리아 출석 보상 오류: ${error.message}`, 'error');
-            console.error('Game daily shop error details:', error);
-        }
-
-        log('✅ 아스텔리아 출석 보상 처리 완료!', 'success');
-    }
-
     // Standalone roulette function (for button)
     async function runRoulette() {
         if (state.isRunning) {
@@ -3924,50 +3566,6 @@
         }
     }
 
-    async function checkGameDailyShopStatus(headers) {
-        try {
-            const gameId = CONFIG.gameDailyShop.gameId;
-            const gameDailyShopData = await getGameDailyShopData(headers, gameId);
-            console.log('[아스텔리아 상태 확인]', gameDailyShopData);
-
-            if (gameDailyShopData && gameDailyShopData.code === 0 && gameDailyShopData.value && gameDailyShopData.value.daily_attendances) {
-                const rewards = gameDailyShopData.value.daily_attendances.rewards || [];
-                const todayKSTString = getTodayKSTString();
-
-                console.log(`[아스텔리아] 오늘 날짜 (KST): ${todayKSTString}`);
-                console.log(`[아스텔리아] 총 보상 개수: ${rewards.length}개`);
-                console.log('[아스텔리아] 보상 목록:', rewards.map(r => ({ date: r.attendance_date, received: r.is_received })));
-
-                // 오늘 날짜의 보상 찾기
-                const todayReward = rewards.find(reward =>
-                    reward.attendance_date === todayKSTString
-                );
-
-                if (todayReward) {
-                    // 보상을 받았으면 완료, 받지 않았으면 미수령
-                    const received = todayReward.is_received;
-                    console.log(`[아스텔리아] 오늘 보상 찾음: received=${received}`);
-                    return {
-                        success: true,
-                        received,
-                        notReceived: !received
-                    };
-                } else {
-                    // 오늘 보상이 없음
-                    console.log('[아스텔리아] ⚠️ 오늘 날짜에 해당하는 보상이 없습니다');
-                    return { success: true, received: false, notReceived: false, noRewardToday: true };
-                }
-            }
-            console.log('[아스텔리아] ❌ API 응답 구조 오류:', gameDailyShopData);
-            return { success: false, error: '데이터 없음' };
-        } catch (e) {
-            console.error('[아스텔리아] ❌ 오류:', e);
-            return { success: false, error: e.message };
-        }
-    }
-
-    // checkQuestRewardStatus 함수 제거됨 (퀘스트 리워드 API 제거로 인해)
-
     async function checkSurveyStatus(headers) {
         try {
             if (!CONFIG.surveyMissions.enabled) {
@@ -4228,7 +3826,6 @@
                 roulette: { loading: true },
                 dailyShop: { loading: true },
                 majakShop: { loading: true },
-                gameDailyShop: { loading: true },
                 survey: { loading: true },
                 totalFlake: { loading: true },
                 monthlyFlake: { loading: true }
@@ -4236,13 +3833,12 @@
 
             // Fetch all statuses in parallel
             console.log('[상태 확인] API 호출 시작...');
-            const [articleWriteStatus, dailyMissionStatus, rouletteStatus, dailyShopStatus, majakShopStatus, gameDailyShopStatus, surveyStatus, totalFlake, monthlyFlake] = await Promise.all([
+            const [articleWriteStatus, dailyMissionStatus, rouletteStatus, dailyShopStatus, majakShopStatus, surveyStatus, totalFlake, monthlyFlake] = await Promise.all([
                 checkArticleWriteStatus(headers),
                 checkDailyMissionStatus(headers),
                 checkRouletteStatus(headers),
                 checkDailyShopStatus(headers),
                 checkMajakShopStatus(headers),
-                checkGameDailyShopStatus(headers),
                 checkSurveyStatus(headers),
                 getTotalFlakeBalance(headers),
                 getMonthlyFlakeTotal(headers)
@@ -4257,7 +3853,6 @@
                 roulette: rouletteStatus,
                 dailyShop: dailyShopStatus,
                 majakShop: majakShopStatus,
-                gameDailyShop: gameDailyShopStatus,
                 survey: surveyStatus,
                 totalFlake: totalFlake,
                 monthlyFlake: monthlyFlake
@@ -4273,7 +3868,6 @@
                 roulette: { success: false, error: '확인 실패' },
                 dailyShop: { success: false, error: '확인 실패' },
                 majakShop: { success: false, error: '확인 실패' },
-                gameDailyShop: { success: false, error: '확인 실패' },
                 survey: { success: false, error: '확인 실패' },
                 totalFlake: { error: true },
                 monthlyFlake: { error: true }
@@ -4465,34 +4059,6 @@
                 majakShopEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
             }
         }
-
-        // Update game daily shop status
-        const gameDailyShopEl = document.getElementById('stove-status-game-daily');
-        if (gameDailyShopEl && statusData.gameDailyShop) {
-            if (statusData.gameDailyShop.loading) {
-                gameDailyShopEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
-            } else if (statusData.gameDailyShop.success) {
-                const { received, notReceived, noRewardToday } = statusData.gameDailyShop;
-
-                if (received) {
-                    // 보상 받음 - 완료
-                    gameDailyShopEl.innerHTML = '<span style="color: #10b981">✅ 전부 완료</span>';
-                } else if (notReceived) {
-                    // 보상 받지 않음 - 미수령
-                    gameDailyShopEl.innerHTML = '<span style="color: #f59e0b">🎮 보상 받지 않음</span>';
-                } else if (noRewardToday) {
-                    // 오늘 보상이 목록에 없음
-                    gameDailyShopEl.innerHTML = '<span style="color: #9ca3af">⚠️ 오늘 보상 없음</span>';
-                } else {
-                    // 알 수 없는 상태
-                    gameDailyShopEl.innerHTML = '<span style="color: #6b7280">-</span>';
-                }
-            } else {
-                gameDailyShopEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
-            }
-        }
-
-        // 퀘스트 리워드 상태 UI 업데이트 제거됨 (퀘스트 리워드 API 제거로 인해)
 
         // Update survey status
         const surveyEl = document.getElementById('stove-status-survey');
@@ -4968,10 +4534,6 @@
                     <div class="stove-status-item">
                         <span class="stove-status-label">🀄 마작 리워드</span>
                         <span class="stove-status-value" id="stove-status-majak">-</span>
-                    </div>
-                    <div class="stove-status-item">
-                        <span class="stove-status-label">🎮 아스텔리아</span>
-                        <span class="stove-status-value" id="stove-status-game-daily">-</span>
                     </div>
                     <div class="stove-status-item">
                         <span class="stove-status-label">📊 설문조사</span>
