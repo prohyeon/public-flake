@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.4.1
+// @version      2.4.2
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.4.1',
+        version: '2.4.2',
         lastUpdated: '2025-12-01',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -51,8 +51,8 @@
         ],
         roulette: {
             enabled: true,              // 룰렛 자동 실행 활성화
-            subEventNo: '1000000237',   // 룰렛 이벤트 ID (11월 업데이트)
-            extraSubEventNo: '1000000239', // 룰렛 EXTRA 이벤트 ID (11월 업데이트)
+            subEventNo: '1000000248',   // 룰렛 이벤트 ID (12월 업데이트)
+            extraSubEventNo: '1000000250', // 룰렛 EXTRA 이벤트 ID (12월 업데이트)
             drawCost: 100,              // 룰렛 1회당 비용 (FLAKE)
             maxDraws: 30,               // 최대 룰렛 횟수 (일일 제한)
             maxRetries: 3,              // API 실패 시 최대 재시도 횟수
@@ -92,8 +92,9 @@
         prizeEntry: {
             enabled: true,              // 경품 응모 자동 실행 활성화
             missionNo: 8,               // mission_no (경품 응모하기)
-            eventNo: 1000000238,        // event_no for API endpoint
-            giftNo: 1000001184,         // gift_no for request body
+            eventNo: 1000000249,        // event_no for API endpoint (12월 업데이트, 동적 ID 우선 사용)
+            giftNo: 1000001247,         // gift_no: 스토브 5,000 포인트 (12월 업데이트, 동적 조회 우선)
+            targetGiftName: '스토브 5,000 포인트', // 동적 조회 시 찾을 경품명
             flakeCost: 500              // 응모 시 소모되는 FLAKE
         }
     };
@@ -144,6 +145,21 @@
             banner: null,       // BANNER type → 배너 미션
             attendance: null    // ACCUMULATION type (월간 범위) → 출석 미션
             // ACHIEVEMENT type은 제외 (달성 불가 항목)
+        },
+        // 동적으로 로드되는 룰렛 이벤트 ID들
+        // GET /emsbackapi/v3.0/events API에서 가져옴
+        rouletteEvents: {
+            draw: null,         // draw_info.sub_event_no → 룰렛 뽑기
+            extra: null,        // extra_info.sub_event_no → 룰렛 EXTRA 보상
+            apply: null,        // apply_info.sub_event_no → 경품 응모
+            checkIn: null       // check_in_info.sub_event_no → 체크인
+        },
+        // 동적으로 로드되는 경품 정보
+        prizeInfo: {
+            eventNo: null,      // sub_event_no for prize entry
+            giftNo: null,       // target gift_no (스토브 5,000 포인트)
+            giftName: null,     // 경품명
+            flakeCost: null     // 응모 비용
         }
     };
 
@@ -718,6 +734,168 @@
             }
         } catch (e) {
             console.error(`[미션 컴포넌트 로드] ✗ 실패:`, e.message);
+            return null;
+        }
+    }
+
+    // ============================================
+    // Roulette Event ID Loader (Dynamic)
+    // ============================================
+    // 룰렛 이벤트 ID를 동적으로 가져옵니다
+    // GET /emsbackapi/v3.0/events?service_id1=STOVE_WEB&service_id2=FLAKE_WEB
+    async function getRouletteEventIds(headers) {
+        const url = `${CONFIG.api.baseUrl}/emsbackapi/v3.0/events?service_id1=STOVE_WEB&service_id2=FLAKE_WEB`;
+        console.log(`[룰렛 이벤트 ID 로드] URL: ${url}`);
+
+        const eventHeaders = {
+            'Authorization': headers['Authorization'],
+            'caller-id': 'flake-fe',
+            'caller-detail': headers['X-UUID'] || headers['caller-detail'],
+            'x-lang': 'ko',
+            'x-nation': 'KR',
+            'Accept': 'application/json',
+            'Origin': 'https://reward.onstove.com',
+            'Referer': 'https://reward.onstove.com/'
+        };
+
+        try {
+            const response = await apiRequest(url, 'GET', eventHeaders);
+
+            if (response && response.code === 0 && response.value) {
+                const value = response.value;
+                const events = {
+                    draw: null,
+                    extra: null,
+                    apply: null,
+                    checkIn: null
+                };
+
+                // draw_info → 룰렛 뽑기
+                if (value.draw_info && value.draw_info.sub_event_no) {
+                    events.draw = String(value.draw_info.sub_event_no);
+                    console.log(`[룰렛 이벤트 ID] draw: ${events.draw}`);
+                }
+
+                // extra_info → 룰렛 EXTRA 보상
+                if (value.extra_info && value.extra_info.sub_event_no) {
+                    events.extra = String(value.extra_info.sub_event_no);
+                    console.log(`[룰렛 이벤트 ID] extra: ${events.extra}`);
+                }
+
+                // apply_info → 경품 응모
+                if (value.apply_info && value.apply_info.sub_event_no) {
+                    events.apply = String(value.apply_info.sub_event_no);
+                    console.log(`[룰렛 이벤트 ID] apply: ${events.apply}`);
+                }
+
+                // check_in_info → 체크인
+                if (value.check_in_info && value.check_in_info.sub_event_no) {
+                    events.checkIn = String(value.check_in_info.sub_event_no);
+                    console.log(`[룰렛 이벤트 ID] checkIn: ${events.checkIn}`);
+                }
+
+                // Update state
+                state.rouletteEvents = events;
+
+                console.log(`[룰렛 이벤트 ID 로드] ✓ 완료:`, events);
+                return events;
+            } else {
+                console.error(`[룰렛 이벤트 ID 로드] ✗ API 오류:`, response);
+                return null;
+            }
+        } catch (e) {
+            console.error(`[룰렛 이벤트 ID 로드] ✗ 실패:`, e.message);
+            return null;
+        }
+    }
+
+    // Get roulette subEventNo (dynamic or fallback to config)
+    function getRouletteSubEventNo() {
+        return state.rouletteEvents.draw || CONFIG.roulette.subEventNo;
+    }
+
+    // Get roulette extra subEventNo (dynamic or fallback to config)
+    function getRouletteExtraSubEventNo() {
+        return state.rouletteEvents.extra || CONFIG.roulette.extraSubEventNo;
+    }
+
+    // Get prize entry eventNo (dynamic or fallback to config)
+    function getPrizeEventNo() {
+        return state.prizeInfo.eventNo || state.rouletteEvents.apply || CONFIG.prizeEntry.eventNo;
+    }
+
+    // Get prize giftNo (dynamic or fallback to config)
+    function getPrizeGiftNo() {
+        return state.prizeInfo.giftNo || CONFIG.prizeEntry.giftNo;
+    }
+
+    // Get prize flake cost (dynamic or fallback to config)
+    function getPrizeFlakeCost() {
+        return state.prizeInfo.flakeCost || CONFIG.prizeEntry.flakeCost;
+    }
+
+    /**
+     * 경품 정보 동적 로드 - 지정된 경품명의 gift_no와 응모 비용을 가져옴
+     * API: GET /emsbackapi/v3.0/apply?sub_event_no={eventNo}
+     */
+    async function getPrizeInfo(headers) {
+        const eventNo = state.rouletteEvents.apply || CONFIG.prizeEntry.eventNo;
+        const url = `${CONFIG.api.baseUrl}/emsbackapi/v3.0/apply?sub_event_no=${eventNo}`;
+        console.log(`[경품 정보 로드] URL: ${url}`);
+
+        const prizeHeaders = {
+            'Authorization': headers['Authorization'],
+            'caller-id': 'flake-fe',
+            'caller-detail': headers['X-UUID'] || headers['caller-detail'],
+            'x-lang': 'ko',
+            'x-nation': 'KR',
+            'Accept': '*/*',
+            'Origin': 'https://reward.onstove.com',
+            'Referer': 'https://reward.onstove.com/'
+        };
+
+        try {
+            const response = await apiRequest(url, 'GET', prizeHeaders);
+
+            if (response && response.code === 0 && response.value) {
+                const value = response.value;
+
+                // 기본 이벤트 정보 저장
+                state.prizeInfo.eventNo = String(value.sub_event_no);
+
+                // 응모 비용 가져오기 (participation_method_list에서)
+                if (value.participation_method_list && value.participation_method_list.length > 0) {
+                    state.prizeInfo.flakeCost = value.participation_method_list[0].participation_amount;
+                    console.log(`[경품 정보] 응모 비용: ${state.prizeInfo.flakeCost} FLAKE`);
+                }
+
+                // 타겟 경품 찾기 (스토브 5,000 포인트)
+                if (value.gift_list && value.gift_list.length > 0) {
+                    const targetGiftName = CONFIG.prizeEntry.targetGiftName || '스토브 5,000 포인트';
+                    const targetGift = value.gift_list.find(gift =>
+                        gift.gift_name && gift.gift_name.includes('5,000') && gift.gift_name.includes('포인트')
+                    );
+
+                    if (targetGift) {
+                        state.prizeInfo.giftNo = targetGift.gift_no;
+                        state.prizeInfo.giftName = targetGift.gift_name;
+                        console.log(`[경품 정보] ✓ 타겟 경품 발견: ${targetGift.gift_name} (gift_no: ${targetGift.gift_no})`);
+                    } else {
+                        console.warn(`[경품 정보] 타겟 경품 "${targetGiftName}" 을 찾지 못함, CONFIG 값 사용`);
+                    }
+
+                    // 전체 경품 목록 로그
+                    console.log(`[경품 정보] 경품 목록:`, value.gift_list.map(g => `${g.gift_name}(${g.gift_no})`).join(', '));
+                }
+
+                console.log(`[경품 정보 로드] ✓ 완료:`, state.prizeInfo);
+                return state.prizeInfo;
+            } else {
+                console.error(`[경품 정보 로드] ✗ API 오류:`, response);
+                return null;
+            }
+        } catch (e) {
+            console.error(`[경품 정보 로드] ✗ 실패:`, e.message);
             return null;
         }
     }
@@ -1735,6 +1913,26 @@
                 log('⚠️ 미션 컴포넌트 로드 실패 - 미션 기능이 제한될 수 있습니다', 'warning');
             }
 
+            // Step 4.4.1: Load roulette event IDs dynamically
+            log('🎰 룰렛 이벤트 ID 로드 중...', 'info');
+            const rouletteEvents = await getRouletteEventIds(headers);
+            if (!rouletteEvents) {
+                log('⚠️ 룰렛 이벤트 ID 로드 실패 - CONFIG 값 사용', 'warning');
+            } else {
+                log(`✓ 룰렛 ID: ${rouletteEvents.draw}, EXTRA ID: ${rouletteEvents.extra}`, 'success');
+            }
+
+            // Step 4.4.2: Load prize info dynamically (for prize entry)
+            if (CONFIG.prizeEntry.enabled) {
+                log('🎁 경품 정보 로드 중...', 'info');
+                const prizeInfo = await getPrizeInfo(headers);
+                if (!prizeInfo) {
+                    log('⚠️ 경품 정보 로드 실패 - CONFIG 값 사용', 'warning');
+                } else {
+                    log(`✓ 경품: ${prizeInfo.giftName || CONFIG.prizeEntry.targetGiftName} (ID: ${prizeInfo.giftNo || CONFIG.prizeEntry.giftNo})`, 'success');
+                }
+            }
+
             // Step 4.5: Execute prize entry (before SINGLE missions to avoid timeout)
             log('', 'info'); // Empty line for separation
             await executePrizeEntry(headers);
@@ -2127,7 +2325,7 @@
 
                     // Check remaining participation count
                     console.log(`\n[룰렛 실행 루프] ===== Round ${roundCount} 시작 =====`);
-                    const participationInfo = await getRouletteParticipationCount(headers, CONFIG.roulette.subEventNo);
+                    const participationInfo = await getRouletteParticipationCount(headers, getRouletteSubEventNo());
 
                     console.log(`[룰렛 실행 루프] participationInfo 검증:`, {
                         exists: !!participationInfo,
@@ -2194,7 +2392,7 @@
                                     await delay(CONFIG.roulette.retryDelay);
                                 }
 
-                                const drawResult = await executeRouletteDraw(headers, CONFIG.roulette.subEventNo);
+                                const drawResult = await executeRouletteDraw(headers, getRouletteSubEventNo());
 
                                 // Check for API error codes
                                 if (drawResult && drawResult.code !== 0) {
@@ -3074,8 +3272,14 @@
                 return;
             }
 
-            // Step 2: Apply for prize (costs 500 FLAKE)
-            log(`⏳ 경품 응모 진행 중... (비용: ${CONFIG.prizeEntry.flakeCost} FLAKE)`, 'info');
+            // Step 2: Apply for prize (costs FLAKE)
+            const eventNo = getPrizeEventNo();
+            const giftNo = getPrizeGiftNo();
+            const flakeCost = getPrizeFlakeCost();
+            const giftName = state.prizeInfo.giftName || CONFIG.prizeEntry.targetGiftName || '스토브 5,000 포인트';
+
+            log(`⏳ 경품 응모 진행 중... (${giftName}, 비용: ${flakeCost} FLAKE)`, 'info');
+            console.log(`[경품 응모] eventNo: ${eventNo}, giftNo: ${giftNo}, cost: ${flakeCost}`);
 
             const applyHeaders = {
                 'Authorization': headers['Authorization'],
@@ -3089,9 +3293,9 @@
                 'Referer': 'https://reward.onstove.com/'
             };
 
-            const applyUrl = `${CONFIG.api.baseUrl}/emsbackapi/v3.0/apply/${CONFIG.prizeEntry.eventNo}`;
+            const applyUrl = `${CONFIG.api.baseUrl}/emsbackapi/v3.0/apply/${eventNo}`;
             const applyBody = {
-                gift_no: CONFIG.prizeEntry.giftNo,
+                gift_no: giftNo,
                 req_cnt: 1
             };
 
@@ -3104,7 +3308,7 @@
 
             log(`  ✓ 경품 응모 완료! (응모 번호: ${applyResult.value.user_apply_cnt})`, 'success');
             log(`  💰 잔여 FLAKE: ${applyResult.value.residue_flake}`, 'info');
-            netEarnings -= CONFIG.prizeEntry.flakeCost; // Deduct cost
+            netEarnings -= flakeCost; // Deduct cost
 
             // Step 3: Save today's date to sessionStorage
             sessionStorage.setItem('prize_entry_last_date', today);
@@ -3128,7 +3332,7 @@
 
             const profitSign = netEarnings >= 0 ? '+' : '';
             if (netEarnings !== 0) {
-                log(`✅ 경품 응모 완료! 순수익: ${profitSign}${netEarnings} FLAKE (응모비 ${CONFIG.prizeEntry.flakeCost} 제외)`, netEarnings >= 0 ? 'success' : 'info');
+                log(`✅ 경품 응모 완료! 순수익: ${profitSign}${netEarnings} FLAKE (응모비 ${flakeCost} 제외)`, netEarnings >= 0 ? 'success' : 'info');
             } else {
                 log(`✅ 경품 응모 완료! 미션 보상은 추후 수령 가능`, 'info');
             }
@@ -3472,7 +3676,7 @@
         let extraFlakeEarned = 0;
 
         try {
-            const extraData = await getRouletteExtra(headers, CONFIG.roulette.extraSubEventNo);
+            const extraData = await getRouletteExtra(headers, getRouletteExtraSubEventNo());
             console.log('[룰렛 EXTRA] API Response:', extraData);
 
             if (!extraData) {
@@ -3512,7 +3716,7 @@
                     try {
                         const result = await claimRouletteExtra(
                             headers,
-                            CONFIG.roulette.extraSubEventNo,
+                            getRouletteExtraSubEventNo(),
                             milestone.gift_no,
                             currentCycle
                         );
@@ -3602,7 +3806,7 @@
     // ============================================
     async function checkRouletteStatus(headers) {
         try {
-            const participationInfo = await getRouletteParticipationCount(headers, CONFIG.roulette.subEventNo);
+            const participationInfo = await getRouletteParticipationCount(headers, getRouletteSubEventNo());
             if (participationInfo && participationInfo.value) {
                 const maxDraws = CONFIG.roulette.maxDraws; // 최대 룰렛 횟수
                 const current = participationInfo.value.participation_cnt || 0;
