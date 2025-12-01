@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.3.0
+// @version      2.4.0
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,8 +22,8 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.3.0',   
-        lastUpdated: '2025-11-25',
+        version: '2.4.0',
+        lastUpdated: '2025-12-01',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
             startDate: '2025-11-01',          // KST 기준 점검 시작일 (YYYY-MM-DD)
@@ -60,35 +60,33 @@
         },
         dailyMissions: {
             enabled: true,              // 데일리 미션 자동 실행 활성화
-            componentNo: 1,             // 미션 컴포넌트 번호
+            // componentNo는 getMissionComponentIds()에서 동적으로 로드 (SINGLE type)
             visitMissions: [1, 2],      // 방문 미션 번호 (MY홈, 스토브 메인)
             skipMissions: [3],          // 건너뛸 미션 번호 (3: 스토브 앱 로그인)
             visitDelay: 3000            // 방문 후 탭 닫기까지 대기 시간 (ms)
         },
         contentMissions: {
-            enabled: true,              // 컨텐츠 미션 자동 실행 활성화
-            componentNo: 4              // 미션 컴포넌트 번호 (인기 게시글 보기)
+            enabled: true               // 컨텐츠 미션 자동 실행 활성화
+            // componentNo는 getMissionComponentIds()에서 동적으로 로드 (CONTENT1 type)
         },
         weeklyMissions: {
-            enabled: true,              // 위클리 미션 자동 실행 활성화
-            componentNo: 28             // 미션 컴포넌트 번호 (위클리 미션 4주차)
+            enabled: true               // 위클리 미션 자동 실행 활성화
+            // componentNo는 getMissionComponentIds()에서 동적으로 로드 (ACCUMULATION type, 주간 범위)
+            // 주차별 자동 전환: 현재 날짜 기준으로 해당 주차의 component_no 사용
         },
-        eventMissions: {
-            enabled: true,              // 이벤트 미션 자동 실행 활성화
-            componentNo: 9              // 미션 컴포넌트 번호 (오픈기념 이벤트)
-        },
+        // eventMissions 제거됨 (12월부터 해당 타입 없음)
         bannerMissions: {
             enabled: true,              // 배너 미션 자동 실행 활성화
-            componentNo: 12,            // 미션 컴포넌트 번호 (11월 배너 미션)
+            // componentNo는 getMissionComponentIds()에서 동적으로 로드 (BANNER type)
             visitDelay: 3000            // 방문 후 탭 닫기까지 대기 시간 (ms)
         },
         attendanceMissions: {
-            enabled: true,              // 출석 미션 자동 실행 활성화
-            componentNo: 10             // 미션 컴포넌트 번호 (매일 출석 보너스)
+            enabled: true               // 출석 미션 자동 실행 활성화
+            // componentNo는 getMissionComponentIds()에서 동적으로 로드 (ACCUMULATION type, 월간 범위)
         },
         surveyMissions: {
             enabled: true,              // 설문조사 미션 자동 실행 활성화
-            componentNo: 11,            // 미션 컴포넌트 번호 (설문조사)
+            // componentNo는 getMissionComponentIds()에서 동적으로 로드 (SURVEY type)
             voteStrategy: 'highest'     // 투표 전략: 'highest' (최다 득표), 'lowest' (최소 득표), 'random' (랜덤)
         },
         prizeEntry: {
@@ -117,7 +115,6 @@
             dailyMissions: false,   // 데일리 미션 완료 여부
             contentMissions: false, // 컨텐츠 미션 완료 여부
             weeklyMissions: false,  // 위클리 미션 완료 여부
-            eventMissions: false,   // 이벤트 미션 완료 여부
             bannerMissions: false,  // 배너 미션 완료 여부
             attendanceMissions: false, // 출석 미션 완료 여부
             surveyMissions: false,  // 설문조사 미션 완료 여부
@@ -125,7 +122,6 @@
         },
         createdCommentIds: [],  // Store created comment IDs for liking
         earnings: {
-            // quest: 0 제거됨 (퀘스트 리워드 API 제거로 인해)
             roulette: 0,         // Net profit from roulette (rewards - cost)
             rouletteExtra: 0,    // FLAKE from roulette extra milestones
             dailyShop: 0,        // FLAKE from daily shop rewards
@@ -133,11 +129,21 @@
             dailyMissions: 0,    // FLAKE from daily missions
             contentMissions: 0,  // FLAKE from content missions
             weeklyMissions: 0,   // FLAKE from weekly missions
-            eventMissions: 0,    // FLAKE from event missions
             bannerMissions: 0,   // FLAKE from banner missions
             attendanceMissions: 0, // FLAKE from attendance missions
             surveyMissions: 0,   // FLAKE from survey missions
             prizeEntry: 0        // FLAKE from prize entry (net: reward - cost)
+        },
+        // 동적으로 로드되는 미션 컴포넌트 ID들
+        // GET /flake-shop/v1/page?page_type=MISSION API에서 가져옴
+        missionComponents: {
+            daily: null,        // SINGLE type → 데일리 미션
+            content: null,      // CONTENT1 type → 컨텐츠 미션 (포스트 방문)
+            weekly: null,       // ACCUMULATION type (주간 범위) → 위클리 미션
+            survey: null,       // SURVEY type → 설문조사 미션
+            banner: null,       // BANNER type → 배너 미션
+            attendance: null    // ACCUMULATION type (월간 범위) → 출석 미션
+            // ACHIEVEMENT type은 제외 (달성 불가 항목)
         }
     };
 
@@ -577,10 +583,58 @@
     // getQuestStatus, claimReward, claimMasterReward 함수 제거됨
 
     // ============================================
-    // Daily Missions API Functions
+    // Mission Component ID Loader
     // ============================================
-    async function getDailyMissions(headers) {
-        const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${CONFIG.dailyMissions.componentNo}`;
+    /**
+     * API 타입 → 프로젝트 매핑 정의
+     *
+     * API type (from GET /flake-shop/v1/page?page_type=MISSION):
+     *   - SINGLE        → dailyMissions (데일리 미션)
+     *   - CONTENT1      → contentMissions (컨텐츠 미션 - 포스트 방문)
+     *   - SURVEY        → surveyMissions (설문조사 미션)
+     *   - BANNER        → bannerMissions (배너 미션)
+     *   - ACCUMULATION  → 날짜 범위로 구분:
+     *       - 주간 범위 (≤14일) → weeklyMissions (위클리 미션)
+     *       - 월간 범위 (>14일) → attendanceMissions (출석 미션)
+     *   - ACHIEVEMENT   → 제외 (달성 불가 항목)
+     */
+
+    /**
+     * 날짜 범위로 ACCUMULATION 타입 구분 (위클리 vs 출석)
+     * @param {string} startDt - 시작일 (YYYY-MM-DDTHH:mm:ss)
+     * @param {string} endDt - 종료일 (YYYY-MM-DDTHH:mm:ss)
+     * @returns {boolean} true면 위클리(주간), false면 출석(월간)
+     */
+    function isWeeklyAccumulation(startDt, endDt) {
+        const start = new Date(startDt);
+        const end = new Date(endDt);
+        const diffDays = (end - start) / (1000 * 60 * 60 * 24);
+        // 14일 이하면 위클리, 초과면 월간 출석
+        return diffDays <= 14;
+    }
+
+    /**
+     * 현재 날짜가 컴포넌트의 유효 기간 내에 있는지 확인
+     * @param {string} startDt - 시작일
+     * @param {string} endDt - 종료일
+     * @returns {boolean} 현재 활성화 여부
+     */
+    function isComponentActive(startDt, endDt) {
+        const now = new Date();
+        const start = new Date(startDt);
+        const end = new Date(endDt);
+        return now >= start && now <= end;
+    }
+
+    /**
+     * 미션 컴포넌트 ID들을 동적으로 로드
+     * GET /flake-shop/v1/page?page_type=MISSION API 호출
+     *
+     * @param {Object} headers - API 요청 헤더
+     * @returns {Object|null} 매핑된 컴포넌트 ID 객체 또는 null
+     */
+    async function getMissionComponentIds(headers) {
+        const url = `${CONFIG.api.baseUrl}/flake-shop/v1/page?page_type=MISSION`;
 
         const missionHeaders = {
             'Authorization': headers['Authorization'],
@@ -593,7 +647,105 @@
             'Referer': 'https://reward.onstove.com/'
         };
 
-        console.log(`[데일리 미션 조회] URL: ${url}`);
+        console.log(`[미션 컴포넌트 로드] URL: ${url}`);
+
+        try {
+            const response = await apiRequest(url, 'GET', missionHeaders);
+
+            if (response && response.code === 0 && response.value?.component_list) {
+                const componentList = response.value.component_list;
+                const components = {
+                    daily: null,
+                    content: null,
+                    weekly: null,
+                    survey: null,
+                    banner: null,
+                    attendance: null
+                };
+
+                for (const comp of componentList) {
+                    // 현재 활성화된 컴포넌트만 처리
+                    if (!isComponentActive(comp.start_dt, comp.end_dt)) {
+                        console.log(`[미션 컴포넌트] ⏭️ ${comp.type} (${comp.component_no}) - 비활성 기간`);
+                        continue;
+                    }
+
+                    switch (comp.type) {
+                        case 'SINGLE':
+                            components.daily = comp.component_no;
+                            console.log(`[미션 컴포넌트] ✓ SINGLE → daily: ${comp.component_no}`);
+                            break;
+                        case 'CONTENT1':
+                            components.content = comp.component_no;
+                            console.log(`[미션 컴포넌트] ✓ CONTENT1 → content: ${comp.component_no}`);
+                            break;
+                        case 'SURVEY':
+                            components.survey = comp.component_no;
+                            console.log(`[미션 컴포넌트] ✓ SURVEY → survey: ${comp.component_no}`);
+                            break;
+                        case 'BANNER':
+                            components.banner = comp.component_no;
+                            console.log(`[미션 컴포넌트] ✓ BANNER → banner: ${comp.component_no}`);
+                            break;
+                        case 'ACCUMULATION':
+                            // 날짜 범위로 위클리/출석 구분
+                            if (isWeeklyAccumulation(comp.start_dt, comp.end_dt)) {
+                                components.weekly = comp.component_no;
+                                const weekInfo = `${comp.start_dt.slice(5, 10)} ~ ${comp.end_dt.slice(5, 10)}`;
+                                console.log(`[미션 컴포넌트] ✓ ACCUMULATION (주간) → weekly: ${comp.component_no} (${weekInfo})`);
+                            } else {
+                                components.attendance = comp.component_no;
+                                console.log(`[미션 컴포넌트] ✓ ACCUMULATION (월간) → attendance: ${comp.component_no}`);
+                            }
+                            break;
+                        case 'ACHIEVEMENT':
+                            // 제외 (달성 불가 항목)
+                            console.log(`[미션 컴포넌트] ⏭️ ACHIEVEMENT (${comp.component_no}) - 제외됨`);
+                            break;
+                        default:
+                            console.log(`[미션 컴포넌트] ⚠️ 알 수 없는 타입: ${comp.type} (${comp.component_no})`);
+                    }
+                }
+
+                // state에 저장
+                state.missionComponents = components;
+
+                console.log(`[미션 컴포넌트 로드] ✓ 완료:`, components);
+                return components;
+            } else {
+                console.error(`[미션 컴포넌트 로드] ✗ API 오류:`, response);
+                return null;
+            }
+        } catch (e) {
+            console.error(`[미션 컴포넌트 로드] ✗ 실패:`, e.message);
+            return null;
+        }
+    }
+
+    // ============================================
+    // Daily Missions API Functions
+    // ============================================
+    async function getDailyMissions(headers) {
+        const componentNo = state.missionComponents.daily;
+        if (!componentNo) {
+            console.error(`[데일리 미션 조회] ✗ componentNo가 로드되지 않음`);
+            return null;
+        }
+
+        const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
+
+        const missionHeaders = {
+            'Authorization': headers['Authorization'],
+            'caller-id': 'flake-fe',
+            'caller-detail': headers['X-UUID'] || headers['caller-detail'],
+            'x-lang': 'ko',
+            'x-nation': 'KR',
+            'Accept': '*/*',
+            'Origin': 'https://reward.onstove.com',
+            'Referer': 'https://reward.onstove.com/'
+        };
+
+        console.log(`[데일리 미션 조회] URL: ${url} (componentNo: ${componentNo})`);
 
         try {
             const response = await apiRequest(url, 'GET', missionHeaders);
@@ -1548,27 +1700,31 @@
             log('', 'info'); // Empty line for separation
             await visitRequiredPages();
 
-            // Step 4.4: Execute prize entry (before SINGLE missions to avoid timeout)
+            // Step 4.4: Load mission component IDs dynamically
+            log('', 'info'); // Empty line for separation
+            log('🔄 미션 컴포넌트 ID 로드 중...', 'info');
+            const missionComponents = await getMissionComponentIds(headers);
+            if (!missionComponents) {
+                log('⚠️ 미션 컴포넌트 로드 실패 - 미션 기능이 제한될 수 있습니다', 'warning');
+            }
+
+            // Step 4.5: Execute prize entry (before SINGLE missions to avoid timeout)
             log('', 'info'); // Empty line for separation
             await executePrizeEntry(headers);
 
-            // Step 4.5: Execute daily missions (before roulette)
+            // Step 4.6: Execute daily missions (before roulette)
             log('', 'info'); // Empty line for separation
             await executeDailyMissions(headers);
 
-            // Step 4.6: Execute content missions (after daily missions)
+            // Step 4.7: Execute content missions (after daily missions)
             log('', 'info'); // Empty line for separation
             await executeContentMissions(headers);
 
-            // Step 4.7: Execute weekly missions (after content missions)
+            // Step 4.8: Execute weekly missions (after content missions)
             log('', 'info'); // Empty line for separation
             await executeWeeklyMissions(headers);
 
-            // Step 4.8: Execute event missions (after weekly missions)
-            log('', 'info'); // Empty line for separation
-            await executeEventMissions(headers);
-
-            // Step 4.9: Execute banner missions (after event missions)
+            // Step 4.9: Execute banner missions (after weekly missions)
             log('', 'info'); // Empty line for separation
             await executeBannerMissions(headers);
 
@@ -1677,11 +1833,11 @@
             const commentFlake = skipRewards ? 0 : state.progress.comments * 30; // 댓글 쓰기 1회당 30 FLAKE
             const questActivityFlake = articleWriteFlake + articleLikeFlake + commentFlake;
 
-            // Calculate and display total earnings (quest 제외됨)
+            // Calculate and display total earnings (quest, eventMissions 제외됨)
             const totalEarnings = questActivityFlake + state.earnings.roulette +
                                  state.earnings.rouletteExtra + state.earnings.dailyShop + state.earnings.majak +
                                  state.earnings.dailyMissions + state.earnings.contentMissions +
-                                 state.earnings.weeklyMissions + state.earnings.eventMissions +
+                                 state.earnings.weeklyMissions +
                                  state.earnings.bannerMissions + state.earnings.attendanceMissions +
                                  state.earnings.surveyMissions + state.earnings.prizeEntry +
                                  dailyAccumulatedFlake;
@@ -1700,7 +1856,6 @@
             log(`  📋 데일리 미션: ${state.earnings.dailyMissions} FLAKE`, state.earnings.dailyMissions > 0 ? 'success' : 'info');
             log(`  📰 컨텐츠 미션: ${state.earnings.contentMissions} FLAKE`, state.earnings.contentMissions > 0 ? 'success' : 'info');
             log(`  📅 위클리 미션: ${state.earnings.weeklyMissions} FLAKE`, state.earnings.weeklyMissions > 0 ? 'success' : 'info');
-            log(`  🎉 이벤트 미션: ${state.earnings.eventMissions} FLAKE`, state.earnings.eventMissions > 0 ? 'success' : 'info');
             log(`  🎨 배너 미션: ${state.earnings.bannerMissions} FLAKE`, state.earnings.bannerMissions > 0 ? 'success' : 'info');
             log(`  📆 출석 미션: ${state.earnings.attendanceMissions} FLAKE`, state.earnings.attendanceMissions > 0 ? 'success' : 'info');
             log(`  📊 설문조사: ${state.earnings.surveyMissions} FLAKE`, state.earnings.surveyMissions > 0 ? 'success' : 'info');
@@ -2196,7 +2351,7 @@
                 log(`🎁 수령 가능한 보상 ${receivableMissions.length}개 발견`, 'info');
 
                 for (const mission of receivableMissions) {
-                    const result = await receiveMissionReward(headers, mission.mission_no, CONFIG.dailyMissions.componentNo);
+                    const result = await receiveMissionReward(headers, mission.mission_no, state.missionComponents.daily);
 
                     if (result && result.reward_amount) {
                         totalEarned += result.reward_amount;
@@ -2235,9 +2390,16 @@
         log('📰 컨텐츠 미션 시작...', 'info');
         let totalEarned = 0;
 
+        const componentNo = state.missionComponents.content;
+        if (!componentNo) {
+            log('⚠️ 컨텐츠 미션 componentNo가 로드되지 않음', 'warning');
+            state.completed.contentMissions = true;
+            return;
+        }
+
         try {
             // 1단계: 미션 목록 조회
-            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${CONFIG.contentMissions.componentNo}`;
+            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
 
             const missionHeaders = {
                 'Authorization': headers['Authorization'],
@@ -2311,7 +2473,7 @@
 
                 // 5단계: 미션 보상 수령
                 for (const mission of receivableMissions) {
-                    const result = await receiveMissionReward(headers, mission.mission_no, CONFIG.contentMissions.componentNo);
+                    const result = await receiveMissionReward(headers, mission.mission_no, componentNo);
 
                     if (result && result.reward_amount) {
                         totalEarned += result.reward_amount;
@@ -2349,9 +2511,16 @@
         log('📅 위클리 미션 시작...', 'info');
         let totalEarned = 0;
 
+        const componentNo = state.missionComponents.weekly;
+        if (!componentNo) {
+            log('⚠️ 위클리 미션 componentNo가 로드되지 않음 (해당 주차 미션 없음)', 'warning');
+            state.completed.weeklyMissions = true;
+            return;
+        }
+
         try {
             // 1단계: 미션 목록 조회
-            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${CONFIG.weeklyMissions.componentNo}`;
+            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
 
             const missionHeaders = {
                 'Authorization': headers['Authorization'],
@@ -2386,7 +2555,7 @@
 
                 // 3단계: 미션 보상 수령
                 for (const mission of receivableMissions) {
-                    const result = await receiveMissionReward(headers, mission.mission_no, CONFIG.weeklyMissions.componentNo);
+                    const result = await receiveMissionReward(headers, mission.mission_no, componentNo);
 
                     if (result && result.reward_amount) {
                         totalEarned += result.reward_amount;
@@ -2425,96 +2594,10 @@
         log('✅ 위클리 미션 처리 완료!', 'success');
     }
 
-    /**
-     * 이벤트 미션 자동 수령 (component_no=9)
-     * - RECEIVABLE 상태인 미션만 바로 수령
-     * - INCOMPLETE, COMPLETE 상태는 스킵
-     */
-    async function executeEventMissions(headers) {
-        if (!CONFIG.eventMissions.enabled) {
-            log('⏭️ 이벤트 미션이 비활성화되어 있습니다', 'info');
-            return;
-        }
-
-        log('🎉 이벤트 미션 시작...', 'info');
-        let totalEarned = 0;
-
-        try {
-            // Step 1: 미션 목록 조회
-            const missionHeaders = {
-                ...headers,
-                'accept': 'application/json',
-                'content-type': 'application/json'
-            };
-
-            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${CONFIG.eventMissions.componentNo}`;
-            const missionData = await apiRequest(url, 'GET', missionHeaders);
-
-            if (!missionData || !missionData.value || !missionData.value.missions) {
-                log('⚠️ 이벤트 미션 데이터를 찾을 수 없습니다', 'warning');
-                state.earnings.eventMissions = 0;
-                state.completed.eventMissions = true;
-                return;
-            }
-
-            const missions = missionData.value.missions;
-            log(`📋 이벤트 미션 ${missions.length}개 발견`, 'info');
-
-            // Step 2: RECEIVABLE 상태만 필터링 (INCOMPLETE, COMPLETE 스킵)
-            const receivableMissions = missions.filter(m => m.status === 'RECEIVABLE');
-
-            if (receivableMissions.length === 0) {
-                log('ℹ️ 수령 가능한 이벤트 미션이 없습니다', 'info');
-
-                // 진행 중이거나 완료된 미션 표시
-                const incompleteMissions = missions.filter(m => m.status === 'INCOMPLETE');
-                const completeMissions = missions.filter(m => m.status === 'COMPLETE');
-
-                if (incompleteMissions.length > 0) {
-                    log(`  📌 진행 중: ${incompleteMissions.length}개`, 'info');
-                }
-                if (completeMissions.length > 0) {
-                    log(`  ✓ 완료됨: ${completeMissions.length}개`, 'info');
-                }
-            } else {
-                log(`💰 수령 가능한 미션: ${receivableMissions.length}개`, 'info');
-
-                // Step 3: RECEIVABLE 미션 보상 수령
-                for (const mission of receivableMissions) {
-                    log(`⏳ "${mission.title}" 수령 중... (보상: ${mission.reward_amount} 플레이크)`, 'info');
-
-                    const result = await receiveMissionReward(headers, mission.mission_no, CONFIG.eventMissions.componentNo);
-
-                    if (result && result.reward_amount) {
-                        totalEarned += result.reward_amount;
-                        log(`  ✓ "${mission.title}": +${result.reward_amount} FLAKE`, 'success');
-                    } else {
-                        log(`  ✗ "${mission.title}" 수령 실패`, 'error');
-                    }
-
-                    // API 부하 방지를 위한 짧은 대기
-                    await delay(500);
-                }
-            }
-
-            // Step 4: 결과 저장
-            state.earnings.eventMissions = totalEarned;
-            state.completed.eventMissions = true;
-
-            if (totalEarned > 0) {
-                log(`✅ 이벤트 미션 ${receivableMissions.length}개 완료! 총 ${totalEarned} FLAKE 획득`, 'success');
-            }
-
-        } catch (error) {
-            log(`✗ 이벤트 미션 오류: ${error.message}`, 'error');
-            console.error('Event missions error details:', error);
-        }
-
-        log('✅ 이벤트 미션 처리 완료!', 'success');
-    }
+    // executeEventMissions 제거됨 (12월부터 해당 타입 없음)
 
     /**
-     * 배너 미션 자동 수령 (component_no=12)
+     * 배너 미션 자동 수령
      * - button_url을 백그라운드 탭에서 열고 1초 후 닫음
      * - 그 후 mission_no로 수령 API 호출
      */
@@ -2527,6 +2610,13 @@
         log('🎨 배너 미션 시작...', 'info');
         let totalEarned = 0;
 
+        const componentNo = state.missionComponents.banner;
+        if (!componentNo) {
+            log('⚠️ 배너 미션 componentNo가 로드되지 않음', 'warning');
+            state.completed.bannerMissions = true;
+            return;
+        }
+
         try {
             // Step 1: 미션 목록 조회
             const missionHeaders = {
@@ -2535,7 +2625,7 @@
                 'content-type': 'application/json'
             };
 
-            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${CONFIG.bannerMissions.componentNo}`;
+            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
             const missionData = await apiRequest(url, 'GET', missionHeaders);
 
             if (!missionData || !missionData.value || !missionData.value.missions) {
@@ -2613,7 +2703,7 @@
                 for (const mission of claimableMissions) {
                     log(`⏳ "${mission.title.replace(/<br>/g, ' ')}" 수령 중... (보상: ${mission.reward_amount} 플레이크)`, 'info');
 
-                    const result = await receiveMissionReward(headers, mission.mission_no, CONFIG.bannerMissions.componentNo);
+                    const result = await receiveMissionReward(headers, mission.mission_no, componentNo);
 
                     if (result && result.reward_amount) {
                         totalEarned += result.reward_amount;
@@ -2659,6 +2749,13 @@
         log('📅 출석 미션 시작...', 'info');
         let totalEarned = 0;
 
+        const componentNo = state.missionComponents.attendance;
+        if (!componentNo) {
+            log('⚠️ 출석 미션 componentNo가 로드되지 않음', 'warning');
+            state.completed.attendanceMissions = true;
+            return;
+        }
+
         try {
             // Step 1: 미션 목록 조회
             const missionHeaders = {
@@ -2667,7 +2764,7 @@
                 'content-type': 'application/json'
             };
 
-            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${CONFIG.attendanceMissions.componentNo}`;
+            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
             const missionData = await apiRequest(url, 'GET', missionHeaders);
 
             if (!missionData || !missionData.value || !missionData.value.missions) {
@@ -2706,7 +2803,7 @@
                 for (const mission of receivableMissions) {
                     log(`⏳ "${mission.title}" 수령 중... (보상: ${mission.reward_amount} 플레이크)`, 'info');
 
-                    const result = await receiveMissionReward(headers, mission.mission_no, CONFIG.attendanceMissions.componentNo);
+                    const result = await receiveMissionReward(headers, mission.mission_no, componentNo);
 
                     if (result && result.reward_amount) {
                         totalEarned += result.reward_amount;
@@ -2751,9 +2848,16 @@
         log('📊 설문조사 미션 시작...', 'info');
         let totalEarned = 0;
 
+        const componentNo = state.missionComponents.survey;
+        if (!componentNo) {
+            log('⚠️ 설문조사 미션 componentNo가 로드되지 않음', 'warning');
+            state.completed.surveyMissions = true;
+            return;
+        }
+
         try {
             // Step 1: 미션 목록 조회
-            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${CONFIG.surveyMissions.componentNo}`;
+            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
 
             const missionHeaders = {
                 'Authorization': headers['Authorization'],
@@ -2823,7 +2927,7 @@
 
                         const voteBody = {
                             mission_no: mission.mission_no,
-                            component_no: CONFIG.surveyMissions.componentNo,
+                            component_no: componentNo,
                             content_nos: [selectedContentNo]
                         };
 
@@ -2982,7 +3086,7 @@
             // Step 4: Claim mission reward if RECEIVABLE
             log(`⏳ 경품 응모 미션 보상 확인 중...`, 'info');
 
-            const result = await receiveMissionReward(headers, CONFIG.prizeEntry.missionNo, CONFIG.dailyMissions.componentNo);
+            const result = await receiveMissionReward(headers, CONFIG.prizeEntry.missionNo, state.missionComponents.daily);
 
             if (result && result.reward_amount) {
                 netEarnings += result.reward_amount;
@@ -3572,7 +3676,12 @@
                 return { success: true, notAvailable: true };
             }
 
-            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${CONFIG.surveyMissions.componentNo}`;
+            const componentNo = state.missionComponents.survey;
+            if (!componentNo) {
+                return { success: true, notAvailable: true };
+            }
+
+            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
             const response = await apiRequest(url, 'GET', headers);
 
             console.log('[설문조사 상태 확인]', response);
