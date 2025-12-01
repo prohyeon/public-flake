@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.4.0
+// @version      2.4.1
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -15,14 +15,14 @@
 // @run-at       document-idle
 // ==/UserScript==
 
-(function() {
+(function () {
     'use strict';
 
     // ============================================
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.4.0',
+        version: '2.4.1',
         lastUpdated: '2025-12-01',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -387,7 +387,7 @@
                 url: url,
                 headers: headers,
                 data: body ? JSON.stringify(body) : null,
-                onload: function(response) {
+                onload: function (response) {
                     console.log(`[API Request] ${method} ${url} - Status: ${response.status}`);
                     if (response.status >= 200 && response.status < 300) {
                         try {
@@ -402,7 +402,7 @@
                         reject(new Error(`API Error: ${response.status} ${response.statusText}`));
                     }
                 },
-                onerror: function(error) {
+                onerror: function (error) {
                     console.error('[API Request] Network error:', error);
                     reject(new Error('Network error'));
                 }
@@ -1165,10 +1165,37 @@
         return response;
     }
 
-    // Get all daily mission statuses
+    // Get all daily mission statuses (using dynamic component IDs)
     async function getAllDailyMissions(headers) {
-        const componentNos = [1, 2, 28, 4, 5, 9, 10, 11, 12]; // 모든 component 번호 (28: 위클리 4주차)
-        console.log(`[전체 미션 조회] ${componentNos.length}개 component 조회 시작`);
+        // Use dynamic component IDs from state.missionComponents
+        const componentNos = [];
+        if (state.missionComponents.daily) componentNos.push(state.missionComponents.daily);
+        if (state.missionComponents.content) componentNos.push(state.missionComponents.content);
+        if (state.missionComponents.weekly) componentNos.push(state.missionComponents.weekly);
+        if (state.missionComponents.survey) componentNos.push(state.missionComponents.survey);
+        if (state.missionComponents.banner) componentNos.push(state.missionComponents.banner);
+        if (state.missionComponents.attendance) componentNos.push(state.missionComponents.attendance);
+
+        // If no dynamic IDs loaded yet, try to load them first
+        if (componentNos.length === 0) {
+            console.log('[전체 미션 조회] 동적 ID 없음, 로드 시도...');
+            await getMissionComponentIds(headers);
+
+            // Try again after loading
+            if (state.missionComponents.daily) componentNos.push(state.missionComponents.daily);
+            if (state.missionComponents.content) componentNos.push(state.missionComponents.content);
+            if (state.missionComponents.weekly) componentNos.push(state.missionComponents.weekly);
+            if (state.missionComponents.survey) componentNos.push(state.missionComponents.survey);
+            if (state.missionComponents.banner) componentNos.push(state.missionComponents.banner);
+            if (state.missionComponents.attendance) componentNos.push(state.missionComponents.attendance);
+        }
+
+        if (componentNos.length === 0) {
+            console.error('[전체 미션 조회] 동적 component ID를 로드할 수 없습니다');
+            return [];
+        }
+
+        console.log(`[전체 미션 조회] ${componentNos.length}개 component 조회 시작:`, componentNos);
 
         try {
             const results = await Promise.all(
@@ -1405,8 +1432,8 @@
 
         // Additional tasks: roulette, daily shop, majak (3 tasks, count 1 each when completed)
         const additionalCompletedTasks = (state.completed.roulette ? 1 : 0) +
-                                        (state.completed.dailyShop ? 1 : 0) +
-                                        (state.completed.majak ? 1 : 0);
+            (state.completed.dailyShop ? 1 : 0) +
+            (state.completed.majak ? 1 : 0);
 
         const totalTasks = questTotalTasks + 3; // Quest activities + 3 additional tasks
         const completedTasks = questCompletedTasks + additionalCompletedTasks;
@@ -1627,46 +1654,46 @@
             if (!skipRewards) {
                 log('👍 Step 2: 게시글 추천 시작...', 'info');
 
-            // Collect more candidate articles (3x target to ensure we have enough unliked ones)
-            const targetArticleLikes = CONFIG.targets.articleLikes;
-            const candidateCount = Math.min(targetArticleLikes * 3, articles.length);
-            const candidateArticles = articles.slice(0, candidateCount);
-            const candidateArticleIds = candidateArticles.map(a => a.article_id);
+                // Collect more candidate articles (3x target to ensure we have enough unliked ones)
+                const targetArticleLikes = CONFIG.targets.articleLikes;
+                const candidateCount = Math.min(targetArticleLikes * 3, articles.length);
+                const candidateArticles = articles.slice(0, candidateCount);
+                const candidateArticleIds = candidateArticles.map(a => a.article_id);
 
-            log(`게시글 ${candidateArticleIds.length}개의 좋아요 상태 확인 중...`, 'info');
-            const articleLikeStatuses = await checkArticleLikeStatus(headers, candidateArticleIds);
+                log(`게시글 ${candidateArticleIds.length}개의 좋아요 상태 확인 중...`, 'info');
+                const articleLikeStatuses = await checkArticleLikeStatus(headers, candidateArticleIds);
 
-            // Filter articles that haven't been liked yet
-            const unlikedArticles = candidateArticles.filter(article =>
-                articleLikeStatuses[article.article_id]?.LIKE !== true
-            );
+                // Filter articles that haven't been liked yet
+                const unlikedArticles = candidateArticles.filter(article =>
+                    articleLikeStatuses[article.article_id]?.LIKE !== true
+                );
 
-            log(`✓ 좋아요 안 누른 게시글 ${unlikedArticles.length}개 발견`, 'success');
+                log(`✓ 좋아요 안 누른 게시글 ${unlikedArticles.length}개 발견`, 'success');
 
-            // Select only the target number of articles to like
-            const articlesToLike = unlikedArticles.slice(0, targetArticleLikes);
+                // Select only the target number of articles to like
+                const articlesToLike = unlikedArticles.slice(0, targetArticleLikes);
 
-            if (articlesToLike.length < targetArticleLikes) {
-                log(`⚠️ 좋아요 가능한 게시글이 ${articlesToLike.length}개만 있습니다 (목표: ${targetArticleLikes}개)`, 'warning');
-            }
-
-            // Now like the selected articles
-            for (let i = 0; i < articlesToLike.length; i++) {
-                const articleId = articlesToLike[i].article_id;
-
-                try {
-                    await likeArticle(headers, articleId);
-                    state.progress.articleLikes++;
-                    updateProgress('article-likes', state.progress.articleLikes, CONFIG.targets.articleLikes);
-                    log(`✓ 게시글 ${articleId} 좋아요 완료 (${state.progress.articleLikes}/${targetArticleLikes})`, 'success');
-                } catch (e) {
-                    log(`✗ 게시글 ${articleId} 좋아요 실패: ${e.message}`, 'error');
+                if (articlesToLike.length < targetArticleLikes) {
+                    log(`⚠️ 좋아요 가능한 게시글이 ${articlesToLike.length}개만 있습니다 (목표: ${targetArticleLikes}개)`, 'warning');
                 }
 
-                if (i < articlesToLike.length - 1) {
-                    await delay(CONFIG.delays.betweenActions);
+                // Now like the selected articles
+                for (let i = 0; i < articlesToLike.length; i++) {
+                    const articleId = articlesToLike[i].article_id;
+
+                    try {
+                        await likeArticle(headers, articleId);
+                        state.progress.articleLikes++;
+                        updateProgress('article-likes', state.progress.articleLikes, CONFIG.targets.articleLikes);
+                        log(`✓ 게시글 ${articleId} 좋아요 완료 (${state.progress.articleLikes}/${targetArticleLikes})`, 'success');
+                    } catch (e) {
+                        log(`✗ 게시글 ${articleId} 좋아요 실패: ${e.message}`, 'error');
+                    }
+
+                    if (i < articlesToLike.length - 1) {
+                        await delay(CONFIG.delays.betweenActions);
+                    }
                 }
-            }
 
                 // Update progress to target even if we couldn't like all of them
                 while (state.progress.articleLikes < targetArticleLikes) {
@@ -1835,12 +1862,12 @@
 
             // Calculate and display total earnings (quest, eventMissions 제외됨)
             const totalEarnings = questActivityFlake + state.earnings.roulette +
-                                 state.earnings.rouletteExtra + state.earnings.dailyShop + state.earnings.majak +
-                                 state.earnings.dailyMissions + state.earnings.contentMissions +
-                                 state.earnings.weeklyMissions +
-                                 state.earnings.bannerMissions + state.earnings.attendanceMissions +
-                                 state.earnings.surveyMissions + state.earnings.prizeEntry +
-                                 dailyAccumulatedFlake;
+                state.earnings.rouletteExtra + state.earnings.dailyShop + state.earnings.majak +
+                state.earnings.dailyMissions + state.earnings.contentMissions +
+                state.earnings.weeklyMissions +
+                state.earnings.bannerMissions + state.earnings.attendanceMissions +
+                state.earnings.surveyMissions + state.earnings.prizeEntry +
+                dailyAccumulatedFlake;
             const profitSign = totalEarnings >= 0 ? '+' : '';
 
             log('', 'info'); // Empty line for separation
@@ -2695,7 +2722,7 @@
 
             // Step 4: RECEIVABLE 상태 미션 보상 수령
             const claimableMissions = receivableMissions.length > 0 ? receivableMissions :
-                                      missions.filter(m => m.status === 'RECEIVABLE'); // 방문 후 상태 변경된 경우 대비
+                missions.filter(m => m.status === 'RECEIVABLE'); // 방문 후 상태 변경된 경우 대비
 
             if (claimableMissions.length > 0) {
                 log(`💰 배너 미션 보상 수령 중... (${claimableMissions.length}개)`, 'info');
@@ -2887,7 +2914,7 @@
 
             if (votableMissions.length === 0) {
                 log('ℹ️ 투표 가능한 설문조사가 없습니다', 'info');
-                
+
                 // 완료된 미션 표시
                 const completedMissions = missions.filter(m => m.status === 'COMPLETE' || m.status === 'COMPLETED');
                 if (completedMissions.length > 0) {
@@ -2938,7 +2965,7 @@
                             const reward = voteResult.value.reward_amount || 0;
                             totalEarned += reward;
                             log(`  ✓ 투표 완료: +${reward} FLAKE`, 'success');
-                            
+
                             // 투표 결과 표시
                             if (voteResult.value.survey_infos) {
                                 const updatedOption = voteResult.value.survey_infos.find(info => info.is_selected);
@@ -2991,14 +3018,14 @@
         switch (strategy) {
             case 'highest':
                 // 가장 득표율이 높은 항목 선택
-                const highest = surveyInfos.reduce((max, info) => 
+                const highest = surveyInfos.reduce((max, info) =>
                     info.percent > max.percent ? info : max
                 );
                 return highest.content_no;
 
             case 'lowest':
                 // 가장 득표율이 낮은 항목 선택
-                const lowest = surveyInfos.reduce((min, info) => 
+                const lowest = surveyInfos.reduce((min, info) =>
                     info.percent < min.percent ? info : min
                 );
                 return lowest.content_no;
@@ -3010,7 +3037,7 @@
 
             default:
                 // 기본값: 가장 득표율이 높은 항목
-                const defaultHighest = surveyInfos.reduce((max, info) => 
+                const defaultHighest = surveyInfos.reduce((max, info) =>
                     info.percent > max.percent ? info : max
                 );
                 return defaultHighest.content_no;
@@ -3123,7 +3150,7 @@
     async function getMonthlyFlakeTotal(headers) {
         try {
             const dateRange = getCurrentMonthDateRange();
-            
+
             const url = `${CONFIG.api.baseUrl}/mileage/v1.0/master/deposit/total?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`;
 
             const mileageHeaders = {
@@ -4073,13 +4100,13 @@
 
                             let tooltipHTML = `<div class="stove-mission-tooltip-title">${catKey === 'daily' ? '📅 데일리 미션' :
                                 catKey === 'weekly' ? '📆 위클리 미션' :
-                                catKey === 'content' ? '💬 컨텐츠' : '📆 월간출석'}</div>`;
+                                    catKey === 'content' ? '💬 컨텐츠' : '📆 월간출석'}</div>`;
 
                             missions.forEach(mission => {
                                 const statusIcon = (mission.status === 'COMPLETE' || mission.status === 'COMPLETED') ? '✅' :
-                                                  mission.status === 'RECEIVABLE' ? '🎁' : '⏳';
+                                    mission.status === 'RECEIVABLE' ? '🎁' : '⏳';
                                 const statusColor = (mission.status === 'COMPLETE' || mission.status === 'COMPLETED') ? '#10b981' :
-                                                   mission.status === 'RECEIVABLE' ? '#f59e0b' : '#6b7280';
+                                    mission.status === 'RECEIVABLE' ? '#f59e0b' : '#6b7280';
 
                                 tooltipHTML += `
                                     <div class="stove-mission-tooltip-item">
