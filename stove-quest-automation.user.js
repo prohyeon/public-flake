@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.4.2
+// @version      2.5.1
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @author       prohyeon
 // @match        https://profile.onstove.com/ko*
@@ -22,7 +22,7 @@
     // Configuration
     // ============================================
     const CONFIG = {
-        version: '2.5.0',
+        version: '2.5.1',
         lastUpdated: '2026-01-09',
         maintenanceMode: {
             enabled: false,                   // 점검 모드 비활성화
@@ -69,7 +69,11 @@
             enabled: true               // 컨텐츠 미션 자동 실행 활성화
             // componentNo는 getMissionComponentIds()에서 동적으로 로드 (CONTENT1 type)
         },
-        // weeklyMissions 제거됨 (위클리 API 종료)
+        weeklyMissions: {
+            enabled: true               // 위클리 미션 자동 실행 활성화
+            // componentNo는 getMissionComponentIds()에서 동적으로 로드 (ACCUMULATION type, 주간 범위)
+            // 주차별 자동 전환: 현재 날짜 기준으로 해당 주차의 component_no 사용
+        },
         // eventMissions 제거됨 (12월부터 해당 타입 없음)
         bannerMissions: {
             enabled: true,              // 배너 미션 자동 실행 활성화
@@ -111,6 +115,7 @@
             majak: false,           // 마작 완료 여부
             dailyMissions: false,   // 데일리 미션 완료 여부
             contentMissions: false, // 컨텐츠 미션 완료 여부
+            weeklyMissions: false,  // 위클리 미션 완료 여부
             bannerMissions: false,  // 배너 미션 완료 여부
             attendanceMissions: false, // 출석 미션 완료 여부
             surveyMissions: false,  // 설문조사 미션 완료 여부
@@ -124,6 +129,7 @@
             majak: 0,            // FLAKE from majak rewards
             dailyMissions: 0,    // FLAKE from daily missions
             contentMissions: 0,  // FLAKE from content missions
+            weeklyMissions: 0,   // FLAKE from weekly missions
             bannerMissions: 0,   // FLAKE from banner missions
             attendanceMissions: 0, // FLAKE from attendance missions
             surveyMissions: 0,   // FLAKE from survey missions
@@ -134,9 +140,10 @@
         missionComponents: {
             daily: null,        // SINGLE type → 데일리 미션
             content: null,      // CONTENT1 type → 컨텐츠 미션 (포스트 방문)
+            weekly: null,       // ACCUMULATION type (주간 범위) → 위클리 미션
             survey: null,       // SURVEY type → 설문조사 미션
             banner: null,       // BANNER type → 배너 미션
-            attendance: null    // ACCUMULATION type → 출석 미션
+            attendance: null    // ACCUMULATION type (월간 범위) → 출석 미션
             // ACHIEVEMENT type은 제외 (달성 불가 항목)
         },
         // 동적으로 로드되는 룰렛 이벤트 ID들
@@ -602,9 +609,25 @@
      *   - CONTENT1      → contentMissions (컨텐츠 미션 - 포스트 방문)
      *   - SURVEY        → surveyMissions (설문조사 미션)
      *   - BANNER        → bannerMissions (배너 미션)
-     *   - ACCUMULATION  → attendanceMissions (출석 미션)
+     *   - ACCUMULATION  → 날짜 범위로 구분:
+     *       - 주간 범위 (≤14일) → weeklyMissions (위클리 미션)
+     *       - 월간 범위 (>14일) → attendanceMissions (출석 미션)
      *   - ACHIEVEMENT   → 제외 (달성 불가 항목)
      */
+
+    /**
+     * 날짜 범위로 ACCUMULATION 타입 구분 (위클리 vs 출석)
+     * @param {string} startDt - 시작일 (YYYY-MM-DDTHH:mm:ss)
+     * @param {string} endDt - 종료일 (YYYY-MM-DDTHH:mm:ss)
+     * @returns {boolean} true면 위클리(주간), false면 출석(월간)
+     */
+    function isWeeklyAccumulation(startDt, endDt) {
+        const start = new Date(startDt);
+        const end = new Date(endDt);
+        const diffDays = (end - start) / (1000 * 60 * 60 * 24);
+        // 14일 이하면 위클리, 초과면 월간 출석
+        return diffDays <= 14;
+    }
 
     /**
      * 현재 날짜가 컴포넌트의 유효 기간 내에 있는지 확인
@@ -650,6 +673,7 @@
                 const components = {
                     daily: null,
                     content: null,
+                    weekly: null,
                     survey: null,
                     banner: null,
                     attendance: null
@@ -680,9 +704,15 @@
                             console.log(`[미션 컴포넌트] ✓ BANNER → banner: ${comp.component_no}`);
                             break;
                         case 'ACCUMULATION':
-                            // 모든 ACCUMULATION을 출석 미션으로 처리
-                            components.attendance = comp.component_no;
-                            console.log(`[미션 컴포넌트] ✓ ACCUMULATION → attendance: ${comp.component_no}`);
+                            // 날짜 범위로 위클리/출석 구분
+                            if (isWeeklyAccumulation(comp.start_dt, comp.end_dt)) {
+                                components.weekly = comp.component_no;
+                                const weekInfo = `${comp.start_dt.slice(5, 10)} ~ ${comp.end_dt.slice(5, 10)}`;
+                                console.log(`[미션 컴포넌트] ✓ ACCUMULATION (주간) → weekly: ${comp.component_no} (${weekInfo})`);
+                            } else {
+                                components.attendance = comp.component_no;
+                                console.log(`[미션 컴포넌트] ✓ ACCUMULATION (월간) → attendance: ${comp.component_no}`);
+                            }
                             break;
                         case 'ACHIEVEMENT':
                             // 제외 (달성 불가 항목)
@@ -1319,6 +1349,7 @@
         const componentNos = [];
         if (state.missionComponents.daily) componentNos.push(state.missionComponents.daily);
         if (state.missionComponents.content) componentNos.push(state.missionComponents.content);
+        if (state.missionComponents.weekly) componentNos.push(state.missionComponents.weekly);
         if (state.missionComponents.survey) componentNos.push(state.missionComponents.survey);
         if (state.missionComponents.banner) componentNos.push(state.missionComponents.banner);
         if (state.missionComponents.attendance) componentNos.push(state.missionComponents.attendance);
@@ -1331,6 +1362,7 @@
             // Try again after loading
             if (state.missionComponents.daily) componentNos.push(state.missionComponents.daily);
             if (state.missionComponents.content) componentNos.push(state.missionComponents.content);
+            if (state.missionComponents.weekly) componentNos.push(state.missionComponents.weekly);
             if (state.missionComponents.survey) componentNos.push(state.missionComponents.survey);
             if (state.missionComponents.banner) componentNos.push(state.missionComponents.banner);
             if (state.missionComponents.attendance) componentNos.push(state.missionComponents.attendance);
@@ -1676,6 +1708,7 @@
             majak: 0,
             dailyMissions: 0,
             contentMissions: 0,
+            weeklyMissions: 0,
             bannerMissions: 0,
             attendanceMissions: 0,
             surveyMissions: 0,
@@ -1918,15 +1951,19 @@
             log('', 'info'); // Empty line for separation
             await executeContentMissions(headers);
 
-            // Step 4.8: Execute banner missions (after content missions)
+            // Step 4.8: Execute weekly missions (after content missions)
+            log('', 'info'); // Empty line for separation
+            await executeWeeklyMissions(headers);
+
+            // Step 4.9: Execute banner missions (after weekly missions)
             log('', 'info'); // Empty line for separation
             await executeBannerMissions(headers);
 
-            // Step 4.9: Execute attendance missions (after banner missions)
+            // Step 4.10: Execute attendance missions (after banner missions)
             log('', 'info'); // Empty line for separation
             await executeAttendanceMissions(headers);
 
-            // Step 4.10: Execute survey missions (after attendance missions)
+            // Step 4.11: Execute survey missions (after attendance missions)
             log('', 'info'); // Empty line for separation
             await executeSurveyMissions(headers);
 
@@ -2027,8 +2064,8 @@
             const commentFlake = skipRewards ? 0 : state.progress.comments * 30; // 댓글 쓰기 1회당 30 FLAKE
             const questActivityFlake = articleWriteFlake + articleLikeFlake + commentFlake;
 
-            // Calculate and display total earnings (quest, eventMissions, weeklyMissions 제외됨)
-            // NaN 방지: 모든 값에 || 0 폴백 적용
+            // Calculate and display total earnings (quest, eventMissions 제외됨)
+            // NaN 방지를 위해 모든 값에 || 0 폴백 적용
             let totalEarnings = (questActivityFlake || 0) +
                 (state.earnings.roulette || 0) +
                 (state.earnings.rouletteExtra || 0) +
@@ -2036,6 +2073,7 @@
                 (state.earnings.majak || 0) +
                 (state.earnings.dailyMissions || 0) +
                 (state.earnings.contentMissions || 0) +
+                (state.earnings.weeklyMissions || 0) +
                 (state.earnings.bannerMissions || 0) +
                 (state.earnings.attendanceMissions || 0) +
                 (state.earnings.surveyMissions || 0) +
@@ -2047,7 +2085,6 @@
                 log('⚠️ 수익 계산 오류 발생 - 일부 값이 유효하지 않음', 'warning');
                 totalEarnings = 0;
             }
-
             const profitSign = totalEarnings >= 0 ? '+' : '';
 
             log('', 'info'); // Empty line for separation
@@ -2062,6 +2099,7 @@
             // 퀘스트 보상 로그 제거됨 (퀘스트 리워드 API 제거로 인해)
             log(`  📋 데일리 미션: ${state.earnings.dailyMissions} FLAKE`, state.earnings.dailyMissions > 0 ? 'success' : 'info');
             log(`  📰 컨텐츠 미션: ${state.earnings.contentMissions} FLAKE`, state.earnings.contentMissions > 0 ? 'success' : 'info');
+            log(`  📅 위클리 미션: ${state.earnings.weeklyMissions} FLAKE`, state.earnings.weeklyMissions > 0 ? 'success' : 'info');
             log(`  🎨 배너 미션: ${state.earnings.bannerMissions} FLAKE`, state.earnings.bannerMissions > 0 ? 'success' : 'info');
             log(`  📆 출석 미션: ${state.earnings.attendanceMissions} FLAKE`, state.earnings.attendanceMissions > 0 ? 'success' : 'info');
             log(`  📊 설문조사: ${state.earnings.surveyMissions} FLAKE`, state.earnings.surveyMissions > 0 ? 'success' : 'info');
@@ -2708,7 +2746,104 @@
         log('✅ 컨텐츠 미션 처리 완료!', 'success');
     }
 
-    // executeWeeklyMissions 제거됨 (위클리 API 종료)
+    async function executeWeeklyMissions(headers) {
+        if (!CONFIG.weeklyMissions.enabled) {
+            log('⏭️ 위클리 미션이 비활성화되어 있습니다', 'info');
+            return;
+        }
+
+        log('📅 위클리 미션 시작...', 'info');
+        let totalEarned = 0;
+
+        const componentNo = state.missionComponents.weekly;
+        if (!componentNo) {
+            // API 응답 없음 - 조용히 스킵 (현재 위클리 미션이 없거나 API 오류)
+            log('ℹ️ 위클리 미션: 현재 이용 불가 (API 응답 없음)', 'info');
+            state.completed.weeklyMissions = true;
+            state.earnings.weeklyMissions = 0;
+            return;
+        }
+
+        try {
+            // 1단계: 미션 목록 조회
+            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
+
+            const missionHeaders = {
+                'Authorization': headers['Authorization'],
+                'caller-id': 'flake-fe',
+                'caller-detail': headers['X-UUID'] || headers['caller-detail'],
+                'x-lang': 'ko',
+                'x-nation': 'KR',
+                'Accept': '*/*',
+                'Origin': 'https://reward.onstove.com',
+                'Referer': 'https://reward.onstove.com/'
+            };
+
+            const missionData = await apiRequest(url, 'GET', missionHeaders);
+
+            if (!missionData || missionData.code !== 0 || !missionData.value || !missionData.value.missions) {
+                // API 응답 오류 - 조용히 스킵
+                log('ℹ️ 위클리 미션: 현재 이용 불가', 'info');
+                state.earnings.weeklyMissions = 0;
+                state.completed.weeklyMissions = true;
+                return;
+            }
+
+            const missions = missionData.value.missions;
+            log(`📝 총 ${missions.length}개 위클리 미션 확인`, 'info');
+
+            // 2단계: 수령 가능한 미션 필터링 (RECEIVABLE 상태)
+            const receivableMissions = missions.filter(m => m.status === 'RECEIVABLE');
+
+            if (receivableMissions.length === 0) {
+                log('ℹ️ 수령 가능한 위클리 미션이 없습니다', 'info');
+            } else {
+                log(`🎁 수령 가능한 위클리 미션 ${receivableMissions.length}개 발견`, 'info');
+
+                // 3단계: 미션 보상 수령
+                for (const mission of receivableMissions) {
+                    const result = await receiveMissionReward(headers, mission.mission_no, componentNo);
+
+                    if (result && result.reward_amount) {
+                        totalEarned += result.reward_amount;
+                        log(`  ✓ "${mission.title}": +${result.reward_amount} FLAKE`, 'success');
+                    }
+
+                    await delay(CONFIG.delays.betweenActions);
+                }
+
+                log(`✅ 위클리 미션 보상 수령 완료: +${totalEarned} FLAKE`, 'success');
+            }
+
+            // 상태 업데이트
+            state.earnings.weeklyMissions = totalEarned;
+            state.completed.weeklyMissions = true;
+
+            // 완료 상태 표시
+            const completedCount = missions.filter(m => m.status === 'COMPLETE' || m.status === 'COMPLETED').length;
+            const totalCount = missions.length;
+            log(`📊 위클리 미션 진행 상황: ${completedCount}/${totalCount} 완료`, 'info');
+
+            // 진행 중인 미션 상태 표시
+            const incompleteMissions = missions.filter(m => m.status === 'INCOMPLETE');
+            if (incompleteMissions.length > 0) {
+                log(`ℹ️ 진행 중인 미션:`, 'info');
+                for (const mission of incompleteMissions) {
+                    const progress = `${mission.user_complete_cnt || 0}/${mission.milestone_total_cnt || 0}`;
+                    log(`  📌 ${mission.title}: ${progress}`, 'info');
+                }
+            }
+
+        } catch (error) {
+            // API 오류 - 조용히 스킵
+            log('ℹ️ 위클리 미션: 현재 이용 불가', 'info');
+            state.earnings.weeklyMissions = 0;
+            state.completed.weeklyMissions = true;
+        }
+
+        log('✅ 위클리 미션 처리 완료!', 'success');
+    }
+
     // executeEventMissions 제거됨 (12월부터 해당 타입 없음)
 
     /**
@@ -3857,8 +3992,9 @@
             // Categorize missions by component type
             const categories = {
                 daily: { components: [], missions: [] },      // SINGLE
+                weekly: { components: [], missions: [] },     // ACCUMULATION (위클리)
                 content: { components: [], missions: [] },    // CONTENT1
-                attendance: { components: [], missions: [] }  // ACCUMULATION
+                attendance: { components: [], missions: [] }  // 출석 관련
             };
 
             // Group by category
@@ -3871,8 +4007,13 @@
                     categories.daily.components.push(comp.component_info);
                     categories.daily.missions.push(...missions);
                 } else if (type === 'ACCUMULATION') {
-                    categories.attendance.components.push(comp.component_info);
-                    categories.attendance.missions.push(...missions);
+                    if (title.includes('출석')) {
+                        categories.attendance.components.push(comp.component_info);
+                        categories.attendance.missions.push(...missions);
+                    } else {
+                        categories.weekly.components.push(comp.component_info);
+                        categories.weekly.missions.push(...missions);
+                    }
                 } else if (type === 'CONTENT1') {
                     categories.content.components.push(comp.component_info);
                     categories.content.missions.push(...missions);
@@ -4124,7 +4265,7 @@
         if (statusData.dailyMission) {
             if (statusData.dailyMission.loading) {
                 // Show loading for all categories
-                ['daily', 'content', 'attendance'].forEach(cat => {
+                ['daily', 'weekly', 'content', 'attendance'].forEach(cat => {
                     const el = document.getElementById(`stove-status-mission-${cat}`);
                     if (el) el.innerHTML = '<span style="color: #3b82f6">⏳</span>';
                 });
@@ -4132,7 +4273,7 @@
                 const categories = statusData.dailyMission.categories;
 
                 // Update each category
-                ['daily', 'content', 'attendance'].forEach(catKey => {
+                ['daily', 'weekly', 'content', 'attendance'].forEach(catKey => {
                     const el = document.getElementById(`stove-status-mission-${catKey}`);
                     const cat = categories[catKey];
 
@@ -4187,7 +4328,8 @@
                             tooltip.className = 'stove-mission-tooltip';
 
                             let tooltipHTML = `<div class="stove-mission-tooltip-title">${catKey === 'daily' ? '📅 데일리 미션' :
-                                catKey === 'content' ? '💬 컨텐츠' : '📆 월간출석'}</div>`;
+                                catKey === 'weekly' ? '📆 위클리 미션' :
+                                    catKey === 'content' ? '💬 컨텐츠' : '📆 월간출석'}</div>`;
 
                             missions.forEach(mission => {
                                 const statusIcon = (mission.status === 'COMPLETE' || mission.status === 'COMPLETED') ? '✅' :
@@ -4210,7 +4352,7 @@
                 });
             } else {
                 // Show error for all categories
-                ['daily', 'content', 'attendance'].forEach(cat => {
+                ['daily', 'weekly', 'content', 'attendance'].forEach(cat => {
                     const el = document.getElementById(`stove-status-mission-${cat}`);
                     if (el) el.innerHTML = '<span style="color: #ef4444">❌</span>';
                 });
@@ -4733,6 +4875,10 @@
                     <div class="stove-status-item stove-mission-item" data-category="daily">
                         <span class="stove-status-label">📅 데일리</span>
                         <span class="stove-status-value" id="stove-status-mission-daily">-</span>
+                    </div>
+                    <div class="stove-status-item stove-mission-item" data-category="weekly">
+                        <span class="stove-status-label">📆 위클리</span>
+                        <span class="stove-status-value" id="stove-status-mission-weekly">-</span>
                     </div>
                     <div class="stove-status-item stove-mission-item" data-category="content">
                         <span class="stove-status-label">💬 컨텐츠</span>
