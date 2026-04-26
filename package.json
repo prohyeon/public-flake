@@ -1,0 +1,14 @@
+{
+  "name": "stove-quest-automation",
+  "version": "2.5.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0",
+    "vite-plugin-monkey": "^4.0.0"
+  }
+}
