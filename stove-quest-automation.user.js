@@ -79,9 +79,6 @@
       flakeCost: 500
     }
   };
-  async function checkDailyRewardsClaimed() {
-    return false;
-  }
   function log(message, type = "info") {
     const logContent = document.getElementById("stove-log-content");
     if (!logContent) return;
@@ -2265,20 +2262,6 @@
       log("헤더 정보 추출 중...", "info");
       const headers = extractHeaders();
       log("✓ 헤더 정보 추출 완료", "success");
-      let skipRewards = false;
-      log("", "info");
-      log("📦 데일리 리워드 수령 상태 확인 중...", "info");
-      const rewardsClaimed = await checkDailyRewardsClaimed(headers);
-      if (rewardsClaimed) {
-        log("✅ 데일리 리워드가 이미 모두 수령되었습니다", "success");
-        skipRewards = true;
-        state.progress.articleLikes = CONFIG.targets.articleLikes;
-        state.progress.comments = CONFIG.targets.comments;
-        state.progress.newArticle = CONFIG.targets.newArticle;
-        updateProgress("article-likes", state.progress.articleLikes, CONFIG.targets.articleLikes);
-        updateProgress("comments", state.progress.comments, CONFIG.targets.comments);
-        updateProgress("new-article", state.progress.newArticle, CONFIG.targets.newArticle);
-      }
       log("", "info");
       log("📰 게시글 목록 가져오는 중...", "info");
       const articles = await getArticleList(headers, 30);
@@ -2290,88 +2273,79 @@
         return;
       }
       await delay(CONFIG.delays.betweenActions);
-      let commentPromise = null;
-      if (!skipRewards) {
-        log("💬 Step 0: 댓글 작성 시작 (10초 딜레이)...", "info");
-        const maxComments = Math.min(CONFIG.targets.comments, articles.length);
-        commentPromise = (async () => {
-          for (let i = 0; i < maxComments; i++) {
-            try {
-              const commentId = await postComment(headers, articles[i].article_id, CONFIG.comment);
-              log(`✓ 댓글 작성 완료: ${commentId}`, "success");
-              state.createdCommentIds.push(commentId);
-              state.progress.comments++;
-              updateProgress("comments", state.progress.comments, CONFIG.targets.comments);
-            } catch (e) {
-              log(`✗ 댓글 작성 실패: ${e.message}`, "error");
-            }
-            if (i < maxComments - 1) await delay(CONFIG.delays.afterComment);
-          }
-          log("✓ Step 0 완료: 모든 댓글 작성 완료", "success");
-        })();
-      }
-      if (!skipRewards) {
-        log("", "info");
-        log("✍️ Step 1: 새글 작성 시작...", "info");
-        const writeStatus = await checkArticleWriteStatus(headers);
-        if (writeStatus.success && writeStatus.hasWrittenToday) {
-          log(`⏩ 오늘 이미 ${writeStatus.todayCount}개 글 작성 완료, 새글 작성 스킵`, "info");
-          state.progress.newArticle = CONFIG.targets.newArticle;
-          updateProgress("new-article", state.progress.newArticle, CONFIG.targets.newArticle);
-        } else {
+      log("💬 Step 0: 댓글 작성 시작 (10초 딜레이)...", "info");
+      const maxComments = Math.min(CONFIG.targets.comments, articles.length);
+      const commentPromise = (async () => {
+        for (let i = 0; i < maxComments; i++) {
           try {
-            const articleId = await createArticle(headers, "출석", "출석");
-            if (articleId) {
-              state.progress.newArticle++;
-              updateProgress("new-article", state.progress.newArticle, CONFIG.targets.newArticle);
-              log(`✓ Step 1 완료: 새글 작성 완료! 게시글 ID: ${articleId}`, "success");
-            }
+            const commentId = await postComment(headers, articles[i].article_id, CONFIG.comment);
+            log(`✓ 댓글 작성 완료: ${commentId}`, "success");
+            state.createdCommentIds.push(commentId);
+            state.progress.comments++;
+            updateProgress("comments", state.progress.comments, CONFIG.targets.comments);
           } catch (e) {
-            log(`✗ 새글 작성 실패: ${e.message}`, "error");
-            log("⚠️ 새글 작성 실패했지만 자동화를 계속 진행합니다", "warning");
+            log(`✗ 댓글 작성 실패: ${e.message}`, "error");
           }
+          if (i < maxComments - 1) await delay(CONFIG.delays.afterComment);
+        }
+        log("✓ Step 0 완료: 모든 댓글 작성 완료", "success");
+      })();
+      log("", "info");
+      log("✍️ Step 1: 새글 작성 시작...", "info");
+      const writeStatus = await checkArticleWriteStatus(headers);
+      if (writeStatus.success && writeStatus.hasWrittenToday) {
+        log(`⏩ 오늘 이미 ${writeStatus.todayCount}개 글 작성 완료, 새글 작성 스킵`, "info");
+        state.progress.newArticle = CONFIG.targets.newArticle;
+        updateProgress("new-article", state.progress.newArticle, CONFIG.targets.newArticle);
+      } else {
+        try {
+          const articleId = await createArticle(headers, "출석", "출석");
+          if (articleId) {
+            state.progress.newArticle++;
+            updateProgress("new-article", state.progress.newArticle, CONFIG.targets.newArticle);
+            log(`✓ Step 1 완료: 새글 작성 완료! 게시글 ID: ${articleId}`, "success");
+          }
+        } catch (e) {
+          log(`✗ 새글 작성 실패: ${e.message}`, "error");
+          log("⚠️ 새글 작성 실패했지만 자동화를 계속 진행합니다", "warning");
         }
       }
       await delay(CONFIG.delays.betweenActions);
-      if (!skipRewards) {
-        log("👍 Step 2: 게시글 추천 시작...", "info");
-        const targetArticleLikes = CONFIG.targets.articleLikes;
-        const candidateCount = Math.min(targetArticleLikes * 3, articles.length);
-        const candidateArticles = articles.slice(0, candidateCount);
-        const candidateArticleIds = candidateArticles.map((a) => a.article_id);
-        const articleLikeStatuses = await checkArticleLikeStatus(headers, candidateArticleIds);
-        const unlikedArticles = candidateArticles.filter(
-          (article) => {
-            var _a;
-            return ((_a = articleLikeStatuses[article.article_id]) == null ? void 0 : _a.LIKE) !== true;
-          }
-        );
-        log(`✓ 좋아요 안 누른 게시글 ${unlikedArticles.length}개 발견`, "success");
-        const articlesToLike = unlikedArticles.slice(0, targetArticleLikes);
-        for (let i = 0; i < articlesToLike.length; i++) {
-          const articleId = articlesToLike[i].article_id;
-          try {
-            await likeArticle(headers, articleId);
-            state.progress.articleLikes++;
-            updateProgress("article-likes", state.progress.articleLikes, CONFIG.targets.articleLikes);
-            log(`✓ 게시글 ${articleId} 좋아요 완료 (${state.progress.articleLikes}/${targetArticleLikes})`, "success");
-          } catch (e) {
-            log(`✗ 게시글 ${articleId} 좋아요 실패: ${e.message}`, "error");
-          }
-          if (i < articlesToLike.length - 1) await delay(CONFIG.delays.betweenActions);
+      log("👍 Step 2: 게시글 추천 시작...", "info");
+      const targetArticleLikes = CONFIG.targets.articleLikes;
+      const candidateCount = Math.min(targetArticleLikes * 3, articles.length);
+      const candidateArticles = articles.slice(0, candidateCount);
+      const candidateArticleIds = candidateArticles.map((a) => a.article_id);
+      const articleLikeStatuses = await checkArticleLikeStatus(headers, candidateArticleIds);
+      const unlikedArticles = candidateArticles.filter(
+        (article) => {
+          var _a;
+          return ((_a = articleLikeStatuses[article.article_id]) == null ? void 0 : _a.LIKE) !== true;
         }
-        while (state.progress.articleLikes < targetArticleLikes) {
+      );
+      log(`✓ 좋아요 안 누른 게시글 ${unlikedArticles.length}개 발견`, "success");
+      const articlesToLike = unlikedArticles.slice(0, targetArticleLikes);
+      for (let i = 0; i < articlesToLike.length; i++) {
+        const articleId = articlesToLike[i].article_id;
+        try {
+          await likeArticle(headers, articleId);
           state.progress.articleLikes++;
           updateProgress("article-likes", state.progress.articleLikes, CONFIG.targets.articleLikes);
+          log(`✓ 게시글 ${articleId} 좋아요 완료 (${state.progress.articleLikes}/${targetArticleLikes})`, "success");
+        } catch (e) {
+          log(`✗ 게시글 ${articleId} 좋아요 실패: ${e.message}`, "error");
         }
-        log("✓ Step 2 완료: 게시글 추천 완료", "success");
+        if (i < articlesToLike.length - 1) await delay(CONFIG.delays.betweenActions);
       }
+      while (state.progress.articleLikes < targetArticleLikes) {
+        state.progress.articleLikes++;
+        updateProgress("article-likes", state.progress.articleLikes, CONFIG.targets.articleLikes);
+      }
+      log("✓ Step 2 완료: 게시글 추천 완료", "success");
       await delay(CONFIG.delays.betweenActions);
-      if (!skipRewards) {
-        log("", "info");
-        log("🎯 Step 3: SINGLE 미션 자동 참여 시작...", "info");
-        await autoParticipateVisitMissions(headers);
-      }
+      log("", "info");
+      log("🎯 Step 3: SINGLE 미션 자동 참여 시작...", "info");
+      await autoParticipateVisitMissions(headers);
       await delay(CONFIG.delays.betweenActions);
       log("✅ 퀘스트 주요 작업 완료!", "success");
       log("", "info");
@@ -2412,11 +2386,9 @@
       await executeSurveyMissions(headers);
       log("", "info");
       await runRouletteDraws(headers);
-      if (!skipRewards && commentPromise) {
-        log("", "info");
-        log("📝 댓글 작성 완료 확인 중...", "info");
-        await commentPromise;
-      }
+      log("", "info");
+      log("📝 댓글 작성 완료 확인 중...", "info");
+      await commentPromise;
       log("", "info");
       log("💝 데일리 보상 수령 시작...", "info");
       await claimDailyShopRewards(headers);
@@ -2427,9 +2399,9 @@
       await claimRouletteExtraRewards(headers);
       log("", "info");
       const dailyAccumulatedFlake = await claimDailyAccumulatedRewards(headers);
-      const articleWriteFlake = skipRewards ? 0 : 200;
-      const articleLikeFlake = skipRewards ? 0 : state.progress.articleLikes * 3;
-      const commentFlake = skipRewards ? 0 : state.progress.comments * 30;
+      const articleWriteFlake = 200;
+      const articleLikeFlake = state.progress.articleLikes * 3;
+      const commentFlake = state.progress.comments * 30;
       const questActivityFlake = articleWriteFlake + articleLikeFlake + commentFlake;
       let totalEarnings = (questActivityFlake || 0) + (state.earnings.roulette || 0) + (state.earnings.rouletteExtra || 0) + (state.earnings.dailyShop || 0) + (state.earnings.majak || 0) + (state.earnings.dailyMissions || 0) + (state.earnings.contentMissions || 0) + (state.earnings.weeklyMissions || 0) + (state.earnings.bannerMissions || 0) + (state.earnings.attendanceMissions || 0) + (state.earnings.surveyMissions || 0) + (state.earnings.prizeEntry || 0) + (dailyAccumulatedFlake || 0);
       if (isNaN(totalEarnings)) {

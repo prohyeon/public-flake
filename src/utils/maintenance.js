@@ -11,11 +11,3 @@ export function isMaintenanceMode() {
     const currentDateKST = kstDate.toISOString().split('T')[0];
     return currentDateKST >= CONFIG.maintenanceMode.startDate;
 }
-
-export function isRewardSkipPeriod() {
-    return false;
-}
-
-export async function checkDailyRewardsClaimed() {
-    return false;
-}
