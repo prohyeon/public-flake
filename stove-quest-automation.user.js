@@ -57,8 +57,7 @@
     },
     dailyMissions: {
       enabled: true,
-      visitMissions: [1, 2],
-      skipMissions: [3],
+      skipMissions: [],
       visitDelay: 3e3
     },
     contentMissions: {
@@ -1262,7 +1261,10 @@
       const missions = missionData.missions;
       log(`📝 총 ${missions.length}개 미션 확인`, "info");
       const visitMissions = missions.filter(
-        (m) => CONFIG.dailyMissions.visitMissions.includes(m.mission_no) && m.status === "INCOMPLETE"
+        (m) => {
+          var _a;
+          return m.is_visit_mission === true && m.status === "INCOMPLETE" && ((_a = m.button_url) == null ? void 0 : _a.trim());
+        }
       );
       if (visitMissions.length > 0) {
         log(`🌐 방문 미션 ${visitMissions.length}개 수행 시작...`, "info");
@@ -1317,16 +1319,7 @@
     }
     try {
       const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
-      const missionHeaders = {
-        "Authorization": headers["Authorization"],
-        "caller-id": "flake-fe",
-        "caller-detail": headers["X-UUID"] || headers["caller-detail"],
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "Accept": "*/*",
-        "Origin": "https://reward.onstove.com",
-        "Referer": "https://reward.onstove.com/"
-      };
+      const missionHeaders = makeMissionHeaders(headers);
       const missionData = await apiRequest(url, "GET", missionHeaders);
       if (!missionData || missionData.code !== 0 || !((_a = missionData.value) == null ? void 0 : _a.missions)) {
         log("✗ 컨텐츠 미션 목록 조회 실패", "error");
@@ -1400,16 +1393,7 @@
     }
     try {
       const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
-      const missionHeaders = {
-        "Authorization": headers["Authorization"],
-        "caller-id": "flake-fe",
-        "caller-detail": headers["X-UUID"] || headers["caller-detail"],
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "Accept": "*/*",
-        "Origin": "https://reward.onstove.com",
-        "Referer": "https://reward.onstove.com/"
-      };
+      const missionHeaders = makeMissionHeaders(headers);
       const missionData = await apiRequest(url, "GET", missionHeaders);
       if (!missionData || missionData.code !== 0 || !((_a = missionData.value) == null ? void 0 : _a.missions)) {
         log("ℹ️ 위클리 미션: 현재 이용 불가", "info");
@@ -1465,7 +1449,7 @@
     }
     try {
       const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
-      const missionData = await apiRequest(url, "GET", headers);
+      const missionData = await apiRequest(url, "GET", makeMissionHeaders(headers));
       if (!((_a = missionData == null ? void 0 : missionData.value) == null ? void 0 : _a.missions)) {
         log("⚠️ 배너 미션 데이터를 찾을 수 없습니다", "warning");
         state.earnings.bannerMissions = 0;
@@ -1542,7 +1526,7 @@
     }
     try {
       const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
-      const missionData = await apiRequest(url, "GET", headers);
+      const missionData = await apiRequest(url, "GET", makeMissionHeaders(headers));
       if (!((_a = missionData == null ? void 0 : missionData.value) == null ? void 0 : _a.missions)) {
         log("⚠️ 출석 미션 데이터를 찾을 수 없습니다", "warning");
         state.earnings.attendanceMissions = 0;
@@ -1607,16 +1591,7 @@
     }
     try {
       const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
-      const missionHeaders = {
-        "Authorization": headers["Authorization"],
-        "caller-id": "flake-fe",
-        "caller-detail": headers["X-UUID"] || headers["caller-detail"],
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "Accept": "*/*",
-        "Origin": "https://reward.onstove.com",
-        "Referer": "https://reward.onstove.com/"
-      };
+      const missionHeaders = makeMissionHeaders(headers);
       const missionData = await apiRequest(url, "GET", missionHeaders);
       if (!missionData || missionData.code !== 0 || !((_a = missionData.value) == null ? void 0 : _a.missions)) {
         log("✗ 설문조사 미션 목록 조회 실패", "error");
@@ -1644,15 +1619,9 @@
             }
             log(`  🎯 선택: "${selectedOption.content}" (${selectedOption.percent}%)`, "info");
             const voteHeaders = {
-              "Authorization": headers["Authorization"],
-              "caller-id": "flake-fe",
-              "caller-detail": headers["X-UUID"] || headers["caller-detail"],
-              "x-lang": "ko",
-              "x-nation": "KR",
+              ...makeMissionHeaders(headers),
               "Accept": "application/json",
-              "Content-Type": "application/json",
-              "Origin": "https://reward.onstove.com",
-              "Referer": "https://reward.onstove.com/"
+              "Content-Type": "application/json"
             };
             const voteBody = {
               mission_no: mission.mission_no,
@@ -1702,15 +1671,9 @@
       const giftName = state.prizeInfo.giftName || CONFIG.prizeEntry.targetGiftName || "스토브 5,000 포인트";
       log(`⏳ 경품 응모 진행 중... (${giftName}, 비용: ${flakeCost} FLAKE)`, "info");
       const applyHeaders = {
-        "Authorization": headers["Authorization"],
-        "caller-id": "flake-fe",
-        "caller-detail": headers["X-UUID"] || headers["caller-detail"],
-        "x-lang": "ko",
-        "x-nation": "KR",
+        ...makeMissionHeaders(headers),
         "Accept": "application/json",
-        "Content-Type": "application/json",
-        "Origin": "https://reward.onstove.com",
-        "Referer": "https://reward.onstove.com/"
+        "Content-Type": "application/json"
       };
       const applyUrl = `${CONFIG.api.baseUrl}/emsbackapi/v3.0/apply/${eventNo}`;
       const applyBody = { gift_no: giftNo, req_cnt: 1 };
@@ -1833,7 +1796,7 @@
   async function getMonthlyFlakeTotal(headers) {
     try {
       const dateRange = getCurrentMonthDateRange();
-      const url = `${CONFIG.api.baseUrl}/mileage/v1.0/master/deposit/total?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`;
+      const url = `${CONFIG.api.baseUrl}/mileage/v2.0/master/deposit/total?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`;
       const mileageHeaders = {
         "Authorization": headers["Authorization"],
         "caller-id": "flake-fe",
