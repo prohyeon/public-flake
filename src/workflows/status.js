@@ -119,20 +119,16 @@ export async function checkDailyMissionStatus(headers) {
 
         allMissions.forEach(comp => {
             const type = comp.component_info?.component_type;
-            const title = comp.component_info?.title;
+            const componentNo = comp.componentNo;
             const missions = comp.missions || [];
 
             if (type === 'SINGLE') {
                 categories.daily.components.push(comp.component_info);
                 categories.daily.missions.push(...missions);
             } else if (type === 'ACCUMULATION') {
-                if (title?.includes('출석')) {
-                    categories.attendance.components.push(comp.component_info);
-                    categories.attendance.missions.push(...missions);
-                } else {
-                    categories.weekly.components.push(comp.component_info);
-                    categories.weekly.missions.push(...missions);
-                }
+                const bucket = componentNo === state.missionComponents.weekly ? 'weekly' : 'attendance';
+                categories[bucket].components.push(comp.component_info);
+                categories[bucket].missions.push(...missions);
             } else if (type === 'CONTENT1') {
                 categories.content.components.push(comp.component_info);
                 categories.content.missions.push(...missions);
