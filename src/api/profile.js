@@ -36,7 +36,7 @@ export async function getMyArticles(headers, userId, size = 10) {
 export async function getMonthlyFlakeTotal(headers) {
     try {
         const dateRange = getCurrentMonthDateRange();
-        const url = `${CONFIG.api.baseUrl}/mileage/v1.0/master/deposit/total?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`;
+        const url = `${CONFIG.api.baseUrl}/mileage/v2.0/master/deposit/total?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`;
 
         const mileageHeaders = {
             'Authorization': headers['Authorization'],

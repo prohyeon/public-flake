@@ -39,13 +39,6 @@
       afterComment: 11e3
     },
     comment: "Nice!",
-    tags: [
-      "STOVEINDIE",
-      "epicseven",
-      "crossfire",
-      "btscookingon",
-      "chaoszeronightmare"
-    ],
     roulette: {
       enabled: true,
       subEventNo: "1000000248",
@@ -2255,7 +2248,6 @@
       window.scrollTo({ top: offsetTop, behavior: "smooth" });
     }
     state.earnings = {
-      quest: 0,
       roulette: 0,
       rouletteExtra: 0,
       dailyShop: 0,

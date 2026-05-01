@@ -19,13 +19,6 @@ export const CONFIG = {
         afterComment: 11000
     },
     comment: "Nice!",
-    tags: [
-        'STOVEINDIE',
-        'epicseven',
-        'crossfire',
-        'btscookingon',
-        'chaoszeronightmare'
-    ],
     roulette: {
         enabled: true,
         subEventNo: '1000000248',
@@ -37,8 +30,7 @@ export const CONFIG = {
     },
     dailyMissions: {
         enabled: true,
-        visitMissions: [1, 2],
-        skipMissions: [3],
+        skipMissions: [],
         visitDelay: 3000
     },
     contentMissions: {

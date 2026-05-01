@@ -4,7 +4,8 @@ import { delay } from '../utils/time.js';
 import { getKSTDate } from '../utils/time.js';
 import { openTabInBackground, closeTabAfterDelay } from '../utils/tabs.js';
 import {
-    getDailyMissions, receiveMissionReward, getAllDailyMissions, participateMission
+    getDailyMissions, receiveMissionReward, getAllDailyMissions, participateMission,
+    makeMissionHeaders
 } from '../api/missions.js';
 import { apiRequest } from '../api/request.js';
 import {
@@ -48,7 +49,7 @@ export async function executeDailyMissions(headers) {
         log(`📝 총 ${missions.length}개 미션 확인`, 'info');
 
         const visitMissions = missions.filter(m =>
-            CONFIG.dailyMissions.visitMissions.includes(m.mission_no) && m.status === 'INCOMPLETE'
+            m.is_visit_mission === true && m.status === 'INCOMPLETE' && m.button_url?.trim()
         );
 
         if (visitMissions.length > 0) {
@@ -118,13 +119,7 @@ export async function executeContentMissions(headers) {
 
     try {
         const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
-        const missionHeaders = {
-            'Authorization': headers['Authorization'],
-            'caller-id': 'flake-fe',
-            'caller-detail': headers['X-UUID'] || headers['caller-detail'],
-            'x-lang': 'ko', 'x-nation': 'KR', 'Accept': '*/*',
-            'Origin': 'https://reward.onstove.com', 'Referer': 'https://reward.onstove.com/'
-        };
+        const missionHeaders = makeMissionHeaders(headers);
 
         const missionData = await apiRequest(url, 'GET', missionHeaders);
 
@@ -213,13 +208,7 @@ export async function executeWeeklyMissions(headers) {
 
     try {
         const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
-        const missionHeaders = {
-            'Authorization': headers['Authorization'],
-            'caller-id': 'flake-fe',
-            'caller-detail': headers['X-UUID'] || headers['caller-detail'],
-            'x-lang': 'ko', 'x-nation': 'KR', 'Accept': '*/*',
-            'Origin': 'https://reward.onstove.com', 'Referer': 'https://reward.onstove.com/'
-        };
+        const missionHeaders = makeMissionHeaders(headers);
 
         const missionData = await apiRequest(url, 'GET', missionHeaders);
 
@@ -292,7 +281,7 @@ export async function executeBannerMissions(headers) {
 
     try {
         const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
-        const missionData = await apiRequest(url, 'GET', headers);
+        const missionData = await apiRequest(url, 'GET', makeMissionHeaders(headers));
 
         if (!missionData?.value?.missions) {
             log('⚠️ 배너 미션 데이터를 찾을 수 없습니다', 'warning');
@@ -390,7 +379,7 @@ export async function executeAttendanceMissions(headers) {
 
     try {
         const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
-        const missionData = await apiRequest(url, 'GET', headers);
+        const missionData = await apiRequest(url, 'GET', makeMissionHeaders(headers));
 
         if (!missionData?.value?.missions) {
             log('⚠️ 출석 미션 데이터를 찾을 수 없습니다', 'warning');
@@ -472,13 +461,7 @@ export async function executeSurveyMissions(headers) {
 
     try {
         const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
-        const missionHeaders = {
-            'Authorization': headers['Authorization'],
-            'caller-id': 'flake-fe',
-            'caller-detail': headers['X-UUID'] || headers['caller-detail'],
-            'x-lang': 'ko', 'x-nation': 'KR', 'Accept': '*/*',
-            'Origin': 'https://reward.onstove.com', 'Referer': 'https://reward.onstove.com/'
-        };
+        const missionHeaders = makeMissionHeaders(headers);
 
         const missionData = await apiRequest(url, 'GET', missionHeaders);
 
@@ -516,12 +499,9 @@ export async function executeSurveyMissions(headers) {
                     log(`  🎯 선택: "${selectedOption.content}" (${selectedOption.percent}%)`, 'info');
 
                     const voteHeaders = {
-                        'Authorization': headers['Authorization'],
-                        'caller-id': 'flake-fe',
-                        'caller-detail': headers['X-UUID'] || headers['caller-detail'],
-                        'x-lang': 'ko', 'x-nation': 'KR',
-                        'Accept': 'application/json', 'Content-Type': 'application/json',
-                        'Origin': 'https://reward.onstove.com', 'Referer': 'https://reward.onstove.com/'
+                        ...makeMissionHeaders(headers),
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
                     };
 
                     const voteBody = {
@@ -594,12 +574,9 @@ export async function executePrizeEntry(headers) {
         log(`⏳ 경품 응모 진행 중... (${giftName}, 비용: ${flakeCost} FLAKE)`, 'info');
 
         const applyHeaders = {
-            'Authorization': headers['Authorization'],
-            'caller-id': 'flake-fe',
-            'caller-detail': headers['X-UUID'] || headers['caller-detail'],
-            'x-lang': 'ko', 'x-nation': 'KR',
-            'Accept': 'application/json', 'Content-Type': 'application/json',
-            'Origin': 'https://reward.onstove.com', 'Referer': 'https://reward.onstove.com/'
+            ...makeMissionHeaders(headers),
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
         };
 
         const applyUrl = `${CONFIG.api.baseUrl}/emsbackapi/v3.0/apply/${eventNo}`;

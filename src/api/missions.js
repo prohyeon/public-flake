@@ -2,7 +2,7 @@ import { CONFIG } from '../config.js';
 import { state } from '../state.js';
 import { apiRequest } from './request.js';
 
-function makeMissionHeaders(headers) {
+export function makeMissionHeaders(headers) {
     return {
         'Authorization': headers['Authorization'],
         'caller-id': 'flake-fe',

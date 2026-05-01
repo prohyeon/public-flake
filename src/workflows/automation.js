@@ -35,7 +35,7 @@ export async function runAutomation() {
     }
 
     state.earnings = {
-        quest: 0, roulette: 0, rouletteExtra: 0, dailyShop: 0, majak: 0,
+        roulette: 0, rouletteExtra: 0, dailyShop: 0, majak: 0,
         dailyMissions: 0, contentMissions: 0, weeklyMissions: 0, bannerMissions: 0,
         attendanceMissions: 0, surveyMissions: 0, prizeEntry: 0
     };
