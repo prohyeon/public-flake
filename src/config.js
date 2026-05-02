@@ -1,6 +1,6 @@
 export const CONFIG = {
-    version: '2.5.1',
-    lastUpdated: '2026-01-09',
+    version: '2.6.0',
+    lastUpdated: '2026-05-03',
     maintenanceMode: {
         enabled: false,
         startDate: '2025-11-01',
@@ -21,8 +21,8 @@ export const CONFIG = {
     comment: "Nice!",
     roulette: {
         enabled: true,
-        subEventNo: '1000000248',
-        extraSubEventNo: '1000000250',
+        subEventNo: '1000000353',
+        extraSubEventNo: '1000000357',
         drawCost: 100,
         maxDraws: 30,
         maxRetries: 3,
@@ -52,9 +52,10 @@ export const CONFIG = {
     },
     prizeEntry: {
         enabled: true,
-        missionNo: 8,
-        eventNo: 1000000249,
-        giftNo: 1000001247,
+        missionNo: 359,
+        eventNo: 1000000354,
+        giftNo: 1000001776,
+        missionTitle: '경품 응모하기',
         targetGiftName: '스토브 5,000 포인트',
         flakeCost: 500
     }

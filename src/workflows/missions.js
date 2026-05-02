@@ -2,7 +2,7 @@ import { CONFIG } from '../config.js';
 import { state } from '../state.js';
 import { delay } from '../utils/time.js';
 import { getKSTDate } from '../utils/time.js';
-import { openTabInBackground, closeTabAfterDelay } from '../utils/tabs.js';
+import { openTabInBackground } from '../utils/tabs.js';
 import {
     getDailyMissions, receiveMissionReward, getAllDailyMissions, participateMission,
     makeMissionHeaders
@@ -13,17 +13,50 @@ import {
 } from '../api/roulette.js';
 import { log } from '../ui/logger.js';
 
+function isPrizeEntryMission(mission) {
+    return mission.mission_no === CONFIG.prizeEntry.missionNo ||
+        mission.title === CONFIG.prizeEntry.missionTitle;
+}
+
+function getSingleMissionSkipReason(mission) {
+    if (isPrizeEntryMission(mission)) return '경품 응모 전용 단계에서 처리';
+    if (mission.title?.includes('앱 로그인')) return '스토브 앱 로그인 필요';
+    return '방문형 자동 참여 대상 아님';
+}
+
+async function getPrizeEntryMission(headers) {
+    try {
+        const missionData = await getDailyMissions(headers);
+        const mission = missionData?.missions?.find(isPrizeEntryMission);
+
+        if (mission) {
+            log(`  ✓ 경품 응모 미션 확인: ${mission.mission_no} (${mission.status})`, 'info');
+            return { ...mission, component_no: state.missionComponents.daily };
+        }
+    } catch (error) {
+        log(`  ⚠️ 경품 응모 미션 조회 실패: ${error.message}`, 'warning');
+    }
+
+    log(`  ⚠️ 경품 응모 미션을 찾지 못해 fallback mission_no ${CONFIG.prizeEntry.missionNo} 사용`, 'warning');
+    return {
+        mission_no: CONFIG.prizeEntry.missionNo,
+        component_no: state.missionComponents.daily,
+        title: CONFIG.prizeEntry.missionTitle,
+        reward_amount: 0,
+        status: null
+    };
+}
+
 export async function executeVisitMission(mission) {
     const { title, button_url } = mission;
     try {
         log(`🌐 ${title} 방문 중...`, 'info');
         const tab = openTabInBackground(button_url, false);
-        await closeTabAfterDelay(tab, CONFIG.dailyMissions.visitDelay);
-        log(`✓ ${title} 방문 완료`, 'success');
-        return true;
+        log(`✓ ${title} 탭 열림`, 'success');
+        return { success: true, tab };
     } catch (e) {
         log(`✗ ${title} 방문 실패: ${e.message}`, 'error');
-        return false;
+        return { success: false, tab: null };
     }
 }
 
@@ -35,6 +68,7 @@ export async function executeDailyMissions(headers) {
 
     log('📋 데일리 미션 시작...', 'info');
     let totalEarned = 0;
+    const openedTabs = [];
 
     try {
         const missionData = await getDailyMissions(headers);
@@ -53,13 +87,14 @@ export async function executeDailyMissions(headers) {
         );
 
         if (visitMissions.length > 0) {
-            log(`🌐 방문 미션 ${visitMissions.length}개 수행 시작...`, 'info');
+            log(`🌐 방문 미션 ${visitMissions.length}개 탭 열기 시작...`, 'info');
             for (const mission of visitMissions) {
-                await executeVisitMission(mission);
+                const result = await executeVisitMission(mission);
+                if (result.tab) openedTabs.push(result.tab);
                 await delay(CONFIG.delays.betweenActions);
             }
-            log('✅ 방문 미션 수행 완료', 'success');
-            await delay(1000);
+            log('✅ 방문 미션 탭 열기 완료', 'success');
+            await delay(CONFIG.dailyMissions.visitDelay);
         } else {
             log('ℹ️ 수행할 방문 미션이 없습니다', 'info');
         }
@@ -99,6 +134,7 @@ export async function executeDailyMissions(headers) {
     }
 
     log('✅ 데일리 미션 처리 완료!', 'success');
+    return openedTabs;
 }
 
 export async function executeContentMissions(headers) {
@@ -109,6 +145,7 @@ export async function executeContentMissions(headers) {
 
     log('📰 컨텐츠 미션 시작...', 'info');
     let totalEarned = 0;
+    const openedTabs = [];
 
     const componentNo = state.missionComponents.content;
     if (!componentNo) {
@@ -135,20 +172,20 @@ export async function executeContentMissions(headers) {
 
         const incompleteMissions = missions.filter(m => m.status === 'INCOMPLETE' && m.url?.trim());
         if (incompleteMissions.length > 0) {
-            log(`🌐 미완료 컨텐츠 미션 ${incompleteMissions.length}개 방문 시작...`, 'info');
+            log(`🌐 미완료 컨텐츠 미션 ${incompleteMissions.length}개 탭 열기 시작...`, 'info');
             for (const mission of incompleteMissions) {
                 try {
                     log(`  🌐 "${mission.title.substring(0, 30)}..." 방문 중...`, 'info');
                     const tab = openTabInBackground(mission.url, false);
-                    await closeTabAfterDelay(tab, 3000);
-                    log(`  ✓ "${mission.title.substring(0, 30)}..." 방문 완료`, 'success');
+                    openedTabs.push(tab);
+                    log(`  ✓ "${mission.title.substring(0, 30)}..." 탭 열림`, 'success');
                 } catch (e) {
                     log(`  ✗ 방문 실패: ${e.message}`, 'error');
                 }
                 await delay(CONFIG.delays.betweenActions);
             }
-            log('✅ 컨텐츠 미션 방문 완료', 'success');
-            await delay(1000);
+            log('✅ 컨텐츠 미션 탭 열기 완료', 'success');
+            await delay(3000);
         } else {
             log('ℹ️ 방문할 미완료 컨텐츠 미션이 없습니다', 'info');
         }
@@ -187,6 +224,7 @@ export async function executeContentMissions(headers) {
     }
 
     log('✅ 컨텐츠 미션 처리 완료!', 'success');
+    return openedTabs;
 }
 
 export async function executeWeeklyMissions(headers) {
@@ -271,6 +309,7 @@ export async function executeBannerMissions(headers) {
 
     log('🎨 배너 미션 시작...', 'info');
     let totalEarned = 0;
+    const openedTabs = [];
 
     const componentNo = state.missionComponents.banner;
     if (!componentNo) {
@@ -281,7 +320,8 @@ export async function executeBannerMissions(headers) {
 
     try {
         const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
-        const missionData = await apiRequest(url, 'GET', makeMissionHeaders(headers));
+        const missionHeaders = makeMissionHeaders(headers);
+        const missionData = await apiRequest(url, 'GET', missionHeaders);
 
         if (!missionData?.value?.missions) {
             log('⚠️ 배너 미션 데이터를 찾을 수 없습니다', 'warning');
@@ -291,6 +331,7 @@ export async function executeBannerMissions(headers) {
         }
 
         const missions = missionData.value.missions;
+        let latestMissions = missions;
         log(`📋 배너 미션 ${missions.length}개 발견`, 'info');
 
         const incompleteMissions = missions.filter(m => m.status === 'INCOMPLETE');
@@ -306,32 +347,39 @@ export async function executeBannerMissions(headers) {
             return;
         }
 
-        const tabs = [];
         if (incompleteMissions.length > 0) {
             log(`🌐 배너 URL ${incompleteMissions.length}개 방문 중...`, 'info');
             for (const mission of incompleteMissions) {
                 if (mission.button_url?.trim()) {
                     log(`  ⏳ "${mission.title.replace(/<br>/g, ' ')}" 방문 중...`, 'info');
                     const tab = openTabInBackground(mission.button_url, false);
-                    tabs.push({ tab, mission });
+                    openedTabs.push(tab);
+                    log(`  ✓ "${mission.title.replace(/<br>/g, ' ')}" 탭 열림`, 'success');
                 } else {
                     log(`  ⚠️ "${mission.title.replace(/<br>/g, ' ')}" - URL 없음, 스킵`, 'warning');
                 }
                 await delay(200);
             }
-        }
 
-        if (tabs.length > 0) {
-            log(`⏳ ${CONFIG.bannerMissions.visitDelay}ms 대기 후 탭 닫기...`, 'info');
-            await delay(CONFIG.bannerMissions.visitDelay);
-            for (const { tab, mission } of tabs) {
-                await closeTabAfterDelay(tab, 0);
-                log(`  ✓ "${mission.title.replace(/<br>/g, ' ')}" 방문 완료`, 'success');
+            if (openedTabs.length > 0) {
+                log(`⏳ ${CONFIG.bannerMissions.visitDelay}ms 동안 배너 방문 반영 대기...`, 'info');
+                await delay(CONFIG.bannerMissions.visitDelay);
+
+                try {
+                    const updatedMissionData = await apiRequest(url, 'GET', missionHeaders);
+                    if (updatedMissionData?.value?.missions) {
+                        latestMissions = updatedMissionData.value.missions;
+                        log('✓ 배너 미션 상태 재조회 완료', 'success');
+                    } else {
+                        log('⚠️ 배너 미션 상태 재조회 실패 - 기존 수령 가능 항목만 처리합니다', 'warning');
+                    }
+                } catch (error) {
+                    log(`⚠️ 배너 미션 상태 재조회 실패: ${error.message} - 기존 수령 가능 항목만 처리합니다`, 'warning');
+                }
             }
         }
 
-        const claimableMissions = receivableMissions.length > 0 ? receivableMissions :
-            missions.filter(m => m.status === 'RECEIVABLE');
+        const claimableMissions = latestMissions.filter(m => m.status === 'RECEIVABLE');
 
         if (claimableMissions.length > 0) {
             log(`💰 배너 미션 보상 수령 중... (${claimableMissions.length}개)`, 'info');
@@ -345,6 +393,8 @@ export async function executeBannerMissions(headers) {
                 }
                 await delay(500);
             }
+        } else {
+            log('ℹ️ 수령 가능한 배너 미션이 없습니다', 'info');
         }
 
         state.earnings.bannerMissions = totalEarned;
@@ -359,6 +409,7 @@ export async function executeBannerMissions(headers) {
     }
 
     log('✅ 배너 미션 처리 완료!', 'success');
+    return openedTabs;
 }
 
 export async function executeAttendanceMissions(headers) {
@@ -570,6 +621,7 @@ export async function executePrizeEntry(headers) {
         const giftNo = getPrizeGiftNo();
         const flakeCost = getPrizeFlakeCost();
         const giftName = state.prizeInfo.giftName || CONFIG.prizeEntry.targetGiftName || '스토브 5,000 포인트';
+        const prizeMission = await getPrizeEntryMission(headers);
 
         log(`⏳ 경품 응모 진행 중... (${giftName}, 비용: ${flakeCost} FLAKE)`, 'info');
 
@@ -597,7 +649,7 @@ export async function executePrizeEntry(headers) {
         log(`  📅 응모 날짜 기록: ${today} (KST)`, 'info');
 
         log('⏳ 경품 응모 미션 보상 확인 중...', 'info');
-        const result = await receiveMissionReward(headers, CONFIG.prizeEntry.missionNo, state.missionComponents.daily);
+        const result = await receiveMissionReward(headers, prizeMission.mission_no, prizeMission.component_no);
 
         if (result && result.reward_amount) {
             netEarnings += result.reward_amount;
@@ -630,26 +682,40 @@ export async function autoParticipateVisitMissions(headers) {
         }
 
         const singleMissions = [];
+        const skippedMissions = [];
         allMissions.forEach(comp => {
             const missions = comp.missions || [];
             missions.forEach(mission => {
                 if (mission.mission_type === 'SINGLE' &&
                     mission.status === 'INCOMPLETE' &&
                     !CONFIG.dailyMissions.skipMissions.includes(mission.mission_no)) {
-                    singleMissions.push({
+                    const normalizedMission = {
                         mission_no: mission.mission_no,
                         component_no: comp.componentNo,
                         title: mission.title,
                         reward_amount: mission.reward_amount,
                         is_visit_mission: mission.is_visit_mission
-                    });
+                    };
+
+                    if (mission.is_visit_mission === true) {
+                        singleMissions.push(normalizedMission);
+                    } else {
+                        skippedMissions.push({
+                            ...normalizedMission,
+                            reason: getSingleMissionSkipReason(mission)
+                        });
+                    }
                 }
             });
         });
 
+        skippedMissions.forEach(mission => {
+            log(`[SINGLE 미션] ⏭️ "${mission.title}" 스킵 (${mission.reason})`, 'info');
+        });
+
         if (singleMissions.length === 0) {
-            log('[SINGLE 미션] 참여 가능한 미션 없음', 'info');
-            return { success: true, participated: 0, completed: 0 };
+            log('[SINGLE 미션] 자동 참여 가능한 방문형 미션 없음', 'info');
+            return { success: true, participated: 0, completed: 0, skipped: skippedMissions.length };
         }
 
         log(`[SINGLE 미션] ${singleMissions.length}개 발견`, 'info');
@@ -683,8 +749,8 @@ export async function autoParticipateVisitMissions(headers) {
             }
         }
 
-        log(`[SINGLE 미션] 총 참여: ${participated}개, 즉시 완료: ${completed}개`, 'success');
-        return { success: true, participated, completed, total: singleMissions.length };
+        log(`[SINGLE 미션] 총 참여: ${participated}개, 즉시 완료: ${completed}개, 스킵: ${skippedMissions.length}개`, 'success');
+        return { success: true, participated, completed, skipped: skippedMissions.length, total: singleMissions.length };
 
     } catch (error) {
         log(`[SINGLE 미션] 오류: ${error.message}`, 'error');

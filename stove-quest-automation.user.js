@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.5.1
+// @version      2.6.0
 // @author       prohyeon
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -19,8 +19,8 @@
   'use strict';
 
   const CONFIG = {
-    version: "2.5.1",
-    lastUpdated: "2026-01-09",
+    version: "2.6.0",
+    lastUpdated: "2026-05-03",
     maintenanceMode: {
       enabled: false,
       startDate: "2025-11-01",
@@ -41,8 +41,8 @@
     comment: "Nice!",
     roulette: {
       enabled: true,
-      subEventNo: "1000000248",
-      extraSubEventNo: "1000000250",
+      subEventNo: "1000000353",
+      extraSubEventNo: "1000000357",
       drawCost: 100,
       maxDraws: 30,
       maxRetries: 3,
@@ -72,9 +72,10 @@
     },
     prizeEntry: {
       enabled: true,
-      missionNo: 8,
-      eventNo: 1000000249,
-      giftNo: 1000001247,
+      missionNo: 359,
+      eventNo: 1000000354,
+      giftNo: 1000001776,
+      missionTitle: "경품 응모하기",
       targetGiftName: "스토브 5,000 포인트",
       flakeCost: 500
     }
@@ -1219,27 +1220,52 @@
     console.log(`[Tab] 총 ${closedCount}/${tabArray.length}개 탭 닫힘`);
     return closedCount;
   }
-  async function closeTabAfterDelay(tabs, delayMs = 3e3) {
-    console.log(`[Tab] ${delayMs}ms 후 탭 닫기 예약됨`);
-    await delay(delayMs);
-    return closeTab(tabs);
+  function isPrizeEntryMission(mission) {
+    return mission.mission_no === CONFIG.prizeEntry.missionNo || mission.title === CONFIG.prizeEntry.missionTitle;
+  }
+  function getSingleMissionSkipReason(mission) {
+    var _a;
+    if (isPrizeEntryMission(mission)) return "경품 응모 전용 단계에서 처리";
+    if ((_a = mission.title) == null ? void 0 : _a.includes("앱 로그인")) return "스토브 앱 로그인 필요";
+    return "방문형 자동 참여 대상 아님";
+  }
+  async function getPrizeEntryMission(headers) {
+    var _a;
+    try {
+      const missionData = await getDailyMissions(headers);
+      const mission = (_a = missionData == null ? void 0 : missionData.missions) == null ? void 0 : _a.find(isPrizeEntryMission);
+      if (mission) {
+        log(`  ✓ 경품 응모 미션 확인: ${mission.mission_no} (${mission.status})`, "info");
+        return { ...mission, component_no: state.missionComponents.daily };
+      }
+    } catch (error) {
+      log(`  ⚠️ 경품 응모 미션 조회 실패: ${error.message}`, "warning");
+    }
+    log(`  ⚠️ 경품 응모 미션을 찾지 못해 fallback mission_no ${CONFIG.prizeEntry.missionNo} 사용`, "warning");
+    return {
+      mission_no: CONFIG.prizeEntry.missionNo,
+      component_no: state.missionComponents.daily,
+      title: CONFIG.prizeEntry.missionTitle,
+      reward_amount: 0,
+      status: null
+    };
   }
   async function executeVisitMission(mission) {
     const { title, button_url } = mission;
     try {
       log(`🌐 ${title} 방문 중...`, "info");
       const tab = openTabInBackground(button_url, false);
-      await closeTabAfterDelay(tab, CONFIG.dailyMissions.visitDelay);
-      log(`✓ ${title} 방문 완료`, "success");
-      return true;
+      log(`✓ ${title} 탭 열림`, "success");
+      return { success: true, tab };
     } catch (e) {
       log(`✗ ${title} 방문 실패: ${e.message}`, "error");
-      return false;
+      return { success: false, tab: null };
     }
   }
   async function executeDailyMissions(headers) {
     log("📋 데일리 미션 시작...", "info");
     let totalEarned = 0;
+    const openedTabs = [];
     try {
       const missionData = await getDailyMissions(headers);
       if (!missionData || !missionData.missions) {
@@ -1257,13 +1283,14 @@
         }
       );
       if (visitMissions.length > 0) {
-        log(`🌐 방문 미션 ${visitMissions.length}개 수행 시작...`, "info");
+        log(`🌐 방문 미션 ${visitMissions.length}개 탭 열기 시작...`, "info");
         for (const mission of visitMissions) {
-          await executeVisitMission(mission);
+          const result = await executeVisitMission(mission);
+          if (result.tab) openedTabs.push(result.tab);
           await delay(CONFIG.delays.betweenActions);
         }
-        log("✅ 방문 미션 수행 완료", "success");
-        await delay(1e3);
+        log("✅ 방문 미션 탭 열기 완료", "success");
+        await delay(CONFIG.dailyMissions.visitDelay);
       } else {
         log("ℹ️ 수행할 방문 미션이 없습니다", "info");
       }
@@ -1296,11 +1323,13 @@
       log(`✗ 데일리 미션 오류: ${error.message}`, "error");
     }
     log("✅ 데일리 미션 처리 완료!", "success");
+    return openedTabs;
   }
   async function executeContentMissions(headers) {
     var _a, _b;
     log("📰 컨텐츠 미션 시작...", "info");
     let totalEarned = 0;
+    const openedTabs = [];
     const componentNo = state.missionComponents.content;
     if (!componentNo) {
       log("⚠️ 컨텐츠 미션 componentNo가 로드되지 않음", "warning");
@@ -1324,20 +1353,20 @@
         return m.status === "INCOMPLETE" && ((_a2 = m.url) == null ? void 0 : _a2.trim());
       });
       if (incompleteMissions.length > 0) {
-        log(`🌐 미완료 컨텐츠 미션 ${incompleteMissions.length}개 방문 시작...`, "info");
+        log(`🌐 미완료 컨텐츠 미션 ${incompleteMissions.length}개 탭 열기 시작...`, "info");
         for (const mission of incompleteMissions) {
           try {
             log(`  🌐 "${mission.title.substring(0, 30)}..." 방문 중...`, "info");
             const tab = openTabInBackground(mission.url, false);
-            await closeTabAfterDelay(tab, 3e3);
-            log(`  ✓ "${mission.title.substring(0, 30)}..." 방문 완료`, "success");
+            openedTabs.push(tab);
+            log(`  ✓ "${mission.title.substring(0, 30)}..." 탭 열림`, "success");
           } catch (e) {
             log(`  ✗ 방문 실패: ${e.message}`, "error");
           }
           await delay(CONFIG.delays.betweenActions);
         }
-        log("✅ 컨텐츠 미션 방문 완료", "success");
-        await delay(1e3);
+        log("✅ 컨텐츠 미션 탭 열기 완료", "success");
+        await delay(3e3);
       } else {
         log("ℹ️ 방문할 미완료 컨텐츠 미션이 없습니다", "info");
       }
@@ -1369,6 +1398,7 @@
       log(`✗ 컨텐츠 미션 오류: ${error.message}`, "error");
     }
     log("✅ 컨텐츠 미션 처리 완료!", "success");
+    return openedTabs;
   }
   async function executeWeeklyMissions(headers) {
     var _a;
@@ -1428,9 +1458,10 @@
     log("✅ 위클리 미션 처리 완료!", "success");
   }
   async function executeBannerMissions(headers) {
-    var _a, _b;
+    var _a, _b, _c;
     log("🎨 배너 미션 시작...", "info");
     let totalEarned = 0;
+    const openedTabs = [];
     const componentNo = state.missionComponents.banner;
     if (!componentNo) {
       log("⚠️ 배너 미션 componentNo가 로드되지 않음", "warning");
@@ -1439,7 +1470,8 @@
     }
     try {
       const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
-      const missionData = await apiRequest(url, "GET", makeMissionHeaders(headers));
+      const missionHeaders = makeMissionHeaders(headers);
+      const missionData = await apiRequest(url, "GET", missionHeaders);
       if (!((_a = missionData == null ? void 0 : missionData.value) == null ? void 0 : _a.missions)) {
         log("⚠️ 배너 미션 데이터를 찾을 수 없습니다", "warning");
         state.earnings.bannerMissions = 0;
@@ -1447,6 +1479,7 @@
         return;
       }
       const missions = missionData.value.missions;
+      let latestMissions = missions;
       log(`📋 배너 미션 ${missions.length}개 발견`, "info");
       const incompleteMissions = missions.filter((m) => m.status === "INCOMPLETE");
       const receivableMissions = missions.filter((m) => m.status === "RECEIVABLE");
@@ -1458,29 +1491,36 @@
         state.completed.bannerMissions = true;
         return;
       }
-      const tabs = [];
       if (incompleteMissions.length > 0) {
         log(`🌐 배너 URL ${incompleteMissions.length}개 방문 중...`, "info");
         for (const mission of incompleteMissions) {
           if ((_b = mission.button_url) == null ? void 0 : _b.trim()) {
             log(`  ⏳ "${mission.title.replace(/<br>/g, " ")}" 방문 중...`, "info");
             const tab = openTabInBackground(mission.button_url, false);
-            tabs.push({ tab, mission });
+            openedTabs.push(tab);
+            log(`  ✓ "${mission.title.replace(/<br>/g, " ")}" 탭 열림`, "success");
           } else {
             log(`  ⚠️ "${mission.title.replace(/<br>/g, " ")}" - URL 없음, 스킵`, "warning");
           }
           await delay(200);
         }
-      }
-      if (tabs.length > 0) {
-        log(`⏳ ${CONFIG.bannerMissions.visitDelay}ms 대기 후 탭 닫기...`, "info");
-        await delay(CONFIG.bannerMissions.visitDelay);
-        for (const { tab, mission } of tabs) {
-          await closeTabAfterDelay(tab, 0);
-          log(`  ✓ "${mission.title.replace(/<br>/g, " ")}" 방문 완료`, "success");
+        if (openedTabs.length > 0) {
+          log(`⏳ ${CONFIG.bannerMissions.visitDelay}ms 동안 배너 방문 반영 대기...`, "info");
+          await delay(CONFIG.bannerMissions.visitDelay);
+          try {
+            const updatedMissionData = await apiRequest(url, "GET", missionHeaders);
+            if ((_c = updatedMissionData == null ? void 0 : updatedMissionData.value) == null ? void 0 : _c.missions) {
+              latestMissions = updatedMissionData.value.missions;
+              log("✓ 배너 미션 상태 재조회 완료", "success");
+            } else {
+              log("⚠️ 배너 미션 상태 재조회 실패 - 기존 수령 가능 항목만 처리합니다", "warning");
+            }
+          } catch (error) {
+            log(`⚠️ 배너 미션 상태 재조회 실패: ${error.message} - 기존 수령 가능 항목만 처리합니다`, "warning");
+          }
         }
       }
-      const claimableMissions = receivableMissions.length > 0 ? receivableMissions : missions.filter((m) => m.status === "RECEIVABLE");
+      const claimableMissions = latestMissions.filter((m) => m.status === "RECEIVABLE");
       if (claimableMissions.length > 0) {
         log(`💰 배너 미션 보상 수령 중... (${claimableMissions.length}개)`, "info");
         for (const mission of claimableMissions) {
@@ -1493,6 +1533,8 @@
           }
           await delay(500);
         }
+      } else {
+        log("ℹ️ 수령 가능한 배너 미션이 없습니다", "info");
       }
       state.earnings.bannerMissions = totalEarned;
       state.completed.bannerMissions = true;
@@ -1503,6 +1545,7 @@
       log(`✗ 배너 미션 오류: ${error.message}`, "error");
     }
     log("✅ 배너 미션 처리 완료!", "success");
+    return openedTabs;
   }
   async function executeAttendanceMissions(headers) {
     var _a;
@@ -1659,6 +1702,7 @@
       const giftNo = getPrizeGiftNo();
       const flakeCost = getPrizeFlakeCost();
       const giftName = state.prizeInfo.giftName || CONFIG.prizeEntry.targetGiftName || "스토브 5,000 포인트";
+      const prizeMission = await getPrizeEntryMission(headers);
       log(`⏳ 경품 응모 진행 중... (${giftName}, 비용: ${flakeCost} FLAKE)`, "info");
       const applyHeaders = {
         ...makeMissionHeaders(headers),
@@ -1678,7 +1722,7 @@
       sessionStorage.setItem("prize_entry_last_date", today);
       log(`  📅 응모 날짜 기록: ${today} (KST)`, "info");
       log("⏳ 경품 응모 미션 보상 확인 중...", "info");
-      const result = await receiveMissionReward(headers, CONFIG.prizeEntry.missionNo, state.missionComponents.daily);
+      const result = await receiveMissionReward(headers, prizeMission.mission_no, prizeMission.component_no);
       if (result && result.reward_amount) {
         netEarnings += result.reward_amount;
         log(`  ✓ 미션 보상 수령 완료: +${result.reward_amount} FLAKE`, "success");
@@ -1703,23 +1747,35 @@
         return { success: false, participated: 0, completed: 0 };
       }
       const singleMissions = [];
+      const skippedMissions = [];
       allMissions.forEach((comp) => {
         const missions = comp.missions || [];
         missions.forEach((mission) => {
           if (mission.mission_type === "SINGLE" && mission.status === "INCOMPLETE" && !CONFIG.dailyMissions.skipMissions.includes(mission.mission_no)) {
-            singleMissions.push({
+            const normalizedMission = {
               mission_no: mission.mission_no,
               component_no: comp.componentNo,
               title: mission.title,
               reward_amount: mission.reward_amount,
               is_visit_mission: mission.is_visit_mission
-            });
+            };
+            if (mission.is_visit_mission === true) {
+              singleMissions.push(normalizedMission);
+            } else {
+              skippedMissions.push({
+                ...normalizedMission,
+                reason: getSingleMissionSkipReason(mission)
+              });
+            }
           }
         });
       });
+      skippedMissions.forEach((mission) => {
+        log(`[SINGLE 미션] ⏭️ "${mission.title}" 스킵 (${mission.reason})`, "info");
+      });
       if (singleMissions.length === 0) {
-        log("[SINGLE 미션] 참여 가능한 미션 없음", "info");
-        return { success: true, participated: 0, completed: 0 };
+        log("[SINGLE 미션] 자동 참여 가능한 방문형 미션 없음", "info");
+        return { success: true, participated: 0, completed: 0, skipped: skippedMissions.length };
       }
       log(`[SINGLE 미션] ${singleMissions.length}개 발견`, "info");
       let participated = 0;
@@ -1747,8 +1803,8 @@
           log(`[SINGLE 미션] ❌ "${mission.title}" 오류: ${error.message}`, "error");
         }
       }
-      log(`[SINGLE 미션] 총 참여: ${participated}개, 즉시 완료: ${completed}개`, "success");
-      return { success: true, participated, completed, total: singleMissions.length };
+      log(`[SINGLE 미션] 총 참여: ${participated}개, 즉시 완료: ${completed}개, 스킵: ${skippedMissions.length}개`, "success");
+      return { success: true, participated, completed, skipped: skippedMissions.length, total: singleMissions.length };
     } catch (error) {
       log(`[SINGLE 미션] 오류: ${error.message}`, "error");
       return { success: false, error: error.message };
@@ -2160,19 +2216,18 @@
     }
   }
   async function visitRequiredPages() {
-    log("🌐 필수 페이지 방문 시작...", "info");
+    log("🌐 필수 페이지 탭 열기...", "info");
+    const tabs = [];
     try {
       log("  📋 리워드샵 페이지 방문 중...", "info");
-      const rewardTab = openTabInBackground("https://reward.onstove.com/ko", false);
+      tabs.push(openTabInBackground("https://reward.onstove.com/ko", false));
       log("  🏠 스토브 메인 페이지 방문 중...", "info");
-      const stoveTab = openTabInBackground("https://www.onstove.com/ko", false);
-      await delay(3e3);
-      await closeTabAfterDelay(rewardTab, 0);
-      await closeTabAfterDelay(stoveTab, 0);
-      log("✓ 필수 페이지 방문 완료", "success");
+      tabs.push(openTabInBackground("https://www.onstove.com/ko", false));
+      log("✓ 필수 페이지 탭 열림", "success");
     } catch (error) {
       log(`⚠️ 페이지 방문 중 오류: ${error.message}`, "warning");
     }
+    return tabs;
   }
   async function checkAllStatus() {
     console.log("[상태 확인 시작]");
@@ -2234,6 +2289,7 @@
     }
     state.isRunning = true;
     setButtonState(true);
+    const allTabs = [];
     const progressSection = document.querySelector(".stove-progress-section");
     if (progressSection) {
       const rect = progressSection.getBoundingClientRect();
@@ -2258,6 +2314,9 @@
       log("헤더 정보 추출 중...", "info");
       const headers = extractHeaders();
       log("✓ 헤더 정보 추출 완료", "success");
+      log("", "info");
+      const requiredPageTabs = await visitRequiredPages();
+      allTabs.push(...requiredPageTabs);
       log("", "info");
       log("📰 게시글 목록 가져오는 중...", "info");
       const articles = await getArticleList(headers, 30);
@@ -2345,8 +2404,6 @@
       await delay(CONFIG.delays.betweenActions);
       log("✅ 퀘스트 주요 작업 완료!", "success");
       log("", "info");
-      await visitRequiredPages();
-      log("", "info");
       log("🔄 미션 컴포넌트 ID 로드 중...", "info");
       const missionComponents = await getMissionComponentIds(headers);
       if (!missionComponents) log("⚠️ 미션 컴포넌트 로드 실패 - 미션 기능이 제한될 수 있습니다", "warning");
@@ -2369,13 +2426,16 @@
       log("", "info");
       await executePrizeEntry(headers);
       log("", "info");
-      await executeDailyMissions(headers);
+      const dailyTabs = await executeDailyMissions(headers);
+      if (dailyTabs == null ? void 0 : dailyTabs.length) allTabs.push(...dailyTabs);
       log("", "info");
-      await executeContentMissions(headers);
+      const contentTabs = await executeContentMissions(headers);
+      if (contentTabs == null ? void 0 : contentTabs.length) allTabs.push(...contentTabs);
       log("", "info");
       await executeWeeklyMissions(headers);
       log("", "info");
-      await executeBannerMissions(headers);
+      const bannerTabs = await executeBannerMissions(headers);
+      if (bannerTabs == null ? void 0 : bannerTabs.length) allTabs.push(...bannerTabs);
       log("", "info");
       await executeAttendanceMissions(headers);
       log("", "info");
@@ -2450,6 +2510,11 @@
     } catch (error) {
       log(`✗ 오류 발생: ${error.message}`, "error");
     } finally {
+      if (allTabs.length > 0) {
+        log(`🔒 열린 탭 ${allTabs.length}개 닫는 중...`, "info");
+        closeTab(allTabs);
+        log("✓ 모든 탭 닫힘", "success");
+      }
       state.isRunning = false;
       setButtonState(false);
     }

@@ -2,8 +2,7 @@ import { CONFIG } from '../config.js';
 import { state } from '../state.js';
 import { extractHeaders } from '../utils/auth.js';
 import { getTodayString } from '../utils/time.js';
-import { openTabInBackground, closeTabAfterDelay } from '../utils/tabs.js';
-import { delay } from '../utils/time.js';
+import { openTabInBackground } from '../utils/tabs.js';
 import { getRouletteParticipationCount, getRouletteSubEventNo } from '../api/roulette.js';
 import { getDailyShopRewards, getMajakDailyShopRewards } from '../api/shop.js';
 import { apiRequest } from '../api/request.js';
@@ -187,24 +186,18 @@ export async function checkArticleWriteStatus(headers) {
 }
 
 export async function visitRequiredPages() {
-    log('🌐 필수 페이지 방문 시작...', 'info');
-
+    log('🌐 필수 페이지 탭 열기...', 'info');
+    const tabs = [];
     try {
         log('  📋 리워드샵 페이지 방문 중...', 'info');
-        const rewardTab = openTabInBackground('https://reward.onstove.com/ko', false);
-
+        tabs.push(openTabInBackground('https://reward.onstove.com/ko', false));
         log('  🏠 스토브 메인 페이지 방문 중...', 'info');
-        const stoveTab = openTabInBackground('https://www.onstove.com/ko', false);
-
-        await delay(3000);
-
-        await closeTabAfterDelay(rewardTab, 0);
-        await closeTabAfterDelay(stoveTab, 0);
-
-        log('✓ 필수 페이지 방문 완료', 'success');
+        tabs.push(openTabInBackground('https://www.onstove.com/ko', false));
+        log('✓ 필수 페이지 탭 열림', 'success');
     } catch (error) {
         log(`⚠️ 페이지 방문 중 오류: ${error.message}`, 'warning');
     }
+    return tabs;
 }
 
 export async function checkAllStatus() {

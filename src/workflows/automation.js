@@ -16,6 +16,7 @@ import {
     executePrizeEntry, autoParticipateVisitMissions
 } from './missions.js';
 import { visitRequiredPages, checkAllStatus, checkArticleWriteStatus } from './status.js';
+import { closeTab } from '../utils/tabs.js';
 
 export async function runAutomation() {
     if (state.isRunning) {
@@ -25,6 +26,7 @@ export async function runAutomation() {
 
     state.isRunning = true;
     setButtonState(true);
+    const allTabs = [];
 
     const progressSection = document.querySelector('.stove-progress-section');
     if (progressSection) {
@@ -44,6 +46,10 @@ export async function runAutomation() {
         log('헤더 정보 추출 중...', 'info');
         const headers = extractHeaders();
         log('✓ 헤더 정보 추출 완료', 'success');
+
+        log('', 'info');
+        const requiredPageTabs = await visitRequiredPages();
+        allTabs.push(...requiredPageTabs);
 
         log('', 'info');
         log('📰 게시글 목록 가져오는 중...', 'info');
@@ -149,10 +155,6 @@ export async function runAutomation() {
 
         log('✅ 퀘스트 주요 작업 완료!', 'success');
 
-        // Step 4: Visit required pages
-        log('', 'info');
-        await visitRequiredPages();
-
         // Step 4.4: Load mission component IDs
         log('', 'info');
         log('🔄 미션 컴포넌트 ID 로드 중...', 'info');
@@ -183,13 +185,16 @@ export async function runAutomation() {
         log('', 'info');
         await executePrizeEntry(headers);
         log('', 'info');
-        await executeDailyMissions(headers);
+        const dailyTabs = await executeDailyMissions(headers);
+        if (dailyTabs?.length) allTabs.push(...dailyTabs);
         log('', 'info');
-        await executeContentMissions(headers);
+        const contentTabs = await executeContentMissions(headers);
+        if (contentTabs?.length) allTabs.push(...contentTabs);
         log('', 'info');
         await executeWeeklyMissions(headers);
         log('', 'info');
-        await executeBannerMissions(headers);
+        const bannerTabs = await executeBannerMissions(headers);
+        if (bannerTabs?.length) allTabs.push(...bannerTabs);
         log('', 'info');
         await executeAttendanceMissions(headers);
         log('', 'info');
@@ -301,6 +306,11 @@ export async function runAutomation() {
     } catch (error) {
         log(`✗ 오류 발생: ${error.message}`, 'error');
     } finally {
+        if (allTabs.length > 0) {
+            log(`🔒 열린 탭 ${allTabs.length}개 닫는 중...`, 'info');
+            closeTab(allTabs);
+            log('✓ 모든 탭 닫힘', 'success');
+        }
         state.isRunning = false;
         setButtonState(false);
     }
