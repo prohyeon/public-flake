@@ -61,6 +61,7 @@ This plan covers one subsystem: the full automation orchestrator for `STOVE Ques
 
 **Files:**
 - Modify: `C:\Users\Predator\Documents\dev\public-flake\package.json`
+- Create: `C:\Users\Predator\Documents\dev\public-flake\scripts\check-syntax.mjs`
 
 - [ ] **Step 1: Update npm scripts**
 
@@ -70,10 +71,12 @@ Replace the current `scripts` block in `package.json` with:
 "scripts": {
   "dev": "vite",
   "build": "vite build",
-  "test": "node --test tests/**/*.test.js",
-  "check": "node --check src/main.js && node --check src/workflows/automation.js && node --check src/workflows/snapshot.js && node --check src/workflows/taskRunner.js && node --check src/workflows/automationPlan.js"
+  "test": "node --test \"tests/**/*.test.js\"",
+  "check": "node scripts/check-syntax.mjs"
 }
 ```
+
+Create `scripts/check-syntax.mjs` so `npm run check` recursively syntax-checks project-owned JS/MJS/CJS files under `src`, `tests`, and `scripts`, plus root `vite.config.js` when present. The script should ignore missing directories, use `process.execPath` with `node --check`, print a concise summary, and exit non-zero when any file fails.
 
 - [ ] **Step 2: Run tests before adding test files**
 
@@ -81,6 +84,8 @@ Run:
 
 ```powershell
 npm test
+npm run check
+node scripts/check-syntax.mjs
 ```
 
 Expected: Node reports no matching test files or no tests executed depending on Node glob handling. This is acceptable before Task 2.
@@ -88,8 +93,8 @@ Expected: Node reports no matching test files or no tests executed depending on 
 - [ ] **Step 3: Commit**
 
 ```powershell
-git add package.json
-git commit -m "test: add node test scripts"
+git add package.json scripts/check-syntax.mjs docs/superpowers/plans/2026-05-03-automation-2-7-0-snapshot-parallel-plan.md
+git commit -m "test: make syntax checks recursive"
 ```
 
 ---

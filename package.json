@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node --test tests/**/*.test.js",
-    "check": "node --check src/main.js && node --check src/workflows/automation.js && node --check src/workflows/snapshot.js && node --check src/workflows/taskRunner.js && node --check src/workflows/automationPlan.js"
+    "test": "node --test \"tests/**/*.test.js\"",
+    "check": "node scripts/check-syntax.mjs"
   },
   "devDependencies": {
     "vite": "^5.4.0",
