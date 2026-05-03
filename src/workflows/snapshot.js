@@ -71,6 +71,15 @@ function serializeError(error) {
     };
 }
 
+function makeSnapshotError(section, message, extra = {}) {
+    return {
+        name: 'SnapshotValidationError',
+        message,
+        section,
+        ...extra
+    };
+}
+
 function failedSection(error, extra = {}) {
     return {
         success: false,
@@ -90,7 +99,17 @@ function normalizeRoulette(rouletteResult) {
         });
     }
 
-    const current = rouletteResult.value?.value?.participation_cnt || 0;
+    if (rouletteResult.error) {
+        return failedSection(rouletteResult.error, {
+            raw: rouletteResult.value ?? null,
+            current: 0,
+            limit: CONFIG.roulette.maxDraws,
+            remaining: 0,
+            unknown: true
+        });
+    }
+
+    const current = rouletteResult.value.value.participation_cnt;
     const limit = CONFIG.roulette.maxDraws;
     return {
         success: true,
@@ -106,6 +125,16 @@ function normalizeRouletteExtra(extraResult) {
     if (!extraResult.ok) {
         return failedSection(extraResult.error, {
             raw: null,
+            current: 0,
+            currentCycle: null,
+            milestones: [],
+            claimable: []
+        });
+    }
+
+    if (extraResult.error) {
+        return failedSection(extraResult.error, {
+            raw: extraResult.value ?? null,
             current: 0,
             currentCycle: null,
             milestones: [],
@@ -144,6 +173,16 @@ function normalizeShop(shopResult) {
         });
     }
 
+    if (shopResult.error) {
+        return failedSection(shopResult.error, {
+            raw: shopResult.value ?? null,
+            date: todayString,
+            dailyAttendances: null,
+            accumulatedAttendances: null,
+            unclaimedDaily: []
+        });
+    }
+
     const value = shopResult.value?.value || {};
     const dailyAttendances = value.daily_attendances || null;
     const accumulatedAttendances = value.accumulated_attendances || null;
@@ -170,6 +209,48 @@ async function settleSnapshotPart(factory) {
     }
 }
 
+function hasNonzeroCode(value) {
+    return Object.hasOwn(value || {}, 'code') && value.code !== 0;
+}
+
+function validateCodeResult(section, result) {
+    if (!result.ok) return result;
+    if (!result.value) {
+        return {
+            ...result,
+            error: makeSnapshotError(section, `${section} returned empty payload`)
+        };
+    }
+    if (hasNonzeroCode(result.value)) {
+        return {
+            ...result,
+            error: makeSnapshotError(section, result.value.message || `${section} returned nonzero code`, {
+                code: result.value.code
+            })
+        };
+    }
+    return result;
+}
+
+function validateRouletteResult(result) {
+    const validated = validateCodeResult('roulette', result);
+    if (!validated.ok || validated.error) return validated;
+
+    const hasParticipationCount = Object.hasOwn(validated.value?.value || {}, 'participation_cnt');
+    if (!hasParticipationCount) {
+        return {
+            ...validated,
+            error: makeSnapshotError('roulette', 'Roulette payload missing participation count')
+        };
+    }
+
+    return validated;
+}
+
+function hasComponentIds(value) {
+    return Boolean(value && typeof value === 'object' && Object.values(value).some(componentNo => componentNo != null));
+}
+
 function extractNumericFlake(raw) {
     if (typeof raw === 'number') return raw;
 
@@ -187,11 +268,20 @@ function normalizeFlake(totalResult, monthlyResult) {
     if (!totalResult.ok) errors.total = totalResult.error;
     if (!monthlyResult.ok) errors.monthly = monthlyResult.error;
 
+    const total = totalResult.ok ? extractNumericFlake(totalResult.value) : null;
+    const monthly = monthlyResult.ok ? extractNumericFlake(monthlyResult.value) : null;
+    if (totalResult.ok && total === null) {
+        errors.total = makeSnapshotError('flake', 'Unable to extract total flake balance');
+    }
+    if (monthlyResult.ok && monthly === null) {
+        errors.monthly = makeSnapshotError('flake', 'Unable to extract monthly flake total');
+    }
+
     return {
-        success: totalResult.ok && monthlyResult.ok,
+        success: totalResult.ok && monthlyResult.ok && Object.keys(errors).length === 0,
         error: Object.keys(errors).length > 0 ? errors : undefined,
-        total: totalResult.ok ? extractNumericFlake(totalResult.value) : null,
-        monthly: monthlyResult.ok ? extractNumericFlake(monthlyResult.value) : null,
+        total,
+        monthly,
         rawTotal: totalResult.ok ? totalResult.value : null,
         rawMonthly: monthlyResult.ok ? monthlyResult.value : null
     };
@@ -244,19 +334,21 @@ export async function captureAutomationSnapshot(headers, deps = {}) {
 
     const missionComponentResult = await settleSnapshotPart(() => services.getMissionComponentIds(headers));
     let missionComponentIds = state.missionComponents;
-    if (missionComponentResult.ok && missionComponentResult.value) {
+    if (missionComponentResult.ok && hasComponentIds(missionComponentResult.value)) {
         missionComponentIds = missionComponentResult.value;
     } else if (!missionComponentResult.ok) {
         errors.missionComponents = missionComponentResult.error;
+    } else {
+        errors.missionComponents = makeSnapshotError('missionComponents', 'Mission component refresh returned no component IDs');
     }
 
     const [
         articleWrite,
         missionComponents,
-        rouletteResult,
-        rouletteExtraResult,
-        shopResult,
-        majakResult,
+        rawRouletteResult,
+        rawRouletteExtraResult,
+        rawShopResult,
+        rawMajakResult,
         flakeTotal,
         flakeMonthly
     ] = await Promise.all([
@@ -270,8 +362,27 @@ export async function captureAutomationSnapshot(headers, deps = {}) {
         settleSnapshotPart(() => services.getMonthlyFlakeTotal(headers))
     ]);
 
+    const rouletteResult = validateRouletteResult(rawRouletteResult);
+    const rouletteExtraResult = validateCodeResult('rouletteExtra', rawRouletteExtraResult);
+    const shopResult = validateCodeResult('shop', rawShopResult);
+    const majakResult = validateCodeResult('majak', rawMajakResult);
+    const articleWriteError = articleWrite.ok && (!articleWrite.value || articleWrite.value.success === false)
+        ? makeSnapshotError('articleWrite', articleWrite.value?.error || articleWrite.value?.message || 'Article write status returned unsuccessful payload')
+        : null;
+    let missionsError = null;
+    if (missionComponents.ok && !Array.isArray(missionComponents.value)) {
+        missionsError = makeSnapshotError('missions', 'Missions payload was not an array');
+    } else if (
+        missionComponents.ok &&
+        Object.hasOwn(errors, 'missionComponents') &&
+        Array.isArray(missionComponents.value) &&
+        missionComponents.value.length === 0
+    ) {
+        missionsError = makeSnapshotError('missions', 'Missions payload was empty after component refresh failed');
+    }
+
     const sectionResults = {
-        articleWrite,
+        articleWrite: articleWriteError ? { ...articleWrite, error: articleWriteError } : articleWrite,
         missions: missionComponents,
         roulette: rouletteResult,
         rouletteExtra: rouletteExtraResult,
@@ -280,17 +391,18 @@ export async function captureAutomationSnapshot(headers, deps = {}) {
     };
 
     for (const [sectionName, result] of Object.entries(sectionResults)) {
-        if (!result.ok) errors[sectionName] = result.error;
+        if (!result.ok || result.error) errors[sectionName] = result.error;
     }
+    if (missionsError) errors.missions = missionsError;
 
     const flake = normalizeFlake(flakeTotal, flakeMonthly);
-    if (!flakeTotal.ok || !flakeMonthly.ok) {
+    if (!flake.success) {
         errors.flake = flake.error;
     }
 
-    const missions = missionComponents.ok
-        ? normalizeMissionSnapshot(missionComponents.value || [], { missionComponents: missionComponentIds })
-        : failedSection(missionComponents.error, {
+    const missions = missionComponents.ok && !missionsError
+        ? normalizeMissionSnapshot(missionComponents.value, { missionComponents: missionComponentIds })
+        : failedSection(missionComponents.error || missionsError, {
             categories: emptyCategories(),
             byMissionNo: {}
         });
@@ -299,7 +411,9 @@ export async function captureAutomationSnapshot(headers, deps = {}) {
         capturedAt: new Date().toISOString(),
         degraded: Object.keys(errors).length > 0,
         errors,
-        articleWrite: articleWrite.ok ? articleWrite.value : failedSection(articleWrite.error),
+        articleWrite: articleWrite.ok && !articleWriteError
+            ? articleWrite.value
+            : failedSection(articleWrite.error || articleWriteError, articleWrite.value || {}),
         missions,
         roulette: normalizeRoulette(rouletteResult),
         rouletteExtra: normalizeRouletteExtra(rouletteExtraResult),

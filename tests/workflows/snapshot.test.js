@@ -305,3 +305,53 @@ test('captureAutomationSnapshot marks failed sections degraded and non-actionabl
     assert.equal(snapshot.flake.total, 123);
     assert.equal(snapshot.flake.monthly, 45);
 });
+
+test('captureAutomationSnapshot marks resolved invalid payloads degraded and non-actionable', async () => {
+    resetMissionComponents();
+    state.missionComponents.daily = 100;
+
+    const snapshot = await captureAutomationSnapshot(
+        { Authorization: 'Bearer test' },
+        {
+            getMissionComponentIds: async () => null,
+            checkArticleWriteStatus: async () => ({ success: false, error: 'profile missing' }),
+            getAllDailyMissions: async () => null,
+            getRouletteSubEventNo: () => 'draw-event',
+            getRouletteParticipationCount: async () => ({ code: 1234, message: 'bad roulette' }),
+            getRouletteExtraSubEventNo: () => 'extra-event',
+            getRouletteExtra: async () => ({ value: { current_cnt: 0, milestones: [] } }),
+            getDailyShopRewards: async () => ({ code: 999, message: 'bad shop' }),
+            getMajakDailyShopRewards: async () => ({ value: { daily_attendances: { rewards: [] } } }),
+            getTotalFlakeBalance: async () => ({ value: { mileage_amount: 'not-a-number' } }),
+            getMonthlyFlakeTotal: async () => ({ value: { total_deposit_amount: null } })
+        }
+    );
+
+    assert.equal(snapshot.degraded, true);
+    assert.deepEqual(
+        Object.keys(snapshot.errors).sort(),
+        ['articleWrite', 'flake', 'missionComponents', 'missions', 'roulette', 'shop']
+    );
+    assert.equal(snapshot.articleWrite.success, false);
+    assert.equal(snapshot.articleWrite.error, 'profile missing');
+    assert.equal(snapshot.roulette.remaining, 0);
+    assert.equal(snapshot.roulette.success, false);
+    assert.equal(snapshot.roulette.unknown, true);
+    assert.equal(snapshot.shop.success, false);
+    assert.deepEqual(snapshot.shop.unclaimedDaily, []);
+    assert.equal(snapshot.missions.success, false);
+    assert.deepEqual(snapshot.missions.categories, {
+        daily: { all: [], complete: [], receivable: [], incomplete: [] },
+        content: { all: [], complete: [], receivable: [], incomplete: [] },
+        weekly: { all: [], complete: [], receivable: [], incomplete: [] },
+        banner: { all: [], complete: [], receivable: [], incomplete: [] },
+        attendance: { all: [], complete: [], receivable: [], incomplete: [] },
+        survey: { all: [], complete: [], receivable: [], incomplete: [] },
+        other: { all: [], complete: [], receivable: [], incomplete: [] }
+    });
+    assert.deepEqual(snapshot.missions.byMissionNo, {});
+    assert.equal(snapshot.flake.total, null);
+    assert.equal(snapshot.flake.monthly, null);
+    assert.ok(snapshot.errors.flake.total);
+    assert.ok(snapshot.errors.flake.monthly);
+});
