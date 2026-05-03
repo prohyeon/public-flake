@@ -671,14 +671,41 @@ export async function executePrizeEntry(headers) {
     log('✅ 경품 응모 처리 완료!', 'success');
 }
 
-export async function autoParticipateVisitMissions(headers) {
+export function normalizeSingleVisitMissionOptions(options = {}) {
+    const source = Array.isArray(options?.missionNos)
+        ? options
+        : (Array.isArray(options?.meta?.missionNos) ? options.meta : {});
+    const targetMissionNos = [...new Set((source.missionNos || [])
+        .filter(missionNo => missionNo !== null && missionNo !== undefined))];
+    const targetMissionNoSet = new Set(targetMissionNos.map(missionNo => String(missionNo)));
+
+    return {
+        targeted: targetMissionNos.length > 0,
+        targetMissionNos,
+        targetMissionNoSet
+    };
+}
+
+export function isTargetedSingleVisitMission(mission, options) {
+    if (!options?.targeted) return true;
+    return options.targetMissionNoSet.has(String(mission.mission_no));
+}
+
+export async function autoParticipateVisitMissions(headers, options = {}) {
+    const missionOptions = normalizeSingleVisitMissionOptions(options);
+    const { targeted, targetMissionNos } = missionOptions;
+
     try {
         log('[SINGLE 미션] 자동 참여 시작', 'info');
+
+        if (targeted) {
+            log(`[SINGLE 미션] Target missionNo filter active: ${targetMissionNos.length}`, 'info');
+        }
 
         const allMissions = await getAllDailyMissions(headers);
         if (!allMissions || allMissions.length === 0) {
             log('[SINGLE 미션] 조회된 미션 없음', 'warning');
-            return { success: false, participated: 0, completed: 0 };
+            return { success: false, participated: 0, completed: 0, skipped: 0, total: 0, targeted, targetMissionNos };
         }
 
         const singleMissions = [];
@@ -686,6 +713,8 @@ export async function autoParticipateVisitMissions(headers) {
         allMissions.forEach(comp => {
             const missions = comp.missions || [];
             missions.forEach(mission => {
+                if (!isTargetedSingleVisitMission(mission, missionOptions)) return;
+
                 if (mission.mission_type === 'SINGLE' &&
                     mission.status === 'INCOMPLETE' &&
                     !CONFIG.dailyMissions.skipMissions.includes(mission.mission_no)) {
@@ -715,7 +744,7 @@ export async function autoParticipateVisitMissions(headers) {
 
         if (singleMissions.length === 0) {
             log('[SINGLE 미션] 자동 참여 가능한 방문형 미션 없음', 'info');
-            return { success: true, participated: 0, completed: 0, skipped: skippedMissions.length };
+            return { success: true, participated: 0, completed: 0, skipped: skippedMissions.length, total: 0, targeted, targetMissionNos };
         }
 
         log(`[SINGLE 미션] ${singleMissions.length}개 발견`, 'info');
@@ -750,10 +779,10 @@ export async function autoParticipateVisitMissions(headers) {
         }
 
         log(`[SINGLE 미션] 총 참여: ${participated}개, 즉시 완료: ${completed}개, 스킵: ${skippedMissions.length}개`, 'success');
-        return { success: true, participated, completed, skipped: skippedMissions.length, total: singleMissions.length };
+        return { success: true, participated, completed, skipped: skippedMissions.length, total: singleMissions.length, targeted, targetMissionNos };
 
     } catch (error) {
         log(`[SINGLE 미션] 오류: ${error.message}`, 'error');
-        return { success: false, error: error.message };
+        return { success: false, participated: 0, completed: 0, skipped: 0, total: 0, targeted, targetMissionNos, error: error.message };
     }
 }
