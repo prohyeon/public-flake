@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.6.0
+// @version      2.7.0
 // @author       prohyeon
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -19,7 +19,7 @@
   'use strict';
 
   const CONFIG = {
-    version: "2.6.0",
+    version: "2.7.0",
     lastUpdated: "2026-05-03",
     maintenanceMode: {
       enabled: false,
@@ -126,7 +126,8 @@
       bannerMissions: 0,
       attendanceMissions: 0,
       surveyMissions: 0,
-      prizeEntry: 0
+      prizeEntry: 0,
+      dailyAccumulated: 0
     },
     missionComponents: {
       daily: null,
@@ -181,6 +182,12 @@
     const month = String(today.getMonth() + 1).padStart(2, "0");
     const day = String(today.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
+  }
+  function getTodayKSTString() {
+    const today = /* @__PURE__ */ new Date();
+    const kstOffset = 9 * 60;
+    const kstDate = new Date(today.getTime() + kstOffset * 60 * 1e3);
+    return kstDate.toISOString().split("T")[0];
   }
   function getCookie(name) {
     const value = `; ${document.cookie}`;
@@ -669,9 +676,9 @@
     console.log("[룰렛 EXTRA 수령] Response:", response);
     return response;
   }
-  function updateProgress(task, current, total) {
-    if (task) {
-      const element = document.getElementById(`stove-${task}`);
+  function updateProgress(task2, current, total) {
+    if (task2) {
+      const element = document.getElementById(`stove-${task2}`);
       if (element) element.textContent = `${current}/${total}`;
     }
     const questTotalTasks = CONFIG.targets.articleLikes + CONFIG.targets.comments + CONFIG.targets.newArticle;
@@ -702,6 +709,1145 @@
         btn.style.opacity = running ? "0.5" : "1";
       }
     }
+  }
+  function makeEventHeaders(headers) {
+    return {
+      "Authorization": headers["Authorization"],
+      "caller-id": "event-hub",
+      "caller-detail": headers["X-UUID"] || headers["caller-detail"],
+      "X-Client-Lang": "ko",
+      "X-Timezone": "Asia/Seoul",
+      "X-Utc-Offset": "540",
+      "X-Nation": "KR",
+      "X-Lang": "ko",
+      "X-Device-Type": "pc",
+      "Accept": "application/json, text/plain, */*",
+      "Origin": "https://event.onstove.com",
+      "Referer": "https://event.onstove.com/"
+    };
+  }
+  async function getDailyShopRewards(headers) {
+    const now = /* @__PURE__ */ new Date();
+    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/${yearMonth}/services/STOVEINDIE`;
+    console.log("[데일리 보상 목록 조회] URL:", url);
+    const response = await apiRequest(url, "GET", makeEventHeaders(headers));
+    return response;
+  }
+  async function claimDailyReward(headers, itemNo, rewardType) {
+    const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/attendances/daily/${rewardType}?item_no=${itemNo}&reward_type=${rewardType}`;
+    const eventHeaders = {
+      ...makeEventHeaders(headers),
+      "Content-Type": "application/json"
+    };
+    const body = { item_no: itemNo, reward_type: rewardType };
+    const response = await apiRequest(url, "POST", eventHeaders, body);
+    return response;
+  }
+  async function getMajakDailyShopRewards(headers) {
+    const now = /* @__PURE__ */ new Date();
+    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/${yearMonth}/services/RIICHICITY_IND`;
+    console.log("[마작 리워드 목록 조회] URL:", url);
+    const response = await apiRequest(url, "GET", makeEventHeaders(headers));
+    return response;
+  }
+  async function claimDailyAccumulatedReward(headers, itemNo, itemType = "LIBRARY", guid = null, characterSeq = null) {
+    let endpointType;
+    if (itemType === "ITEMBOX") endpointType = "itembox";
+    else if (itemType === "INDIE_GAME_COUPON") endpointType = "LIBRARY";
+    else if (itemType === "FLAKE") endpointType = "flake";
+    else if (itemType === "INDIE_SALE_COUPON") endpointType = "coupon";
+    else endpointType = "LIBRARY";
+    let queryParams = `item_no=${itemNo}`;
+    if (guid && characterSeq) queryParams += `&guid=${guid}&character_seq=${characterSeq}`;
+    const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/attendances/accumulate/${endpointType}?${queryParams}`;
+    const eventHeaders = { ...makeEventHeaders(headers), "Content-Type": "application/json" };
+    const body = { item_no: itemNo };
+    if (guid && characterSeq) {
+      body.guid = guid;
+      body.character_seq = characterSeq;
+    }
+    const response = await apiRequest(url, "POST", eventHeaders, body);
+    return response;
+  }
+  async function claimMajakAccumulatedReward(headers, itemNo, itemType = "COUPON") {
+    let endpointType;
+    if (itemType === "INDIE_GAME_COUPON") endpointType = "LIBRARY";
+    else if (itemType === "FLAKE") endpointType = "flake";
+    else if (itemType === "COUPON" || itemType === "INDIE_SALE_COUPON") endpointType = "coupon";
+    else endpointType = "coupon";
+    const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/attendances/accumulate/${endpointType}?item_no=${itemNo}`;
+    const eventHeaders = { ...makeEventHeaders(headers), "Content-Type": "application/json" };
+    const body = { item_no: itemNo };
+    const response = await apiRequest(url, "POST", eventHeaders, body);
+    return response;
+  }
+  async function getMyProfile(headers) {
+    const url = `${CONFIG.api.baseUrl}/postie/v1.0/user/me?timestemp=${getTimestamp()}`;
+    const profileHeaders = {
+      ...headers,
+      "caller-id": "indie-web-my",
+      "Origin": "https://profile.onstove.com",
+      "Referer": "https://profile.onstove.com/"
+    };
+    if (profileHeaders["X-UUID"]) {
+      profileHeaders["caller-detail"] = profileHeaders["X-UUID"];
+      delete profileHeaders["X-UUID"];
+    }
+    const response = await apiRequest(url, "GET", profileHeaders);
+    return response;
+  }
+  async function getMyArticles(headers, userId, size = 10) {
+    const url = `${CONFIG.api.baseUrl}/postie/v1.0/interest/user/${userId}/article/list?user_id=${userId}&sort=LATEST&size=${size}&type=WRITE&timestemp=${getTimestamp()}`;
+    const myHeaders = {
+      ...headers,
+      "caller-id": "indie-my",
+      "x-lang": "ko",
+      "x-nation": "KR",
+      "x-device-type": "P01",
+      "Origin": "https://profile.onstove.com",
+      "Referer": "https://profile.onstove.com/"
+    };
+    const response = await apiRequest(url, "GET", myHeaders);
+    return response;
+  }
+  async function getMonthlyFlakeTotal(headers) {
+    try {
+      const dateRange = getCurrentMonthDateRange();
+      const url = `${CONFIG.api.baseUrl}/mileage/v2.0/master/deposit/total?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`;
+      const mileageHeaders = {
+        "Authorization": headers["Authorization"],
+        "caller-id": "flake-fe",
+        "caller-detail": headers["X-UUID"] || headers["caller-detail"],
+        "Content-Type": "application/json;charset=utf-8",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      };
+      const response = await apiRequest(url, "GET", mileageHeaders);
+      if (response && response.code === 0 && response.value) {
+        return response.value.total_deposit_amount || 0;
+      }
+      return 0;
+    } catch (error) {
+      console.warn("[FLAKE] 월간 플레이크 조회 실패:", error.message);
+      return 0;
+    }
+  }
+  async function getTotalFlakeBalance(headers) {
+    try {
+      const url = `${CONFIG.api.baseUrl}/mileage/v1.0/balance?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY`;
+      const mileageHeaders = {
+        "Authorization": headers["Authorization"],
+        "caller-id": "flake-fe",
+        "caller-detail": headers["X-UUID"] || headers["caller-detail"],
+        "Content-Type": "application/json;charset=utf-8",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      };
+      const response = await apiRequest(url, "GET", mileageHeaders);
+      if (response && response.code === 0 && response.value) {
+        return response.value.mileage_amount || 0;
+      }
+      return 0;
+    } catch (error) {
+      console.error("[FLAKE] 총 플레이크 조회 실패:", error);
+      return 0;
+    }
+  }
+  function openTabInBackground(url, active = false) {
+    if (typeof GM_openInTab === "undefined") {
+      console.warn("[Tab] GM_openInTab not available, using window.open");
+      return window.open(url, "_blank");
+    }
+    const tab = GM_openInTab(url, { active, insert: true, setParent: true });
+    console.log(`[Tab] ${active ? "포커스" : "백그라운드"}로 탭 열림: ${url}`);
+    return tab;
+  }
+  function closeTab(tabs) {
+    if (!tabs) {
+      console.warn("[Tab] 닫을 탭이 없습니다");
+      return 0;
+    }
+    const tabArray = Array.isArray(tabs) ? tabs : [tabs];
+    let closedCount = 0;
+    tabArray.forEach((tab, index) => {
+      try {
+        if (tab && typeof tab.close === "function") {
+          tab.close();
+          closedCount++;
+          console.log(`[Tab] 탭 ${index + 1} 닫힘`);
+        } else if (tab && typeof tab === "object") {
+          console.warn(`[Tab] 탭 ${index + 1}은 close() 메서드가 없습니다`);
+        }
+      } catch (e) {
+        console.error(`[Tab] 탭 ${index + 1} 닫기 실패:`, e.message);
+      }
+    });
+    console.log(`[Tab] 총 ${closedCount}/${tabArray.length}개 탭 닫힘`);
+    return closedCount;
+  }
+  function updateStatusUI(statusData) {
+    var _a, _b, _c, _d;
+    const articleWriteEl = document.getElementById("stove-status-article");
+    if (articleWriteEl && statusData.articleWrite) {
+      if (statusData.articleWrite.loading) {
+        articleWriteEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
+      } else if (statusData.articleWrite.success) {
+        const { hasWrittenToday, todayCount } = statusData.articleWrite;
+        if (hasWrittenToday) {
+          articleWriteEl.innerHTML = `<span style="color: #10b981">✅ 오늘 ${todayCount}개 작성</span>`;
+        } else {
+          articleWriteEl.innerHTML = '<span style="color: #f59e0b">✍️ 아직 작성 안 함</span>';
+        }
+      } else {
+        articleWriteEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
+      }
+    }
+    if (statusData.dailyMission) {
+      if (statusData.dailyMission.loading) {
+        ["daily", "weekly", "content", "attendance"].forEach((cat) => {
+          const el = document.getElementById(`stove-status-mission-${cat}`);
+          if (el) el.innerHTML = '<span style="color: #3b82f6">⏳</span>';
+        });
+      } else if (statusData.dailyMission.success && statusData.dailyMission.categories) {
+        const categories = statusData.dailyMission.categories;
+        ["daily", "weekly", "content", "attendance"].forEach((catKey) => {
+          const el = document.getElementById(`stove-status-mission-${catKey}`);
+          const cat = categories[catKey];
+          if (el) {
+            if (!cat || cat.total === 0) {
+              el.innerHTML = '<span style="color: #6b7280">-</span>';
+              return;
+            }
+            const { completed, receivable, total, missions } = cat;
+            let statusHTML = "";
+            if (catKey === "attendance") {
+              const attendanceMission = missions.find((m) => m.milestone_per_cnt && m.user_complete_cnt !== void 0);
+              if (attendanceMission) {
+                statusHTML = `<span style="color: #6b7280">${attendanceMission.milestone_per_cnt}일중 ${attendanceMission.user_complete_cnt}일출석</span>`;
+              } else if (receivable > 0) {
+                statusHTML = `<span style="color: #f59e0b">🎁 ${receivable}개</span>`;
+              } else {
+                statusHTML = '<span style="color: #6b7280">-</span>';
+              }
+            } else {
+              if (completed === total) {
+                statusHTML = '<span style="color: #10b981">✅ 완료</span>';
+              } else if (receivable > 0) {
+                statusHTML = `<span style="color: #f59e0b">🎁 ${receivable}개</span>`;
+              } else if (completed === 0) {
+                statusHTML = '<span style="color: #6b7280">받을 보상 없음</span>';
+              } else {
+                statusHTML = `<span style="color: #6b7280">${completed}/${total}</span>`;
+              }
+            }
+            el.innerHTML = statusHTML;
+            const parentItem = el.closest(".stove-mission-item");
+            if (parentItem && missions && missions.length > 0) {
+              const existingTooltip = parentItem.querySelector(".stove-mission-tooltip");
+              if (existingTooltip) existingTooltip.remove();
+              const tooltip = document.createElement("div");
+              tooltip.className = "stove-mission-tooltip";
+              const catLabel = catKey === "daily" ? "📅 데일리 미션" : catKey === "weekly" ? "📆 위클리 미션" : catKey === "content" ? "💬 컨텐츠" : "📆 월간출석";
+              let tooltipHTML = `<div class="stove-mission-tooltip-title">${catLabel}</div>`;
+              missions.forEach((mission) => {
+                const statusIcon = mission.status === "COMPLETE" || mission.status === "COMPLETED" ? "✅" : mission.status === "RECEIVABLE" ? "🎁" : "⏳";
+                const statusColor = mission.status === "COMPLETE" || mission.status === "COMPLETED" ? "#10b981" : mission.status === "RECEIVABLE" ? "#f59e0b" : "#6b7280";
+                tooltipHTML += `
+                                <div class="stove-mission-tooltip-item">
+                                    <span class="stove-mission-tooltip-name">${mission.title}</span>
+                                    <span class="stove-mission-tooltip-status" style="color: ${statusColor}">${statusIcon}</span>
+                                </div>
+                            `;
+              });
+              tooltip.innerHTML = tooltipHTML;
+              parentItem.appendChild(tooltip);
+            }
+          }
+        });
+      } else {
+        ["daily", "weekly", "content", "attendance"].forEach((cat) => {
+          const el = document.getElementById(`stove-status-mission-${cat}`);
+          if (el) el.innerHTML = '<span style="color: #ef4444">❌</span>';
+        });
+      }
+    }
+    const rouletteEl = document.getElementById("stove-status-roulette");
+    if (rouletteEl && statusData.roulette) {
+      if (statusData.roulette.loading) {
+        rouletteEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
+      } else if (statusData.roulette.success) {
+        const { current, limit, remaining } = statusData.roulette;
+        const color = remaining > 0 ? "#10b981" : "#6b7280";
+        rouletteEl.innerHTML = `<span style="color: ${color}">${current}/${limit} (${remaining}회 남음)</span>`;
+      } else {
+        rouletteEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
+      }
+    }
+    const dailyShopEl = document.getElementById("stove-status-daily");
+    if (dailyShopEl && statusData.dailyShop) {
+      if (statusData.dailyShop.loading) {
+        dailyShopEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
+      } else if (statusData.dailyShop.success) {
+        const { received, notReceived, noRewardToday } = statusData.dailyShop;
+        if (received) {
+          dailyShopEl.innerHTML = '<span style="color: #10b981">✅ 전부 완료</span>';
+        } else if (notReceived) {
+          dailyShopEl.innerHTML = '<span style="color: #f59e0b">📦 보상 받지 않음</span>';
+        } else if (noRewardToday) {
+          dailyShopEl.innerHTML = '<span style="color: #9ca3af">⚠️ 오늘 보상 없음</span>';
+        } else {
+          dailyShopEl.innerHTML = '<span style="color: #6b7280">-</span>';
+        }
+      } else {
+        dailyShopEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
+      }
+    }
+    const majakShopEl = document.getElementById("stove-status-majak");
+    if (majakShopEl && statusData.majakShop) {
+      if (statusData.majakShop.loading) {
+        majakShopEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
+      } else if (statusData.majakShop.success) {
+        const { received, notReceived, noRewardToday } = statusData.majakShop;
+        if (received) {
+          majakShopEl.innerHTML = '<span style="color: #10b981">✅ 전부 완료</span>';
+        } else if (notReceived) {
+          majakShopEl.innerHTML = '<span style="color: #f59e0b">🀄 보상 받지 않음</span>';
+        } else if (noRewardToday) {
+          majakShopEl.innerHTML = '<span style="color: #9ca3af">⚠️ 오늘 보상 없음</span>';
+        } else {
+          majakShopEl.innerHTML = '<span style="color: #6b7280">-</span>';
+        }
+      } else {
+        majakShopEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
+      }
+    }
+    const surveyEl = document.getElementById("stove-status-survey");
+    if (surveyEl && statusData.survey) {
+      if (statusData.survey.loading) {
+        surveyEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
+      } else if (statusData.survey.success) {
+        const { notAvailable, noMissions, completed, receivable, total, allCompleted } = statusData.survey;
+        if (notAvailable) {
+          surveyEl.innerHTML = '<span style="color: #6b7280">비활성화</span>';
+        } else if (noMissions) {
+          surveyEl.innerHTML = '<span style="color: #6b7280">미션 없음</span>';
+        } else if (allCompleted) {
+          surveyEl.innerHTML = '<span style="color: #10b981">✅ 전부 완료</span>';
+        } else if (receivable > 0) {
+          surveyEl.innerHTML = `<span style="color: #f59e0b">📊 ${receivable}개 투표 가능</span>`;
+        } else if (completed > 0) {
+          surveyEl.innerHTML = `<span style="color: #6b7280">${completed}/${total}</span>`;
+        } else {
+          surveyEl.innerHTML = '<span style="color: #6b7280">-</span>';
+        }
+      } else {
+        surveyEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
+      }
+    }
+    const totalFlakeEl = document.getElementById("stove-status-total-flake");
+    if (totalFlakeEl && statusData.totalFlake !== void 0) {
+      if ((_a = statusData.totalFlake) == null ? void 0 : _a.loading) {
+        totalFlakeEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
+      } else if ((_b = statusData.totalFlake) == null ? void 0 : _b.error) {
+        totalFlakeEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
+      } else {
+        totalFlakeEl.innerHTML = `<span style="color: #10b981">${statusData.totalFlake.toLocaleString()} F</span>`;
+      }
+    }
+    const monthlyFlakeEl = document.getElementById("stove-status-monthly-flake");
+    if (monthlyFlakeEl && statusData.monthlyFlake !== void 0) {
+      if ((_c = statusData.monthlyFlake) == null ? void 0 : _c.loading) {
+        monthlyFlakeEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
+      } else if ((_d = statusData.monthlyFlake) == null ? void 0 : _d.error) {
+        monthlyFlakeEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
+      } else {
+        monthlyFlakeEl.innerHTML = `<span style="color: #10b981">+${statusData.monthlyFlake.toLocaleString()} F</span>`;
+      }
+    }
+  }
+  async function checkRouletteStatus(headers) {
+    try {
+      const participationInfo = await getRouletteParticipationCount(headers, getRouletteSubEventNo());
+      if (participationInfo == null ? void 0 : participationInfo.value) {
+        const maxDraws = CONFIG.roulette.maxDraws;
+        const current = participationInfo.value.participation_cnt || 0;
+        const remaining = Math.max(0, maxDraws - current);
+        return { success: true, current, limit: maxDraws, remaining };
+      }
+      return { success: false, error: "데이터 없음" };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+  async function checkDailyShopStatus(headers) {
+    var _a;
+    try {
+      const dailyShopData = await getDailyShopRewards(headers);
+      if ((_a = dailyShopData == null ? void 0 : dailyShopData.value) == null ? void 0 : _a.daily_attendances) {
+        const rewards = dailyShopData.value.daily_attendances.rewards || [];
+        const todayString = getTodayString();
+        const todayReward = rewards.find((reward) => reward.attendance_date === todayString);
+        if (todayReward) {
+          return { success: true, received: todayReward.is_received, notReceived: !todayReward.is_received };
+        } else {
+          return { success: true, received: false, notReceived: false, noRewardToday: true };
+        }
+      }
+      return { success: false, error: "데이터 없음" };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+  async function checkMajakShopStatus(headers) {
+    var _a;
+    try {
+      const majakShopData = await getMajakDailyShopRewards(headers);
+      if ((_a = majakShopData == null ? void 0 : majakShopData.value) == null ? void 0 : _a.daily_attendances) {
+        const rewards = majakShopData.value.daily_attendances.rewards || [];
+        const todayString = getTodayString();
+        const todayReward = rewards.find((reward) => reward.attendance_date === todayString);
+        if (todayReward) {
+          return { success: true, received: todayReward.is_received, notReceived: !todayReward.is_received };
+        } else {
+          return { success: true, received: false, notReceived: false, noRewardToday: true };
+        }
+      }
+      return { success: false, error: "데이터 없음" };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+  async function checkSurveyStatus(headers) {
+    var _a;
+    try {
+      if (!CONFIG.surveyMissions.enabled) ;
+      const componentNo = state.missionComponents.survey;
+      if (!componentNo) return { success: true, notAvailable: true };
+      const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
+      const response = await apiRequest(url, "GET", headers);
+      if ((response == null ? void 0 : response.code) === 0 && ((_a = response.value) == null ? void 0 : _a.missions)) {
+        const missions = response.value.missions;
+        if (missions.length === 0) return { success: true, noMissions: true };
+        let completed = 0;
+        let receivable = 0;
+        const total = missions.length;
+        missions.forEach((mission) => {
+          if (mission.status === "COMPLETE" || mission.status === "COMPLETED") completed++;
+          else if (mission.status === "RECEIVABLE") receivable++;
+        });
+        return { success: true, completed, receivable, total, allCompleted: completed === total };
+      }
+      return { success: false, error: "데이터 없음" };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+  async function checkDailyMissionStatus(headers) {
+    try {
+      const allMissions = await getAllDailyMissions(headers);
+      if (!allMissions || allMissions.length === 0) {
+        return { success: false, error: "데이터 없음" };
+      }
+      const categories = {
+        daily: { components: [], missions: [] },
+        weekly: { components: [], missions: [] },
+        content: { components: [], missions: [] },
+        attendance: { components: [], missions: [] }
+      };
+      allMissions.forEach((comp) => {
+        var _a;
+        const type = (_a = comp.component_info) == null ? void 0 : _a.component_type;
+        const componentNo = comp.componentNo;
+        const missions = comp.missions || [];
+        if (type === "SINGLE") {
+          categories.daily.components.push(comp.component_info);
+          categories.daily.missions.push(...missions);
+        } else if (type === "ACCUMULATION") {
+          const bucket = componentNo === state.missionComponents.weekly ? "weekly" : "attendance";
+          categories[bucket].components.push(comp.component_info);
+          categories[bucket].missions.push(...missions);
+        } else if (type === "CONTENT1") {
+          categories.content.components.push(comp.component_info);
+          categories.content.missions.push(...missions);
+        }
+      });
+      const result = {};
+      Object.keys(categories).forEach((key) => {
+        const missions = categories[key].missions;
+        if (missions.length > 0) {
+          result[key] = {
+            total: missions.length,
+            completed: missions.filter((m) => m.status === "COMPLETE" || m.status === "COMPLETED").length,
+            receivable: missions.filter((m) => m.status === "RECEIVABLE").length,
+            incomplete: missions.filter((m) => m.status === "INCOMPLETE").length,
+            components: categories[key].components,
+            missions
+          };
+        }
+      });
+      return { success: true, categories: result };
+    } catch (e) {
+      console.error("[데일리 미션 상태 체크 오류]", e);
+      return { success: false, error: e.message };
+    }
+  }
+  async function checkArticleWriteStatus(headers) {
+    var _a, _b;
+    try {
+      const profileData = await getMyProfile(headers);
+      if (!((_a = profileData == null ? void 0 : profileData.value) == null ? void 0 : _a.user_id)) {
+        return { success: false, error: "프로필 정보 없음" };
+      }
+      const userId = profileData.value.user_id;
+      const articlesData = await getMyArticles(headers, userId, 10);
+      if (!((_b = articlesData == null ? void 0 : articlesData.value) == null ? void 0 : _b.list)) {
+        return { success: false, error: "게시글 목록 없음" };
+      }
+      const articles = articlesData.value.list;
+      const now = /* @__PURE__ */ new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const todayEnd = todayStart + 24 * 60 * 60 * 1e3;
+      const todayArticles = articles.filter((article) => {
+        const articleTime = article.datetime;
+        return articleTime >= todayStart && articleTime < todayEnd;
+      });
+      return { success: true, hasWrittenToday: todayArticles.length > 0, todayCount: todayArticles.length };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+  async function visitRequiredPages() {
+    log("🌐 필수 페이지 탭 열기...", "info");
+    const tabs = [];
+    try {
+      log("  📋 리워드샵 페이지 방문 중...", "info");
+      tabs.push(openTabInBackground("https://reward.onstove.com/ko", false));
+      log("  🏠 스토브 메인 페이지 방문 중...", "info");
+      tabs.push(openTabInBackground("https://www.onstove.com/ko", false));
+      log("✓ 필수 페이지 탭 열림", "success");
+    } catch (error) {
+      log(`⚠️ 페이지 방문 중 오류: ${error.message}`, "warning");
+    }
+    return tabs;
+  }
+  async function checkAllStatus() {
+    console.log("[상태 확인 시작]");
+    try {
+      const headers = extractHeaders();
+      updateStatusUI({
+        articleWrite: { loading: true },
+        dailyMission: { loading: true },
+        roulette: { loading: true },
+        dailyShop: { loading: true },
+        majakShop: { loading: true },
+        survey: { loading: true },
+        totalFlake: { loading: true },
+        monthlyFlake: { loading: true }
+      });
+      if (!Object.values(state.missionComponents).some(Boolean)) {
+        await getMissionComponentIds(headers);
+      }
+      const [articleWriteStatus, dailyMissionStatus, rouletteStatus, dailyShopStatus, majakShopStatus, surveyStatus, totalFlake, monthlyFlake] = await Promise.all([
+        checkArticleWriteStatus(headers),
+        checkDailyMissionStatus(headers),
+        checkRouletteStatus(headers),
+        checkDailyShopStatus(headers),
+        checkMajakShopStatus(headers),
+        checkSurveyStatus(headers),
+        getTotalFlakeBalance(headers),
+        getMonthlyFlakeTotal(headers)
+      ]);
+      updateStatusUI({
+        articleWrite: articleWriteStatus,
+        dailyMission: dailyMissionStatus,
+        roulette: rouletteStatus,
+        dailyShop: dailyShopStatus,
+        majakShop: majakShopStatus,
+        survey: surveyStatus,
+        totalFlake,
+        monthlyFlake
+      });
+      console.log("[상태 확인] ✅ 완료");
+    } catch (error) {
+      console.error("[상태 확인 오류]", error);
+      alert(`상태 확인 실패: ${error.message}`);
+      updateStatusUI({
+        articleWrite: { success: false, error: "확인 실패" },
+        dailyMission: { success: false, error: "확인 실패" },
+        roulette: { success: false, error: "확인 실패" },
+        dailyShop: { success: false, error: "확인 실패" },
+        majakShop: { success: false, error: "확인 실패" },
+        survey: { success: false, error: "확인 실패" },
+        totalFlake: { error: true },
+        monthlyFlake: { error: true }
+      });
+    }
+  }
+  const SNAPSHOT_CATEGORIES = ["daily", "content", "weekly", "banner", "attendance", "survey", "other"];
+  const COMPLETE_STATUSES = /* @__PURE__ */ new Set(["COMPLETE", "COMPLETED"]);
+  const DONE_OR_READY_STATUSES = /* @__PURE__ */ new Set(["COMPLETE", "COMPLETED", "RECEIVABLE"]);
+  const defaultServices = {
+    checkArticleWriteStatus,
+    getAllDailyMissions,
+    getMissionComponentIds,
+    getRouletteParticipationCount,
+    getRouletteSubEventNo,
+    getRouletteExtra,
+    getRouletteExtraSubEventNo,
+    getDailyShopRewards,
+    getMajakDailyShopRewards,
+    getTotalFlakeBalance,
+    getMonthlyFlakeTotal
+  };
+  function emptyCategories() {
+    return Object.fromEntries(
+      SNAPSHOT_CATEGORIES.map((category) => [
+        category,
+        { all: [], complete: [], receivable: [], incomplete: [] }
+      ])
+    );
+  }
+  function getMissionCategory(componentNo, componentType, missionComponents = state.missionComponents) {
+    switch (componentType) {
+      case "SINGLE":
+        return "daily";
+      case "CONTENT1":
+        return "content";
+      case "SURVEY":
+        return "survey";
+      case "BANNER":
+        return "banner";
+      case "ACCUMULATION":
+        return componentNo === missionComponents.weekly ? "weekly" : "attendance";
+      default:
+        return "other";
+    }
+  }
+  function isReceived(value) {
+    if (value === true || value === 1) return true;
+    if (typeof value === "string") {
+      return ["Y", "YES", "TRUE", "1"].includes(value.toUpperCase());
+    }
+    return false;
+  }
+  function serializeError(error) {
+    return {
+      name: (error == null ? void 0 : error.name) || "Error",
+      message: (error == null ? void 0 : error.message) || String(error)
+    };
+  }
+  function makeSnapshotError(section, message, extra = {}) {
+    return {
+      name: "SnapshotValidationError",
+      message,
+      section,
+      ...extra
+    };
+  }
+  function failedSection(error, extra = {}) {
+    return {
+      success: false,
+      error,
+      ...extra
+    };
+  }
+  function normalizeRoulette(rouletteResult) {
+    if (!rouletteResult.ok) {
+      return failedSection(rouletteResult.error, {
+        raw: null,
+        current: 0,
+        limit: CONFIG.roulette.maxDraws,
+        remaining: 0,
+        unknown: true
+      });
+    }
+    if (rouletteResult.error) {
+      return failedSection(rouletteResult.error, {
+        raw: rouletteResult.value ?? null,
+        current: 0,
+        limit: CONFIG.roulette.maxDraws,
+        remaining: 0,
+        unknown: true
+      });
+    }
+    const current = rouletteResult.value.value.participation_cnt;
+    const limit = CONFIG.roulette.maxDraws;
+    return {
+      success: true,
+      raw: rouletteResult.value,
+      current,
+      limit,
+      remaining: Math.max(0, limit - current),
+      unknown: false
+    };
+  }
+  function normalizeRouletteExtra(extraResult) {
+    var _a;
+    if (!extraResult.ok) {
+      return failedSection(extraResult.error, {
+        raw: null,
+        current: 0,
+        currentCycle: null,
+        milestones: [],
+        claimable: []
+      });
+    }
+    if (extraResult.error) {
+      return failedSection(extraResult.error, {
+        raw: extraResult.value ?? null,
+        current: 0,
+        currentCycle: null,
+        milestones: [],
+        claimable: []
+      });
+    }
+    const value = ((_a = extraResult.value) == null ? void 0 : _a.value) || {};
+    const current = value.current_cnt || 0;
+    const milestones = Array.isArray(value.milestones) ? value.milestones : [];
+    const claimable = milestones.filter(
+      (milestone) => current >= (milestone.milestone || 0) && !isReceived(milestone.received_yn ?? milestone.is_received)
+    );
+    return {
+      success: true,
+      raw: extraResult.value,
+      current,
+      currentCycle: value.current_cycle ?? null,
+      milestones,
+      claimable
+    };
+  }
+  function normalizeShop(shopResult) {
+    var _a;
+    const todayString = getTodayKSTString();
+    if (!shopResult.ok) {
+      return failedSection(shopResult.error, {
+        raw: null,
+        date: todayString,
+        dailyAttendances: null,
+        accumulatedAttendances: null,
+        unclaimedDaily: []
+      });
+    }
+    if (shopResult.error) {
+      return failedSection(shopResult.error, {
+        raw: shopResult.value ?? null,
+        date: todayString,
+        dailyAttendances: null,
+        accumulatedAttendances: null,
+        unclaimedDaily: []
+      });
+    }
+    const value = ((_a = shopResult.value) == null ? void 0 : _a.value) || {};
+    const dailyAttendances = value.daily_attendances || null;
+    const accumulatedAttendances = value.accumulated_attendances || null;
+    const dailyRewards = Array.isArray(dailyAttendances == null ? void 0 : dailyAttendances.rewards) ? dailyAttendances.rewards : [];
+    const unclaimedDaily = dailyRewards.filter(
+      (reward) => reward.attendance_date === todayString && !isReceived(reward.is_received)
+    );
+    return {
+      success: true,
+      raw: shopResult.value,
+      date: todayString,
+      dailyAttendances,
+      accumulatedAttendances,
+      unclaimedDaily
+    };
+  }
+  async function settleSnapshotPart(factory) {
+    try {
+      return { ok: true, value: await factory(), error: null };
+    } catch (error) {
+      return { ok: false, value: null, error: serializeError(error) };
+    }
+  }
+  function hasNonzeroCode(value) {
+    return Object.hasOwn(value || {}, "code") && value.code !== 0;
+  }
+  function validateCodeResult(section, result) {
+    if (!result.ok) return result;
+    if (!result.value) {
+      return {
+        ...result,
+        error: makeSnapshotError(section, `${section} returned empty payload`)
+      };
+    }
+    if (hasNonzeroCode(result.value)) {
+      return {
+        ...result,
+        error: makeSnapshotError(section, result.value.message || `${section} returned nonzero code`, {
+          code: result.value.code
+        })
+      };
+    }
+    return result;
+  }
+  function validateRouletteResult(result) {
+    var _a, _b;
+    const validated = validateCodeResult("roulette", result);
+    if (!validated.ok || validated.error) return validated;
+    const participationCount = (_b = (_a = validated.value) == null ? void 0 : _a.value) == null ? void 0 : _b.participation_cnt;
+    if (!Number.isFinite(participationCount)) {
+      return {
+        ...validated,
+        error: makeSnapshotError("roulette", "Roulette payload missing valid participation count")
+      };
+    }
+    return validated;
+  }
+  function isRecord(value) {
+    return Boolean(value && typeof value === "object" && !Array.isArray(value));
+  }
+  function validateRouletteExtraResult(result) {
+    var _a;
+    const validated = validateCodeResult("rouletteExtra", result);
+    if (!validated.ok || validated.error) return validated;
+    const value = (_a = validated.value) == null ? void 0 : _a.value;
+    if (!isRecord(value) || !Array.isArray(value.milestones)) {
+      return {
+        ...validated,
+        error: makeSnapshotError("rouletteExtra", "Roulette extra payload missing milestones array")
+      };
+    }
+    return validated;
+  }
+  function validateAttendanceShopResult(section, result) {
+    var _a;
+    const validated = validateCodeResult(section, result);
+    if (!validated.ok || validated.error) return validated;
+    const value = (_a = validated.value) == null ? void 0 : _a.value;
+    if (!isRecord(value)) {
+      return {
+        ...validated,
+        error: makeSnapshotError(section, `${section} payload missing attendance data`)
+      };
+    }
+    const attendanceKeys = ["daily_attendances", "accumulated_attendances"];
+    const recognizedKeys = attendanceKeys.filter((key) => Object.hasOwn(value, key));
+    const malformedKey = recognizedKeys.find((key) => !isRecord(value[key]));
+    if (recognizedKeys.length === 0 || malformedKey) {
+      return {
+        ...validated,
+        error: makeSnapshotError(section, `${section} payload contained invalid attendance data`)
+      };
+    }
+    return validated;
+  }
+  function hasComponentIds(value) {
+    return Boolean(value && typeof value === "object" && Object.values(value).some((componentNo) => componentNo != null));
+  }
+  function extractNumericFlake(raw) {
+    if (typeof raw === "number") return raw;
+    const value = raw == null ? void 0 : raw.value;
+    if (typeof value === "number") return value;
+    if (typeof (value == null ? void 0 : value.mileage_amount) === "number") return value.mileage_amount;
+    if (typeof (value == null ? void 0 : value.total_deposit_amount) === "number") return value.total_deposit_amount;
+    if (typeof (value == null ? void 0 : value.amount) === "number") return value.amount;
+    return null;
+  }
+  function normalizeFlake(totalResult, monthlyResult) {
+    const errors = {};
+    if (!totalResult.ok) errors.total = totalResult.error;
+    if (!monthlyResult.ok) errors.monthly = monthlyResult.error;
+    const total = totalResult.ok ? extractNumericFlake(totalResult.value) : null;
+    const monthly = monthlyResult.ok ? extractNumericFlake(monthlyResult.value) : null;
+    if (totalResult.ok && total === null) {
+      errors.total = makeSnapshotError("flake", "Unable to extract total flake balance");
+    }
+    if (monthlyResult.ok && monthly === null) {
+      errors.monthly = makeSnapshotError("flake", "Unable to extract monthly flake total");
+    }
+    return {
+      success: totalResult.ok && monthlyResult.ok && Object.keys(errors).length === 0,
+      error: Object.keys(errors).length > 0 ? errors : void 0,
+      total,
+      monthly,
+      rawTotal: totalResult.ok ? totalResult.value : null,
+      rawMonthly: monthlyResult.ok ? monthlyResult.value : null
+    };
+  }
+  function normalizeMissionSnapshot(components = [], options = {}) {
+    var _a;
+    const missionComponents = options.missionComponents || state.missionComponents;
+    const categories = emptyCategories();
+    const byMissionNo = {};
+    for (const component of Array.isArray(components) ? components : []) {
+      const componentNo = component == null ? void 0 : component.componentNo;
+      const componentType = (_a = component == null ? void 0 : component.component_info) == null ? void 0 : _a.component_type;
+      const category = getMissionCategory(componentNo, componentType, missionComponents);
+      const missions = Array.isArray(component == null ? void 0 : component.missions) ? component.missions : [];
+      for (const mission of missions) {
+        const normalized = {
+          missionNo: mission.mission_no,
+          componentNo,
+          componentType,
+          category,
+          title: mission.title,
+          status: mission.status,
+          missionType: mission.mission_type,
+          isVisitMission: mission.is_visit_mission === true,
+          rewardAmount: mission.reward_amount || 0,
+          buttonUrl: mission.button_url || mission.url || null
+        };
+        categories[category].all.push(normalized);
+        byMissionNo[normalized.missionNo] = normalized;
+        if (COMPLETE_STATUSES.has(normalized.status)) {
+          categories[category].complete.push(normalized);
+        } else if (normalized.status === "RECEIVABLE") {
+          categories[category].receivable.push(normalized);
+        } else if (normalized.status === "INCOMPLETE") {
+          categories[category].incomplete.push(normalized);
+        }
+      }
+    }
+    return { success: true, categories, byMissionNo };
+  }
+  async function captureAutomationSnapshot(headers, deps = {}) {
+    var _a, _b;
+    const services = { ...defaultServices, ...deps };
+    const errors = {};
+    const missionComponentResult = await settleSnapshotPart(() => services.getMissionComponentIds(headers));
+    let missionComponentIds = state.missionComponents;
+    if (missionComponentResult.ok && hasComponentIds(missionComponentResult.value)) {
+      missionComponentIds = missionComponentResult.value;
+    } else if (!missionComponentResult.ok) {
+      errors.missionComponents = missionComponentResult.error;
+    } else {
+      errors.missionComponents = makeSnapshotError("missionComponents", "Mission component refresh returned no component IDs");
+    }
+    const [
+      articleWrite,
+      missionComponents,
+      rawRouletteResult,
+      rawRouletteExtraResult,
+      rawShopResult,
+      rawMajakResult,
+      flakeTotal,
+      flakeMonthly
+    ] = await Promise.all([
+      settleSnapshotPart(() => services.checkArticleWriteStatus(headers)),
+      settleSnapshotPart(() => services.getAllDailyMissions(headers)),
+      settleSnapshotPart(() => services.getRouletteParticipationCount(headers, services.getRouletteSubEventNo())),
+      settleSnapshotPart(() => services.getRouletteExtra(headers, services.getRouletteExtraSubEventNo())),
+      settleSnapshotPart(() => services.getDailyShopRewards(headers)),
+      settleSnapshotPart(() => services.getMajakDailyShopRewards(headers)),
+      settleSnapshotPart(() => services.getTotalFlakeBalance(headers)),
+      settleSnapshotPart(() => services.getMonthlyFlakeTotal(headers))
+    ]);
+    const rouletteResult = validateRouletteResult(rawRouletteResult);
+    const rouletteExtraResult = validateRouletteExtraResult(rawRouletteExtraResult);
+    const shopResult = validateAttendanceShopResult("shop", rawShopResult);
+    const majakResult = validateAttendanceShopResult("majak", rawMajakResult);
+    const articleWriteError = articleWrite.ok && (!articleWrite.value || articleWrite.value.success === false) ? makeSnapshotError("articleWrite", ((_a = articleWrite.value) == null ? void 0 : _a.error) || ((_b = articleWrite.value) == null ? void 0 : _b.message) || "Article write status returned unsuccessful payload") : null;
+    let missionsError = null;
+    if (missionComponents.ok && !Array.isArray(missionComponents.value)) {
+      missionsError = makeSnapshotError("missions", "Missions payload was not an array");
+    } else if (missionComponents.ok && Object.hasOwn(errors, "missionComponents") && Array.isArray(missionComponents.value) && missionComponents.value.length === 0) {
+      missionsError = makeSnapshotError("missions", "Missions payload was empty after component refresh failed");
+    }
+    const sectionResults = {
+      articleWrite: articleWriteError ? { ...articleWrite, error: articleWriteError } : articleWrite,
+      missions: missionComponents,
+      roulette: rouletteResult,
+      rouletteExtra: rouletteExtraResult,
+      shop: shopResult,
+      majak: majakResult
+    };
+    for (const [sectionName, result] of Object.entries(sectionResults)) {
+      if (!result.ok || result.error) errors[sectionName] = result.error;
+    }
+    if (missionsError) errors.missions = missionsError;
+    const flake = normalizeFlake(flakeTotal, flakeMonthly);
+    if (!flake.success) {
+      errors.flake = flake.error;
+    }
+    const missions = missionComponents.ok && !missionsError ? normalizeMissionSnapshot(missionComponents.value, { missionComponents: missionComponentIds }) : failedSection(missionComponents.error || missionsError, {
+      categories: emptyCategories(),
+      byMissionNo: {}
+    });
+    return {
+      capturedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      degraded: Object.keys(errors).length > 0,
+      errors,
+      articleWrite: articleWrite.ok && !articleWriteError ? articleWrite.value : failedSection(articleWrite.error || articleWriteError, articleWrite.value || {}),
+      missions,
+      roulette: normalizeRoulette(rouletteResult),
+      rouletteExtra: normalizeRouletteExtra(rouletteExtraResult),
+      shop: normalizeShop(shopResult),
+      majak: normalizeShop(majakResult),
+      flake
+    };
+  }
+  function compareSnapshots(before, after, plan = {}) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
+    const plannedMissionNos = plan.plannedMissionNos || [];
+    const afterMissions = ((_a = after == null ? void 0 : after.missions) == null ? void 0 : _a.byMissionNo) || {};
+    const incompleteMissionNos = plannedMissionNos.filter((missionNo) => {
+      const mission = afterMissions[missionNo];
+      return !mission || !DONE_OR_READY_STATUSES.has(mission.status);
+    });
+    return {
+      articleStillMissing: ((_b = before == null ? void 0 : before.articleWrite) == null ? void 0 : _b.hasWrittenToday) === false && ((_c = after == null ? void 0 : after.articleWrite) == null ? void 0 : _c.hasWrittenToday) === false,
+      rouletteStillRemaining: (((_d = after == null ? void 0 : after.roulette) == null ? void 0 : _d.remaining) || 0) > 0,
+      incompleteMissionNos,
+      unclaimedDailyShop: ((_f = (_e = after == null ? void 0 : after.shop) == null ? void 0 : _e.unclaimedDaily) == null ? void 0 : _f.length) || 0,
+      unclaimedMajakShop: ((_h = (_g = after == null ? void 0 : after.majak) == null ? void 0 : _g.unclaimedDaily) == null ? void 0 : _h.length) || 0,
+      claimableExtra: ((_j = (_i = after == null ? void 0 : after.rouletteExtra) == null ? void 0 : _i.claimable) == null ? void 0 : _j.length) || 0
+    };
+  }
+  function getSnapshotSummary(snapshot) {
+    var _a, _b, _c;
+    const missions = Object.values(((_a = snapshot == null ? void 0 : snapshot.missions) == null ? void 0 : _a.byMissionNo) || {});
+    return {
+      articleWritten: ((_b = snapshot == null ? void 0 : snapshot.articleWrite) == null ? void 0 : _b.hasWrittenToday) === true,
+      rouletteRemaining: ((_c = snapshot == null ? void 0 : snapshot.roulette) == null ? void 0 : _c.remaining) || 0,
+      missions: {
+        complete: missions.filter((mission) => COMPLETE_STATUSES.has(mission.status)).length,
+        receivable: missions.filter((mission) => mission.status === "RECEIVABLE").length,
+        incomplete: missions.filter((mission) => mission.status === "INCOMPLETE").length
+      }
+    };
+  }
+  function task(id, kind, meta = {}) {
+    return { id, kind, ...meta };
+  }
+  function group(id, concurrency, tasks) {
+    const filteredTasks = tasks.filter(Boolean);
+    if (filteredTasks.length === 0) return null;
+    return { id, concurrency, tasks: filteredTasks };
+  }
+  function filterGroups(groups) {
+    return groups.filter(Boolean);
+  }
+  function isSectionKnown(section) {
+    return Boolean(section) && section.success !== false && section.unknown !== true;
+  }
+  function getVisitMissionNos(snapshot) {
+    var _a;
+    return Object.values(((_a = snapshot == null ? void 0 : snapshot.missions) == null ? void 0 : _a.byMissionNo) || {}).filter(
+      (mission) => mission.category === "daily" && mission.status === "INCOMPLETE" && mission.isVisitMission === true
+    ).map((mission) => mission.missionNo);
+  }
+  function isConfiguredPrizeMission(mission) {
+    var _a, _b;
+    const configuredMissionNo = (_a = CONFIG.prizeEntry) == null ? void 0 : _a.missionNo;
+    const configuredMissionTitle = (_b = CONFIG.prizeEntry) == null ? void 0 : _b.missionTitle;
+    return configuredMissionNo != null && String(mission == null ? void 0 : mission.missionNo) === String(configuredMissionNo) || Boolean(configuredMissionTitle) && (mission == null ? void 0 : mission.title) === configuredMissionTitle;
+  }
+  function getPrizeEntryMission$1(snapshot) {
+    var _a;
+    return Object.values(((_a = snapshot == null ? void 0 : snapshot.missions) == null ? void 0 : _a.byMissionNo) || {}).find(isConfiguredPrizeMission);
+  }
+  function shouldSchedulePrizeEntry(snapshot) {
+    var _a;
+    if (!isSectionKnown(snapshot == null ? void 0 : snapshot.missions)) return false;
+    return ((_a = getPrizeEntryMission$1(snapshot)) == null ? void 0 : _a.status) === "INCOMPLETE";
+  }
+  function buildAutomationPlan(snapshot = {}) {
+    var _a, _b;
+    const plannedMissionNos = getVisitMissionNos(snapshot);
+    const articleWrite = snapshot.articleWrite;
+    const roulette = snapshot.roulette;
+    const rouletteExtra = snapshot.rouletteExtra;
+    const shop = snapshot.shop;
+    const majak = snapshot.majak;
+    const groups = filterGroups([
+      // These legacy tasks are safe/idempotent and may internally no-op on initial runs.
+      group("setup", 3, [
+        task("setup:requiredPages", "requiredPages"),
+        task("setup:componentRefresh", "componentRefresh"),
+        task("setup:eventRefresh", "eventRefresh")
+      ]),
+      group("community", 3, [
+        isSectionKnown(articleWrite) && articleWrite.hasWrittenToday === false ? task("community:articleWrite", "articleWrite") : null,
+        task("community:articleLikes", "articleLikes"),
+        task("community:comments", "comments", {
+          serialInside: true,
+          nonAuthoritativeRepair: true
+        })
+      ]),
+      group("visits", 4, [
+        plannedMissionNos.length > 0 ? task("visits:singleVisits", "singleVisits", { missionNos: plannedMissionNos }) : null,
+        task("visits:dailyMissions", "dailyMissions"),
+        task("visits:contentMissions", "contentMissions"),
+        task("visits:bannerMissions", "bannerMissions")
+      ]),
+      group("missionClaims", 2, [
+        task("missionClaims:weeklyMissions", "weeklyMissions"),
+        task("missionClaims:attendanceMissions", "attendanceMissions"),
+        task("missionClaims:surveyMissions", "surveyMissions")
+      ]),
+      group("flakeSpending", 1, [
+        isSectionKnown(roulette) && roulette.remaining > 0 ? task("flakeSpending:rouletteDraws", "rouletteDraws", { spendsFlake: true }) : null,
+        shouldSchedulePrizeEntry(snapshot) ? task("flakeSpending:prizeEntry", "prizeEntry", { spendsFlake: true }) : null
+      ]),
+      group("followups", 1, [
+        isSectionKnown(rouletteExtra) && (((_a = rouletteExtra.claimable) == null ? void 0 : _a.length) || 0) > 0 ? task("followups:rouletteExtra", "rouletteExtra") : null,
+        isSectionKnown(shop) && (((_b = shop.unclaimedDaily) == null ? void 0 : _b.length) || 0) > 0 ? task("followups:dailyShop", "dailyShop") : null,
+        isSectionKnown(shop) ? task("followups:dailyAccumulatedShop", "dailyAccumulatedShop") : null,
+        isSectionKnown(majak) ? task("followups:majakShop", "majakShop") : null
+      ])
+    ]);
+    return { plannedMissionNos, groups };
+  }
+  function buildRepairPlan(diff = {}) {
+    const plannedMissionNos = diff.incompleteMissionNos || [];
+    const tasks = [
+      diff.articleStillMissing ? task("repairSafe:articleWrite", "articleWrite") : null,
+      plannedMissionNos.length > 0 ? task("repairSafe:singleVisits", "singleVisits", { missionNos: plannedMissionNos }) : null,
+      diff.unclaimedDailyShop > 0 ? task("repairSafe:dailyShop", "dailyShop") : null,
+      diff.claimableExtra > 0 ? task("repairSafe:rouletteExtra", "rouletteExtra") : null,
+      diff.unclaimedMajakShop > 0 ? task("repairSafe:majakShop", "majakShop") : null
+    ];
+    const groups = filterGroups([
+      group("repairSafe", 1, tasks)
+    ]);
+    return { plannedMissionNos, groups };
+  }
+  async function runTask(task2) {
+    try {
+      const value = await task2.run();
+      return { id: task2.id, status: "fulfilled", value };
+    } catch (reason) {
+      return { id: task2.id, status: "rejected", reason };
+    }
+  }
+  async function runLimited(tasks, concurrency = 1) {
+    if (tasks.length === 0) return [];
+    const limit = Math.min(tasks.length, Math.max(1, Math.floor(concurrency) || 1));
+    const results = new Array(tasks.length);
+    let nextIndex = 0;
+    async function worker() {
+      while (nextIndex < tasks.length) {
+        const index = nextIndex;
+        nextIndex += 1;
+        results[index] = await runTask(tasks[index]);
+      }
+    }
+    await Promise.all(Array.from({ length: limit }, () => worker()));
+    return results;
+  }
+  async function runTaskGroups(groups, hooks = {}) {
+    var _a, _b;
+    const groupResults = [];
+    for (const group2 of groups) {
+      (_a = hooks.onGroupStart) == null ? void 0 : _a.call(hooks, group2);
+      const results = await runLimited(group2.tasks || [], group2.concurrency);
+      (_b = hooks.onGroupDone) == null ? void 0 : _b.call(hooks, group2, results);
+      groupResults.push({ groupId: group2.id, results });
+    }
+    return groupResults;
+  }
+  function flattenTaskResults(groupResults) {
+    return groupResults.flatMap(
+      (groupResult) => groupResult.results.map((result) => ({
+        ...result,
+        groupId: groupResult.groupId
+      }))
+    );
   }
   async function runRouletteDraws(headers) {
     var _a, _b;
@@ -889,79 +2035,6 @@
       state.isRunning = false;
       setButtonState(false);
     }
-  }
-  function makeEventHeaders(headers) {
-    return {
-      "Authorization": headers["Authorization"],
-      "caller-id": "event-hub",
-      "caller-detail": headers["X-UUID"] || headers["caller-detail"],
-      "X-Client-Lang": "ko",
-      "X-Timezone": "Asia/Seoul",
-      "X-Utc-Offset": "540",
-      "X-Nation": "KR",
-      "X-Lang": "ko",
-      "X-Device-Type": "pc",
-      "Accept": "application/json, text/plain, */*",
-      "Origin": "https://event.onstove.com",
-      "Referer": "https://event.onstove.com/"
-    };
-  }
-  async function getDailyShopRewards(headers) {
-    const now = /* @__PURE__ */ new Date();
-    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/${yearMonth}/services/STOVEINDIE`;
-    console.log("[데일리 보상 목록 조회] URL:", url);
-    const response = await apiRequest(url, "GET", makeEventHeaders(headers));
-    return response;
-  }
-  async function claimDailyReward(headers, itemNo, rewardType) {
-    const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/attendances/daily/${rewardType}?item_no=${itemNo}&reward_type=${rewardType}`;
-    const eventHeaders = {
-      ...makeEventHeaders(headers),
-      "Content-Type": "application/json"
-    };
-    const body = { item_no: itemNo, reward_type: rewardType };
-    const response = await apiRequest(url, "POST", eventHeaders, body);
-    return response;
-  }
-  async function getMajakDailyShopRewards(headers) {
-    const now = /* @__PURE__ */ new Date();
-    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/${yearMonth}/services/RIICHICITY_IND`;
-    console.log("[마작 리워드 목록 조회] URL:", url);
-    const response = await apiRequest(url, "GET", makeEventHeaders(headers));
-    return response;
-  }
-  async function claimDailyAccumulatedReward(headers, itemNo, itemType = "LIBRARY", guid = null, characterSeq = null) {
-    let endpointType;
-    if (itemType === "ITEMBOX") endpointType = "itembox";
-    else if (itemType === "INDIE_GAME_COUPON") endpointType = "LIBRARY";
-    else if (itemType === "FLAKE") endpointType = "flake";
-    else if (itemType === "INDIE_SALE_COUPON") endpointType = "coupon";
-    else endpointType = "LIBRARY";
-    let queryParams = `item_no=${itemNo}`;
-    if (guid && characterSeq) queryParams += `&guid=${guid}&character_seq=${characterSeq}`;
-    const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/attendances/accumulate/${endpointType}?${queryParams}`;
-    const eventHeaders = { ...makeEventHeaders(headers), "Content-Type": "application/json" };
-    const body = { item_no: itemNo };
-    if (guid && characterSeq) {
-      body.guid = guid;
-      body.character_seq = characterSeq;
-    }
-    const response = await apiRequest(url, "POST", eventHeaders, body);
-    return response;
-  }
-  async function claimMajakAccumulatedReward(headers, itemNo, itemType = "COUPON") {
-    let endpointType;
-    if (itemType === "INDIE_GAME_COUPON") endpointType = "LIBRARY";
-    else if (itemType === "FLAKE") endpointType = "flake";
-    else if (itemType === "COUPON" || itemType === "INDIE_SALE_COUPON") endpointType = "coupon";
-    else endpointType = "coupon";
-    const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/attendances/accumulate/${endpointType}?item_no=${itemNo}`;
-    const eventHeaders = { ...makeEventHeaders(headers), "Content-Type": "application/json" };
-    const body = { item_no: itemNo };
-    const response = await apiRequest(url, "POST", eventHeaders, body);
-    return response;
   }
   async function claimDailyShopRewards(headers) {
     var _a;
@@ -1177,6 +2250,7 @@
     } catch (e) {
       log(`✗ 데일리 누적 보상 처리 실패: ${e.message}`, "error");
     }
+    state.earnings.dailyAccumulated = dailyAccumulatedFlake;
     return dailyAccumulatedFlake;
   }
   function openRewardShop() {
@@ -1187,38 +2261,6 @@
     } catch (error) {
       log(`❌ 탭 열기 실패: ${error.message}`, "error");
     }
-  }
-  function openTabInBackground(url, active = false) {
-    if (typeof GM_openInTab === "undefined") {
-      console.warn("[Tab] GM_openInTab not available, using window.open");
-      return window.open(url, "_blank");
-    }
-    const tab = GM_openInTab(url, { active, insert: true, setParent: true });
-    console.log(`[Tab] ${active ? "포커스" : "백그라운드"}로 탭 열림: ${url}`);
-    return tab;
-  }
-  function closeTab(tabs) {
-    if (!tabs) {
-      console.warn("[Tab] 닫을 탭이 없습니다");
-      return 0;
-    }
-    const tabArray = Array.isArray(tabs) ? tabs : [tabs];
-    let closedCount = 0;
-    tabArray.forEach((tab, index) => {
-      try {
-        if (tab && typeof tab.close === "function") {
-          tab.close();
-          closedCount++;
-          console.log(`[Tab] 탭 ${index + 1} 닫힘`);
-        } else if (tab && typeof tab === "object") {
-          console.warn(`[Tab] 탭 ${index + 1}은 close() 메서드가 없습니다`);
-        }
-      } catch (e) {
-        console.error(`[Tab] 탭 ${index + 1} 닫기 실패:`, e.message);
-      }
-    });
-    console.log(`[Tab] 총 ${closedCount}/${tabArray.length}개 탭 닫힘`);
-    return closedCount;
   }
   function isPrizeEntryMission(mission) {
     return mission.mission_no === CONFIG.prizeEntry.missionNo || mission.title === CONFIG.prizeEntry.missionTitle;
@@ -1738,19 +2780,40 @@
     }
     log("✅ 경품 응모 처리 완료!", "success");
   }
-  async function autoParticipateVisitMissions(headers) {
+  function normalizeSingleVisitMissionOptions(options = {}) {
+    var _a;
+    const source = Array.isArray(options == null ? void 0 : options.missionNos) ? options : Array.isArray((_a = options == null ? void 0 : options.meta) == null ? void 0 : _a.missionNos) ? options.meta : {};
+    const targetMissionNos = [...new Set((source.missionNos || []).filter((missionNo) => missionNo !== null && missionNo !== void 0))];
+    const targetMissionNoSet = new Set(targetMissionNos.map((missionNo) => String(missionNo)));
+    return {
+      targeted: targetMissionNos.length > 0,
+      targetMissionNos,
+      targetMissionNoSet
+    };
+  }
+  function isTargetedSingleVisitMission(mission, options) {
+    if (!(options == null ? void 0 : options.targeted)) return true;
+    return options.targetMissionNoSet.has(String(mission.mission_no));
+  }
+  async function autoParticipateVisitMissions(headers, options = {}) {
+    const missionOptions = normalizeSingleVisitMissionOptions(options);
+    const { targeted, targetMissionNos } = missionOptions;
     try {
       log("[SINGLE 미션] 자동 참여 시작", "info");
+      if (targeted) {
+        log(`[SINGLE 미션] Target missionNo filter active: ${targetMissionNos.length}`, "info");
+      }
       const allMissions = await getAllDailyMissions(headers);
       if (!allMissions || allMissions.length === 0) {
         log("[SINGLE 미션] 조회된 미션 없음", "warning");
-        return { success: false, participated: 0, completed: 0 };
+        return { success: false, participated: 0, completed: 0, skipped: 0, total: 0, targeted, targetMissionNos };
       }
       const singleMissions = [];
       const skippedMissions = [];
       allMissions.forEach((comp) => {
         const missions = comp.missions || [];
         missions.forEach((mission) => {
+          if (!isTargetedSingleVisitMission(mission, missionOptions)) return;
           if (mission.mission_type === "SINGLE" && mission.status === "INCOMPLETE" && !CONFIG.dailyMissions.skipMissions.includes(mission.mission_no)) {
             const normalizedMission = {
               mission_no: mission.mission_no,
@@ -1775,7 +2838,7 @@
       });
       if (singleMissions.length === 0) {
         log("[SINGLE 미션] 자동 참여 가능한 방문형 미션 없음", "info");
-        return { success: true, participated: 0, completed: 0, skipped: skippedMissions.length };
+        return { success: true, participated: 0, completed: 0, skipped: skippedMissions.length, total: 0, targeted, targetMissionNos };
       }
       log(`[SINGLE 미션] ${singleMissions.length}개 발견`, "info");
       let participated = 0;
@@ -1804,483 +2867,166 @@
         }
       }
       log(`[SINGLE 미션] 총 참여: ${participated}개, 즉시 완료: ${completed}개, 스킵: ${skippedMissions.length}개`, "success");
-      return { success: true, participated, completed, skipped: skippedMissions.length, total: singleMissions.length };
+      return { success: true, participated, completed, skipped: skippedMissions.length, total: singleMissions.length, targeted, targetMissionNos };
     } catch (error) {
       log(`[SINGLE 미션] 오류: ${error.message}`, "error");
-      return { success: false, error: error.message };
+      return { success: false, participated: 0, completed: 0, skipped: 0, total: 0, targeted, targetMissionNos, error: error.message };
     }
   }
-  async function getMyProfile(headers) {
-    const url = `${CONFIG.api.baseUrl}/postie/v1.0/user/me?timestemp=${getTimestamp()}`;
-    const profileHeaders = {
-      ...headers,
-      "caller-id": "indie-web-my",
-      "Origin": "https://profile.onstove.com",
-      "Referer": "https://profile.onstove.com/"
-    };
-    if (profileHeaders["X-UUID"]) {
-      profileHeaders["caller-detail"] = profileHeaders["X-UUID"];
-      delete profileHeaders["X-UUID"];
-    }
-    const response = await apiRequest(url, "GET", profileHeaders);
-    return response;
-  }
-  async function getMyArticles(headers, userId, size = 10) {
-    const url = `${CONFIG.api.baseUrl}/postie/v1.0/interest/user/${userId}/article/list?user_id=${userId}&sort=LATEST&size=${size}&type=WRITE&timestemp=${getTimestamp()}`;
-    const myHeaders = {
-      ...headers,
-      "caller-id": "indie-my",
-      "x-lang": "ko",
-      "x-nation": "KR",
-      "x-device-type": "P01",
-      "Origin": "https://profile.onstove.com",
-      "Referer": "https://profile.onstove.com/"
-    };
-    const response = await apiRequest(url, "GET", myHeaders);
-    return response;
-  }
-  async function getMonthlyFlakeTotal(headers) {
-    try {
-      const dateRange = getCurrentMonthDateRange();
-      const url = `${CONFIG.api.baseUrl}/mileage/v2.0/master/deposit/total?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`;
-      const mileageHeaders = {
-        "Authorization": headers["Authorization"],
-        "caller-id": "flake-fe",
-        "caller-detail": headers["X-UUID"] || headers["caller-detail"],
-        "Content-Type": "application/json;charset=utf-8",
-        "Accept": "*/*",
-        "Origin": "https://reward.onstove.com",
-        "Referer": "https://reward.onstove.com/"
-      };
-      const response = await apiRequest(url, "GET", mileageHeaders);
-      if (response && response.code === 0 && response.value) {
-        return response.value.total_deposit_amount || 0;
-      }
-      return 0;
-    } catch (error) {
-      console.warn("[FLAKE] 월간 플레이크 조회 실패:", error.message);
-      return 0;
-    }
-  }
-  async function getTotalFlakeBalance(headers) {
-    try {
-      const url = `${CONFIG.api.baseUrl}/mileage/v1.0/balance?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY`;
-      const mileageHeaders = {
-        "Authorization": headers["Authorization"],
-        "caller-id": "flake-fe",
-        "caller-detail": headers["X-UUID"] || headers["caller-detail"],
-        "Content-Type": "application/json;charset=utf-8",
-        "Accept": "*/*",
-        "Origin": "https://reward.onstove.com",
-        "Referer": "https://reward.onstove.com/"
-      };
-      const response = await apiRequest(url, "GET", mileageHeaders);
-      if (response && response.code === 0 && response.value) {
-        return response.value.mileage_amount || 0;
-      }
-      return 0;
-    } catch (error) {
-      console.error("[FLAKE] 총 플레이크 조회 실패:", error);
-      return 0;
-    }
-  }
-  function updateStatusUI(statusData) {
-    var _a, _b, _c, _d;
-    const articleWriteEl = document.getElementById("stove-status-article");
-    if (articleWriteEl && statusData.articleWrite) {
-      if (statusData.articleWrite.loading) {
-        articleWriteEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
-      } else if (statusData.articleWrite.success) {
-        const { hasWrittenToday, todayCount } = statusData.articleWrite;
-        if (hasWrittenToday) {
-          articleWriteEl.innerHTML = `<span style="color: #10b981">✅ 오늘 ${todayCount}개 작성</span>`;
-        } else {
-          articleWriteEl.innerHTML = '<span style="color: #f59e0b">✍️ 아직 작성 안 함</span>';
+  function createAutomationTaskHandlers({ headers, articles = [], allTabs = [] }) {
+    return {
+      requiredPages: async () => {
+        const tabs = await visitRequiredPages();
+        if (tabs == null ? void 0 : tabs.length) allTabs.push(...tabs);
+        return { tabCount: (tabs == null ? void 0 : tabs.length) || 0 };
+      },
+      componentRefresh: async () => getMissionComponentIds(headers),
+      eventRefresh: async () => {
+        const events = await getRouletteEventIds(headers);
+        {
+          await getPrizeInfo(headers);
         }
-      } else {
-        articleWriteEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
-      }
-    }
-    if (statusData.dailyMission) {
-      if (statusData.dailyMission.loading) {
-        ["daily", "weekly", "content", "attendance"].forEach((cat) => {
-          const el = document.getElementById(`stove-status-mission-${cat}`);
-          if (el) el.innerHTML = '<span style="color: #3b82f6">⏳</span>';
-        });
-      } else if (statusData.dailyMission.success && statusData.dailyMission.categories) {
-        const categories = statusData.dailyMission.categories;
-        ["daily", "weekly", "content", "attendance"].forEach((catKey) => {
-          const el = document.getElementById(`stove-status-mission-${catKey}`);
-          const cat = categories[catKey];
-          if (el) {
-            if (!cat || cat.total === 0) {
-              el.innerHTML = '<span style="color: #6b7280">-</span>';
-              return;
-            }
-            const { completed, receivable, total, missions } = cat;
-            let statusHTML = "";
-            if (catKey === "attendance") {
-              const attendanceMission = missions.find((m) => m.milestone_per_cnt && m.user_complete_cnt !== void 0);
-              if (attendanceMission) {
-                statusHTML = `<span style="color: #6b7280">${attendanceMission.milestone_per_cnt}일중 ${attendanceMission.user_complete_cnt}일출석</span>`;
-              } else if (receivable > 0) {
-                statusHTML = `<span style="color: #f59e0b">🎁 ${receivable}개</span>`;
-              } else {
-                statusHTML = '<span style="color: #6b7280">-</span>';
-              }
-            } else {
-              if (completed === total) {
-                statusHTML = '<span style="color: #10b981">✅ 완료</span>';
-              } else if (receivable > 0) {
-                statusHTML = `<span style="color: #f59e0b">🎁 ${receivable}개</span>`;
-              } else if (completed === 0) {
-                statusHTML = '<span style="color: #6b7280">받을 보상 없음</span>';
-              } else {
-                statusHTML = `<span style="color: #6b7280">${completed}/${total}</span>`;
-              }
-            }
-            el.innerHTML = statusHTML;
-            const parentItem = el.closest(".stove-mission-item");
-            if (parentItem && missions && missions.length > 0) {
-              const existingTooltip = parentItem.querySelector(".stove-mission-tooltip");
-              if (existingTooltip) existingTooltip.remove();
-              const tooltip = document.createElement("div");
-              tooltip.className = "stove-mission-tooltip";
-              const catLabel = catKey === "daily" ? "📅 데일리 미션" : catKey === "weekly" ? "📆 위클리 미션" : catKey === "content" ? "💬 컨텐츠" : "📆 월간출석";
-              let tooltipHTML = `<div class="stove-mission-tooltip-title">${catLabel}</div>`;
-              missions.forEach((mission) => {
-                const statusIcon = mission.status === "COMPLETE" || mission.status === "COMPLETED" ? "✅" : mission.status === "RECEIVABLE" ? "🎁" : "⏳";
-                const statusColor = mission.status === "COMPLETE" || mission.status === "COMPLETED" ? "#10b981" : mission.status === "RECEIVABLE" ? "#f59e0b" : "#6b7280";
-                tooltipHTML += `
-                                <div class="stove-mission-tooltip-item">
-                                    <span class="stove-mission-tooltip-name">${mission.title}</span>
-                                    <span class="stove-mission-tooltip-status" style="color: ${statusColor}">${statusIcon}</span>
-                                </div>
-                            `;
-              });
-              tooltip.innerHTML = tooltipHTML;
-              parentItem.appendChild(tooltip);
-            }
+        return events;
+      },
+      articleWrite: async () => {
+        const writeStatus = await checkArticleWriteStatus(headers);
+        if (writeStatus.success && writeStatus.hasWrittenToday) {
+          return { skipped: true, reason: "alreadyWritten", writeStatus };
+        }
+        try {
+          const articleId = await createArticle(headers, "출석", "출석");
+          if (articleId) {
+            state.progress.newArticle++;
+            updateProgress("new-article", state.progress.newArticle, CONFIG.targets.newArticle);
+            return { articleId };
           }
-        });
-      } else {
-        ["daily", "weekly", "content", "attendance"].forEach((cat) => {
-          const el = document.getElementById(`stove-status-mission-${cat}`);
-          if (el) el.innerHTML = '<span style="color: #ef4444">❌</span>';
-        });
-      }
-    }
-    const rouletteEl = document.getElementById("stove-status-roulette");
-    if (rouletteEl && statusData.roulette) {
-      if (statusData.roulette.loading) {
-        rouletteEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
-      } else if (statusData.roulette.success) {
-        const { current, limit, remaining } = statusData.roulette;
-        const color = remaining > 0 ? "#10b981" : "#6b7280";
-        rouletteEl.innerHTML = `<span style="color: ${color}">${current}/${limit} (${remaining}회 남음)</span>`;
-      } else {
-        rouletteEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
-      }
-    }
-    const dailyShopEl = document.getElementById("stove-status-daily");
-    if (dailyShopEl && statusData.dailyShop) {
-      if (statusData.dailyShop.loading) {
-        dailyShopEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
-      } else if (statusData.dailyShop.success) {
-        const { received, notReceived, noRewardToday } = statusData.dailyShop;
-        if (received) {
-          dailyShopEl.innerHTML = '<span style="color: #10b981">✅ 전부 완료</span>';
-        } else if (notReceived) {
-          dailyShopEl.innerHTML = '<span style="color: #f59e0b">📦 보상 받지 않음</span>';
-        } else if (noRewardToday) {
-          dailyShopEl.innerHTML = '<span style="color: #9ca3af">⚠️ 오늘 보상 없음</span>';
-        } else {
-          dailyShopEl.innerHTML = '<span style="color: #6b7280">-</span>';
+          return { error: true, message: "Article creation returned no article id" };
+        } catch (e) {
+          log(`새글 작성 실패: ${e.message}`, "error");
+          log("새글 작성 실패했지만 자동화를 계속 진행합니다", "warning");
+          return { error: true, message: e.message };
         }
-      } else {
-        dailyShopEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
-      }
-    }
-    const majakShopEl = document.getElementById("stove-status-majak");
-    if (majakShopEl && statusData.majakShop) {
-      if (statusData.majakShop.loading) {
-        majakShopEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
-      } else if (statusData.majakShop.success) {
-        const { received, notReceived, noRewardToday } = statusData.majakShop;
-        if (received) {
-          majakShopEl.innerHTML = '<span style="color: #10b981">✅ 전부 완료</span>';
-        } else if (notReceived) {
-          majakShopEl.innerHTML = '<span style="color: #f59e0b">🀄 보상 받지 않음</span>';
-        } else if (noRewardToday) {
-          majakShopEl.innerHTML = '<span style="color: #9ca3af">⚠️ 오늘 보상 없음</span>';
-        } else {
-          majakShopEl.innerHTML = '<span style="color: #6b7280">-</span>';
+      },
+      articleLikes: async () => {
+        const targetArticleLikes = CONFIG.targets.articleLikes;
+        const candidateCount = Math.min(targetArticleLikes * 3, articles.length);
+        const candidateArticles = articles.slice(0, candidateCount);
+        const candidateArticleIds = candidateArticles.map((a) => a.article_id);
+        if (candidateArticleIds.length === 0) {
+          return { attempted: 0, liked: 0, errors: [] };
         }
-      } else {
-        majakShopEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
-      }
-    }
-    const surveyEl = document.getElementById("stove-status-survey");
-    if (surveyEl && statusData.survey) {
-      if (statusData.survey.loading) {
-        surveyEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
-      } else if (statusData.survey.success) {
-        const { notAvailable, noMissions, completed, receivable, total, allCompleted } = statusData.survey;
-        if (notAvailable) {
-          surveyEl.innerHTML = '<span style="color: #6b7280">비활성화</span>';
-        } else if (noMissions) {
-          surveyEl.innerHTML = '<span style="color: #6b7280">미션 없음</span>';
-        } else if (allCompleted) {
-          surveyEl.innerHTML = '<span style="color: #10b981">✅ 전부 완료</span>';
-        } else if (receivable > 0) {
-          surveyEl.innerHTML = `<span style="color: #f59e0b">📊 ${receivable}개 투표 가능</span>`;
-        } else if (completed > 0) {
-          surveyEl.innerHTML = `<span style="color: #6b7280">${completed}/${total}</span>`;
-        } else {
-          surveyEl.innerHTML = '<span style="color: #6b7280">-</span>';
+        const articleLikeStatuses = await checkArticleLikeStatus(headers, candidateArticleIds);
+        const unlikedArticles = candidateArticles.filter(
+          (article) => {
+            var _a;
+            return ((_a = articleLikeStatuses[article.article_id]) == null ? void 0 : _a.LIKE) !== true;
+          }
+        );
+        const articlesToLike = unlikedArticles.slice(0, targetArticleLikes);
+        const errors = [];
+        let liked = 0;
+        for (let i = 0; i < articlesToLike.length; i++) {
+          const articleId = articlesToLike[i].article_id;
+          try {
+            await likeArticle(headers, articleId);
+            state.progress.articleLikes++;
+            liked++;
+            updateProgress("article-likes", state.progress.articleLikes, CONFIG.targets.articleLikes);
+            log(`게시글 ${articleId} 좋아요 완료 (${state.progress.articleLikes}/${targetArticleLikes})`, "success");
+          } catch (e) {
+            errors.push({ articleId, message: e.message });
+            log(`게시글 ${articleId} 좋아요 실패: ${e.message}`, "error");
+          }
+          if (i < articlesToLike.length - 1) await delay(CONFIG.delays.betweenActions);
         }
-      } else {
-        surveyEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
-      }
-    }
-    const totalFlakeEl = document.getElementById("stove-status-total-flake");
-    if (totalFlakeEl && statusData.totalFlake !== void 0) {
-      if ((_a = statusData.totalFlake) == null ? void 0 : _a.loading) {
-        totalFlakeEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
-      } else if ((_b = statusData.totalFlake) == null ? void 0 : _b.error) {
-        totalFlakeEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
-      } else {
-        totalFlakeEl.innerHTML = `<span style="color: #10b981">${statusData.totalFlake.toLocaleString()} F</span>`;
-      }
-    }
-    const monthlyFlakeEl = document.getElementById("stove-status-monthly-flake");
-    if (monthlyFlakeEl && statusData.monthlyFlake !== void 0) {
-      if ((_c = statusData.monthlyFlake) == null ? void 0 : _c.loading) {
-        monthlyFlakeEl.innerHTML = '<span style="color: #3b82f6">⏳ 확인 중...</span>';
-      } else if ((_d = statusData.monthlyFlake) == null ? void 0 : _d.error) {
-        monthlyFlakeEl.innerHTML = '<span style="color: #ef4444">❌ 확인 실패</span>';
-      } else {
-        monthlyFlakeEl.innerHTML = `<span style="color: #10b981">+${statusData.monthlyFlake.toLocaleString()} F</span>`;
-      }
-    }
-  }
-  async function checkRouletteStatus(headers) {
-    try {
-      const participationInfo = await getRouletteParticipationCount(headers, getRouletteSubEventNo());
-      if (participationInfo == null ? void 0 : participationInfo.value) {
-        const maxDraws = CONFIG.roulette.maxDraws;
-        const current = participationInfo.value.participation_cnt || 0;
-        const remaining = Math.max(0, maxDraws - current);
-        return { success: true, current, limit: maxDraws, remaining };
-      }
-      return { success: false, error: "데이터 없음" };
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
-  }
-  async function checkDailyShopStatus(headers) {
-    var _a;
-    try {
-      const dailyShopData = await getDailyShopRewards(headers);
-      if ((_a = dailyShopData == null ? void 0 : dailyShopData.value) == null ? void 0 : _a.daily_attendances) {
-        const rewards = dailyShopData.value.daily_attendances.rewards || [];
-        const todayString = getTodayString();
-        const todayReward = rewards.find((reward) => reward.attendance_date === todayString);
-        if (todayReward) {
-          return { success: true, received: todayReward.is_received, notReceived: !todayReward.is_received };
-        } else {
-          return { success: true, received: false, notReceived: false, noRewardToday: true };
+        return { attempted: articlesToLike.length, liked, errors };
+      },
+      comments: async () => {
+        const maxComments = Math.min(CONFIG.targets.comments, articles.length);
+        const errors = [];
+        const commentIds = [];
+        for (let i = 0; i < maxComments; i++) {
+          const articleId = articles[i].article_id;
+          try {
+            const commentId = await postComment(headers, articleId, CONFIG.comment);
+            log(`댓글 작성 완료: ${commentId}`, "success");
+            state.createdCommentIds.push(commentId);
+            state.progress.comments++;
+            commentIds.push(commentId);
+            updateProgress("comments", state.progress.comments, CONFIG.targets.comments);
+          } catch (e) {
+            errors.push({ articleId, message: e.message });
+            log(`댓글 작성 실패: ${e.message}`, "error");
+          }
+          if (i < maxComments - 1) await delay(CONFIG.delays.afterComment);
         }
-      }
-      return { success: false, error: "데이터 없음" };
-    } catch (e) {
-      return { success: false, error: e.message };
+        return { attempted: maxComments, commentIds, errors };
+      },
+      singleVisits: async (task2) => autoParticipateVisitMissions(headers, task2),
+      dailyMissions: async () => {
+        const tabs = await executeDailyMissions(headers);
+        if (tabs == null ? void 0 : tabs.length) allTabs.push(...tabs);
+        return { tabCount: (tabs == null ? void 0 : tabs.length) || 0 };
+      },
+      contentMissions: async () => {
+        const tabs = await executeContentMissions(headers);
+        if (tabs == null ? void 0 : tabs.length) allTabs.push(...tabs);
+        return { tabCount: (tabs == null ? void 0 : tabs.length) || 0 };
+      },
+      bannerMissions: async () => {
+        const tabs = await executeBannerMissions(headers);
+        if (tabs == null ? void 0 : tabs.length) allTabs.push(...tabs);
+        return { tabCount: (tabs == null ? void 0 : tabs.length) || 0 };
+      },
+      weeklyMissions: async () => executeWeeklyMissions(headers),
+      attendanceMissions: async () => executeAttendanceMissions(headers),
+      surveyMissions: async () => executeSurveyMissions(headers),
+      rouletteDraws: async () => runRouletteDraws(headers),
+      prizeEntry: async () => executePrizeEntry(headers),
+      rouletteExtra: async () => claimRouletteExtraRewards(headers),
+      dailyShop: async () => claimDailyShopRewards(headers),
+      dailyAccumulatedShop: async () => claimDailyAccumulatedRewards(headers),
+      majakShop: async () => claimMajakDailyShopRewards(headers)
+    };
+  }
+  function bindTaskHandlers(plan = {}, handlers = {}) {
+    const groups = (plan.groups || []).map((group2) => {
+      const tasks = (group2.tasks || []).filter((task2) => handlers[task2.kind]).map((task2) => ({
+        ...task2,
+        run: () => handlers[task2.kind](task2)
+      }));
+      return { ...group2, tasks };
+    }).filter((group2) => group2.tasks.length > 0);
+    return { ...plan, groups };
+  }
+  function hasSafeRepairableItems(diff = {}) {
+    return Boolean(
+      diff.articleStillMissing || (diff.incompleteMissionNos || []).length > 0 || diff.unclaimedDailyShop > 0 || diff.unclaimedMajakShop > 0 || diff.claimableExtra > 0
+    );
+  }
+  function describeRejectedTask(result) {
+    const reason = result.reason;
+    const message = (reason == null ? void 0 : reason.message) || String(reason);
+    return `${result.groupId}/${result.id}: ${message}`;
+  }
+  function logRejectedTasks(groupResults) {
+    const rejected = flattenTaskResults(groupResults).filter((result) => result.status === "rejected");
+    for (const result of rejected) {
+      log(`작업 실패: ${describeRejectedTask(result)}`, "error");
     }
   }
-  async function checkMajakShopStatus(headers) {
-    var _a;
-    try {
-      const majakShopData = await getMajakDailyShopRewards(headers);
-      if ((_a = majakShopData == null ? void 0 : majakShopData.value) == null ? void 0 : _a.daily_attendances) {
-        const rewards = majakShopData.value.daily_attendances.rewards || [];
-        const todayString = getTodayString();
-        const todayReward = rewards.find((reward) => reward.attendance_date === todayString);
-        if (todayReward) {
-          return { success: true, received: todayReward.is_received, notReceived: !todayReward.is_received };
-        } else {
-          return { success: true, received: false, notReceived: false, noRewardToday: true };
-        }
-      }
-      return { success: false, error: "데이터 없음" };
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
+  function logSnapshotSummary(label, snapshot) {
+    const summary = getSnapshotSummary(snapshot);
+    log(
+      `${label}: 글작성 ${summary.articleWritten ? "완료" : "미완료"}, 룰렛 ${summary.rouletteRemaining}회, 미션 완료 ${summary.missions.complete}/수령가능 ${summary.missions.receivable}/미완료 ${summary.missions.incomplete}`,
+      "info"
+    );
   }
-  async function checkSurveyStatus(headers) {
-    var _a;
-    try {
-      if (!CONFIG.surveyMissions.enabled) ;
-      const componentNo = state.missionComponents.survey;
-      if (!componentNo) return { success: true, notAvailable: true };
-      const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
-      const response = await apiRequest(url, "GET", headers);
-      if ((response == null ? void 0 : response.code) === 0 && ((_a = response.value) == null ? void 0 : _a.missions)) {
-        const missions = response.value.missions;
-        if (missions.length === 0) return { success: true, noMissions: true };
-        let completed = 0;
-        let receivable = 0;
-        const total = missions.length;
-        missions.forEach((mission) => {
-          if (mission.status === "COMPLETE" || mission.status === "COMPLETED") completed++;
-          else if (mission.status === "RECEIVABLE") receivable++;
-        });
-        return { success: true, completed, receivable, total, allCompleted: completed === total };
-      }
-      return { success: false, error: "데이터 없음" };
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
-  }
-  async function checkDailyMissionStatus(headers) {
-    try {
-      const allMissions = await getAllDailyMissions(headers);
-      if (!allMissions || allMissions.length === 0) {
-        return { success: false, error: "데이터 없음" };
-      }
-      const categories = {
-        daily: { components: [], missions: [] },
-        weekly: { components: [], missions: [] },
-        content: { components: [], missions: [] },
-        attendance: { components: [], missions: [] }
-      };
-      allMissions.forEach((comp) => {
-        var _a;
-        const type = (_a = comp.component_info) == null ? void 0 : _a.component_type;
-        const componentNo = comp.componentNo;
-        const missions = comp.missions || [];
-        if (type === "SINGLE") {
-          categories.daily.components.push(comp.component_info);
-          categories.daily.missions.push(...missions);
-        } else if (type === "ACCUMULATION") {
-          const bucket = componentNo === state.missionComponents.weekly ? "weekly" : "attendance";
-          categories[bucket].components.push(comp.component_info);
-          categories[bucket].missions.push(...missions);
-        } else if (type === "CONTENT1") {
-          categories.content.components.push(comp.component_info);
-          categories.content.missions.push(...missions);
-        }
-      });
-      const result = {};
-      Object.keys(categories).forEach((key) => {
-        const missions = categories[key].missions;
-        if (missions.length > 0) {
-          result[key] = {
-            total: missions.length,
-            completed: missions.filter((m) => m.status === "COMPLETE" || m.status === "COMPLETED").length,
-            receivable: missions.filter((m) => m.status === "RECEIVABLE").length,
-            incomplete: missions.filter((m) => m.status === "INCOMPLETE").length,
-            components: categories[key].components,
-            missions
-          };
-        }
-      });
-      return { success: true, categories: result };
-    } catch (e) {
-      console.error("[데일리 미션 상태 체크 오류]", e);
-      return { success: false, error: e.message };
-    }
-  }
-  async function checkArticleWriteStatus(headers) {
-    var _a, _b;
-    try {
-      const profileData = await getMyProfile(headers);
-      if (!((_a = profileData == null ? void 0 : profileData.value) == null ? void 0 : _a.user_id)) {
-        return { success: false, error: "프로필 정보 없음" };
-      }
-      const userId = profileData.value.user_id;
-      const articlesData = await getMyArticles(headers, userId, 10);
-      if (!((_b = articlesData == null ? void 0 : articlesData.value) == null ? void 0 : _b.list)) {
-        return { success: false, error: "게시글 목록 없음" };
-      }
-      const articles = articlesData.value.list;
-      const now = /* @__PURE__ */ new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-      const todayEnd = todayStart + 24 * 60 * 60 * 1e3;
-      const todayArticles = articles.filter((article) => {
-        const articleTime = article.datetime;
-        return articleTime >= todayStart && articleTime < todayEnd;
-      });
-      return { success: true, hasWrittenToday: todayArticles.length > 0, todayCount: todayArticles.length };
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
-  }
-  async function visitRequiredPages() {
-    log("🌐 필수 페이지 탭 열기...", "info");
-    const tabs = [];
-    try {
-      log("  📋 리워드샵 페이지 방문 중...", "info");
-      tabs.push(openTabInBackground("https://reward.onstove.com/ko", false));
-      log("  🏠 스토브 메인 페이지 방문 중...", "info");
-      tabs.push(openTabInBackground("https://www.onstove.com/ko", false));
-      log("✓ 필수 페이지 탭 열림", "success");
-    } catch (error) {
-      log(`⚠️ 페이지 방문 중 오류: ${error.message}`, "warning");
-    }
-    return tabs;
-  }
-  async function checkAllStatus() {
-    console.log("[상태 확인 시작]");
-    try {
-      const headers = extractHeaders();
-      updateStatusUI({
-        articleWrite: { loading: true },
-        dailyMission: { loading: true },
-        roulette: { loading: true },
-        dailyShop: { loading: true },
-        majakShop: { loading: true },
-        survey: { loading: true },
-        totalFlake: { loading: true },
-        monthlyFlake: { loading: true }
-      });
-      if (!Object.values(state.missionComponents).some(Boolean)) {
-        await getMissionComponentIds(headers);
-      }
-      const [articleWriteStatus, dailyMissionStatus, rouletteStatus, dailyShopStatus, majakShopStatus, surveyStatus, totalFlake, monthlyFlake] = await Promise.all([
-        checkArticleWriteStatus(headers),
-        checkDailyMissionStatus(headers),
-        checkRouletteStatus(headers),
-        checkDailyShopStatus(headers),
-        checkMajakShopStatus(headers),
-        checkSurveyStatus(headers),
-        getTotalFlakeBalance(headers),
-        getMonthlyFlakeTotal(headers)
-      ]);
-      updateStatusUI({
-        articleWrite: articleWriteStatus,
-        dailyMission: dailyMissionStatus,
-        roulette: rouletteStatus,
-        dailyShop: dailyShopStatus,
-        majakShop: majakShopStatus,
-        survey: surveyStatus,
-        totalFlake,
-        monthlyFlake
-      });
-      console.log("[상태 확인] ✅ 완료");
-    } catch (error) {
-      console.error("[상태 확인 오류]", error);
-      alert(`상태 확인 실패: ${error.message}`);
-      updateStatusUI({
-        articleWrite: { success: false, error: "확인 실패" },
-        dailyMission: { success: false, error: "확인 실패" },
-        roulette: { success: false, error: "확인 실패" },
-        dailyShop: { success: false, error: "확인 실패" },
-        majakShop: { success: false, error: "확인 실패" },
-        survey: { success: false, error: "확인 실패" },
-        totalFlake: { error: true },
-        monthlyFlake: { error: true }
-      });
-    }
+  function logSnapshotDiff(label, diff) {
+    log(
+      `${label}: 글 ${diff.articleStillMissing ? "미완료" : "확인"}, 미션 ${diff.incompleteMissionNos.length}개, 데일리 ${diff.unclaimedDailyShop}개, 마작 ${diff.unclaimedMajakShop}개, EXTRA ${diff.claimableExtra}개`,
+      hasSafeRepairableItems(diff) ? "warning" : "success"
+    );
   }
   async function runAutomation() {
     if (state.isRunning) {
@@ -2289,6 +3035,20 @@
     }
     state.isRunning = true;
     setButtonState(true);
+    state.progress = { articleLikes: 0, comments: 0, newArticle: 0 };
+    state.createdCommentIds = [];
+    state.completed = {
+      roulette: false,
+      dailyShop: false,
+      majak: false,
+      dailyMissions: false,
+      contentMissions: false,
+      weeklyMissions: false,
+      bannerMissions: false,
+      attendanceMissions: false,
+      surveyMissions: false,
+      prizeEntry: false
+    };
     const allTabs = [];
     const progressSection = document.querySelector(".stove-progress-section");
     if (progressSection) {
@@ -2307,7 +3067,8 @@
       bannerMissions: 0,
       attendanceMissions: 0,
       surveyMissions: 0,
-      prizeEntry: 0
+      prizeEntry: 0,
+      dailyAccumulated: 0
     };
     try {
       log("🚀 전체 자동화 시작", "info");
@@ -2315,147 +3076,63 @@
       const headers = extractHeaders();
       log("✓ 헤더 정보 추출 완료", "success");
       log("", "info");
-      const requiredPageTabs = await visitRequiredPages();
-      allTabs.push(...requiredPageTabs);
+      log("초기 스냅샷 수집 중...", "info");
+      const beforeSnapshot = await captureAutomationSnapshot(headers);
+      logSnapshotSummary("초기 스냅샷", beforeSnapshot);
       log("", "info");
-      log("📰 게시글 목록 가져오는 중...", "info");
+      log("게시글 목록 가져오는 중...", "info");
       const articles = await getArticleList(headers, 30);
-      log(`✓ 게시글 ${articles.length}개 발견`, "success");
+      log(`게시글 ${articles.length}개 발견`, "success");
       if (articles.length === 0) {
-        log("❌ 게시글이 없습니다", "error");
-        state.isRunning = false;
-        setButtonState(false);
+        log("게시글이 없습니다", "error");
         return;
       }
-      await delay(CONFIG.delays.betweenActions);
-      log("💬 Step 0: 댓글 작성 시작 (10초 딜레이)...", "info");
-      const maxComments = Math.min(CONFIG.targets.comments, articles.length);
-      const commentPromise = (async () => {
-        for (let i = 0; i < maxComments; i++) {
-          try {
-            const commentId = await postComment(headers, articles[i].article_id, CONFIG.comment);
-            log(`✓ 댓글 작성 완료: ${commentId}`, "success");
-            state.createdCommentIds.push(commentId);
-            state.progress.comments++;
-            updateProgress("comments", state.progress.comments, CONFIG.targets.comments);
-          } catch (e) {
-            log(`✗ 댓글 작성 실패: ${e.message}`, "error");
+      const plan = buildAutomationPlan(beforeSnapshot);
+      const handlers = createAutomationTaskHandlers({ headers, articles, allTabs });
+      const executablePlan = bindTaskHandlers(plan, handlers);
+      log("", "info");
+      log(`자동화 그룹 ${executablePlan.groups.length}개 실행`, "info");
+      const groupResults = await runTaskGroups(executablePlan.groups, {
+        onGroupStart: (group2) => log(`그룹 시작: ${group2.id}`, "info"),
+        onGroupDone: (group2, results) => {
+          const rejectedCount = results.filter((result) => result.status === "rejected").length;
+          log(`그룹 완료: ${group2.id} (${results.length - rejectedCount}/${results.length})`, rejectedCount > 0 ? "warning" : "success");
+        }
+      });
+      logRejectedTasks(groupResults);
+      log("", "info");
+      log("최종 스냅샷 수집 중...", "info");
+      let afterSnapshot = await captureAutomationSnapshot(headers);
+      logSnapshotSummary("최종 스냅샷", afterSnapshot);
+      let diff = compareSnapshots(beforeSnapshot, afterSnapshot, plan);
+      logSnapshotDiff("스냅샷 비교", diff);
+      if (hasSafeRepairableItems(diff)) {
+        log("안전 복구 대상 확인 중...", "warning");
+        await delay(CONFIG.delays.betweenActions);
+        afterSnapshot = await captureAutomationSnapshot(headers);
+        diff = compareSnapshots(beforeSnapshot, afterSnapshot, plan);
+        logSnapshotDiff("재확인 결과", diff);
+        if (hasSafeRepairableItems(diff)) {
+          const repairPlan = buildRepairPlan(diff);
+          const executableRepairPlan = bindTaskHandlers(repairPlan, handlers);
+          if (executableRepairPlan.groups.length > 0) {
+            log(`복구 그룹 ${executableRepairPlan.groups.length}개 실행`, "warning");
+            const repairResults = await runTaskGroups(executableRepairPlan.groups, {
+              onGroupStart: (group2) => log(`복구 시작: ${group2.id}`, "info"),
+              onGroupDone: (group2, results) => {
+                const rejectedCount = results.filter((result) => result.status === "rejected").length;
+                log(`복구 완료: ${group2.id} (${results.length - rejectedCount}/${results.length})`, rejectedCount > 0 ? "warning" : "success");
+              }
+            });
+            logRejectedTasks(repairResults);
+            const repairedSnapshot = await captureAutomationSnapshot(headers);
+            logSnapshotSummary("복구 후 스냅샷", repairedSnapshot);
+            logSnapshotDiff("복구 후 비교", compareSnapshots(beforeSnapshot, repairedSnapshot, plan));
           }
-          if (i < maxComments - 1) await delay(CONFIG.delays.afterComment);
-        }
-        log("✓ Step 0 완료: 모든 댓글 작성 완료", "success");
-      })();
-      log("", "info");
-      log("✍️ Step 1: 새글 작성 시작...", "info");
-      const writeStatus = await checkArticleWriteStatus(headers);
-      if (writeStatus.success && writeStatus.hasWrittenToday) {
-        log(`⏩ 오늘 이미 ${writeStatus.todayCount}개 글 작성 완료, 새글 작성 스킵`, "info");
-        state.progress.newArticle = CONFIG.targets.newArticle;
-        updateProgress("new-article", state.progress.newArticle, CONFIG.targets.newArticle);
-      } else {
-        try {
-          const articleId = await createArticle(headers, "출석", "출석");
-          if (articleId) {
-            state.progress.newArticle++;
-            updateProgress("new-article", state.progress.newArticle, CONFIG.targets.newArticle);
-            log(`✓ Step 1 완료: 새글 작성 완료! 게시글 ID: ${articleId}`, "success");
-          }
-        } catch (e) {
-          log(`✗ 새글 작성 실패: ${e.message}`, "error");
-          log("⚠️ 새글 작성 실패했지만 자동화를 계속 진행합니다", "warning");
         }
       }
-      await delay(CONFIG.delays.betweenActions);
-      log("👍 Step 2: 게시글 추천 시작...", "info");
-      const targetArticleLikes = CONFIG.targets.articleLikes;
-      const candidateCount = Math.min(targetArticleLikes * 3, articles.length);
-      const candidateArticles = articles.slice(0, candidateCount);
-      const candidateArticleIds = candidateArticles.map((a) => a.article_id);
-      const articleLikeStatuses = await checkArticleLikeStatus(headers, candidateArticleIds);
-      const unlikedArticles = candidateArticles.filter(
-        (article) => {
-          var _a;
-          return ((_a = articleLikeStatuses[article.article_id]) == null ? void 0 : _a.LIKE) !== true;
-        }
-      );
-      log(`✓ 좋아요 안 누른 게시글 ${unlikedArticles.length}개 발견`, "success");
-      const articlesToLike = unlikedArticles.slice(0, targetArticleLikes);
-      for (let i = 0; i < articlesToLike.length; i++) {
-        const articleId = articlesToLike[i].article_id;
-        try {
-          await likeArticle(headers, articleId);
-          state.progress.articleLikes++;
-          updateProgress("article-likes", state.progress.articleLikes, CONFIG.targets.articleLikes);
-          log(`✓ 게시글 ${articleId} 좋아요 완료 (${state.progress.articleLikes}/${targetArticleLikes})`, "success");
-        } catch (e) {
-          log(`✗ 게시글 ${articleId} 좋아요 실패: ${e.message}`, "error");
-        }
-        if (i < articlesToLike.length - 1) await delay(CONFIG.delays.betweenActions);
-      }
-      while (state.progress.articleLikes < targetArticleLikes) {
-        state.progress.articleLikes++;
-        updateProgress("article-likes", state.progress.articleLikes, CONFIG.targets.articleLikes);
-      }
-      log("✓ Step 2 완료: 게시글 추천 완료", "success");
-      await delay(CONFIG.delays.betweenActions);
-      log("", "info");
-      log("🎯 Step 3: SINGLE 미션 자동 참여 시작...", "info");
-      await autoParticipateVisitMissions(headers);
-      await delay(CONFIG.delays.betweenActions);
-      log("✅ 퀘스트 주요 작업 완료!", "success");
-      log("", "info");
-      log("🔄 미션 컴포넌트 ID 로드 중...", "info");
-      const missionComponents = await getMissionComponentIds(headers);
-      if (!missionComponents) log("⚠️ 미션 컴포넌트 로드 실패 - 미션 기능이 제한될 수 있습니다", "warning");
-      log("🎰 룰렛 이벤트 ID 로드 중...", "info");
-      const rouletteEvents = await getRouletteEventIds(headers);
-      if (!rouletteEvents) {
-        log("⚠️ 룰렛 이벤트 ID 로드 실패 - CONFIG 값 사용", "warning");
-      } else {
-        log(`✓ 룰렛 ID: ${rouletteEvents.draw}, EXTRA ID: ${rouletteEvents.extra}`, "success");
-      }
-      if (CONFIG.prizeEntry.enabled) {
-        log("🎁 경품 정보 로드 중...", "info");
-        const prizeInfo = await getPrizeInfo(headers);
-        if (!prizeInfo) {
-          log("⚠️ 경품 정보 로드 실패 - CONFIG 값 사용", "warning");
-        } else {
-          log(`✓ 경품: ${prizeInfo.giftName || CONFIG.prizeEntry.targetGiftName}`, "success");
-        }
-      }
-      log("", "info");
-      await executePrizeEntry(headers);
-      log("", "info");
-      const dailyTabs = await executeDailyMissions(headers);
-      if (dailyTabs == null ? void 0 : dailyTabs.length) allTabs.push(...dailyTabs);
-      log("", "info");
-      const contentTabs = await executeContentMissions(headers);
-      if (contentTabs == null ? void 0 : contentTabs.length) allTabs.push(...contentTabs);
-      log("", "info");
-      await executeWeeklyMissions(headers);
-      log("", "info");
-      const bannerTabs = await executeBannerMissions(headers);
-      if (bannerTabs == null ? void 0 : bannerTabs.length) allTabs.push(...bannerTabs);
-      log("", "info");
-      await executeAttendanceMissions(headers);
-      log("", "info");
-      await executeSurveyMissions(headers);
-      log("", "info");
-      await runRouletteDraws(headers);
-      log("", "info");
-      log("📝 댓글 작성 완료 확인 중...", "info");
-      await commentPromise;
-      log("", "info");
-      log("💝 데일리 보상 수령 시작...", "info");
-      await claimDailyShopRewards(headers);
-      log("", "info");
-      log("🀄 마작 리워드 수령 시작...", "info");
-      await claimMajakDailyShopRewards(headers);
-      log("", "info");
-      await claimRouletteExtraRewards(headers);
-      log("", "info");
-      const dailyAccumulatedFlake = await claimDailyAccumulatedRewards(headers);
-      const articleWriteFlake = 200;
+      const dailyAccumulatedFlake = state.earnings.dailyAccumulated || 0;
+      const articleWriteFlake = state.progress.newArticle > 0 ? 200 : 0;
       const articleLikeFlake = state.progress.articleLikes * 3;
       const commentFlake = state.progress.comments * 30;
       const questActivityFlake = articleWriteFlake + articleLikeFlake + commentFlake;
