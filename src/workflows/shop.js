@@ -265,6 +265,7 @@ export async function claimDailyAccumulatedRewards(headers) {
         log(`✗ 데일리 누적 보상 처리 실패: ${e.message}`, 'error');
     }
 
+    state.earnings.dailyAccumulated = dailyAccumulatedFlake;
     return dailyAccumulatedFlake;
 }
 

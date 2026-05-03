@@ -29,7 +29,8 @@ export const state = {
         bannerMissions: 0,
         attendanceMissions: 0,
         surveyMissions: 0,
-        prizeEntry: 0
+        prizeEntry: 0,
+        dailyAccumulated: 0
     },
     missionComponents: {
         daily: null,

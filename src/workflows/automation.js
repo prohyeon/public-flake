@@ -148,11 +148,7 @@ export function createAutomationTaskHandlers({ headers, articles = [], allTabs =
         prizeEntry: async () => executePrizeEntry(headers),
         rouletteExtra: async () => claimRouletteExtraRewards(headers),
         dailyShop: async () => claimDailyShopRewards(headers),
-        dailyAccumulatedShop: async () => {
-            const flake = await claimDailyAccumulatedRewards(headers);
-            state.earnings.dailyAccumulated = flake;
-            return flake;
-        },
+        dailyAccumulatedShop: async () => claimDailyAccumulatedRewards(headers),
         majakShop: async () => claimMajakDailyShopRewards(headers)
     };
 }
