@@ -247,6 +247,51 @@ function validateRouletteResult(result) {
     return validated;
 }
 
+function isRecord(value) {
+    return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function validateRouletteExtraResult(result) {
+    const validated = validateCodeResult('rouletteExtra', result);
+    if (!validated.ok || validated.error) return validated;
+
+    const value = validated.value?.value;
+    if (!isRecord(value) || !Array.isArray(value.milestones)) {
+        return {
+            ...validated,
+            error: makeSnapshotError('rouletteExtra', 'Roulette extra payload missing milestones array')
+        };
+    }
+
+    return validated;
+}
+
+function validateAttendanceShopResult(section, result) {
+    const validated = validateCodeResult(section, result);
+    if (!validated.ok || validated.error) return validated;
+
+    const value = validated.value?.value;
+    if (!isRecord(value)) {
+        return {
+            ...validated,
+            error: makeSnapshotError(section, `${section} payload missing attendance data`)
+        };
+    }
+
+    const attendanceKeys = ['daily_attendances', 'accumulated_attendances'];
+    const recognizedKeys = attendanceKeys.filter(key => Object.hasOwn(value, key));
+    const malformedKey = recognizedKeys.find(key => !isRecord(value[key]));
+
+    if (recognizedKeys.length === 0 || malformedKey) {
+        return {
+            ...validated,
+            error: makeSnapshotError(section, `${section} payload contained invalid attendance data`)
+        };
+    }
+
+    return validated;
+}
+
 function hasComponentIds(value) {
     return Boolean(value && typeof value === 'object' && Object.values(value).some(componentNo => componentNo != null));
 }
@@ -363,9 +408,9 @@ export async function captureAutomationSnapshot(headers, deps = {}) {
     ]);
 
     const rouletteResult = validateRouletteResult(rawRouletteResult);
-    const rouletteExtraResult = validateCodeResult('rouletteExtra', rawRouletteExtraResult);
-    const shopResult = validateCodeResult('shop', rawShopResult);
-    const majakResult = validateCodeResult('majak', rawMajakResult);
+    const rouletteExtraResult = validateRouletteExtraResult(rawRouletteExtraResult);
+    const shopResult = validateAttendanceShopResult('shop', rawShopResult);
+    const majakResult = validateAttendanceShopResult('majak', rawMajakResult);
     const articleWriteError = articleWrite.ok && (!articleWrite.value || articleWrite.value.success === false)
         ? makeSnapshotError('articleWrite', articleWrite.value?.error || articleWrite.value?.message || 'Article write status returned unsuccessful payload')
         : null;

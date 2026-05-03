@@ -355,3 +355,59 @@ test('captureAutomationSnapshot marks resolved invalid payloads degraded and non
     assert.ok(snapshot.errors.flake.total);
     assert.ok(snapshot.errors.flake.monthly);
 });
+
+test('captureAutomationSnapshot marks malformed truthy rouletteExtra payload degraded and non-actionable', async () => {
+    resetMissionComponents();
+
+    const snapshot = await captureAutomationSnapshot(
+        { Authorization: 'Bearer test' },
+        {
+            getMissionComponentIds: async () => ({ daily: 100 }),
+            checkArticleWriteStatus: async () => ({ success: true, hasWrittenToday: true }),
+            getAllDailyMissions: async () => [],
+            getRouletteSubEventNo: () => 'draw-event',
+            getRouletteParticipationCount: async () => ({ value: { participation_cnt: 0 } }),
+            getRouletteExtraSubEventNo: () => 'extra-event',
+            getRouletteExtra: async () => ({ value: { current_cnt: 5, milestones: 'bad' } }),
+            getDailyShopRewards: async () => ({ value: { daily_attendances: { rewards: [] } } }),
+            getMajakDailyShopRewards: async () => ({ value: { daily_attendances: { rewards: [] } } }),
+            getTotalFlakeBalance: async () => 100,
+            getMonthlyFlakeTotal: async () => 25
+        }
+    );
+
+    assert.equal(snapshot.degraded, true);
+    assert.ok(snapshot.errors.rouletteExtra);
+    assert.equal(snapshot.rouletteExtra.success, false);
+    assert.deepEqual(snapshot.rouletteExtra.milestones, []);
+    assert.deepEqual(snapshot.rouletteExtra.claimable, []);
+});
+
+test('captureAutomationSnapshot marks malformed truthy shop and majak payloads degraded and non-actionable', async () => {
+    resetMissionComponents();
+
+    const snapshot = await captureAutomationSnapshot(
+        { Authorization: 'Bearer test' },
+        {
+            getMissionComponentIds: async () => ({ daily: 100 }),
+            checkArticleWriteStatus: async () => ({ success: true, hasWrittenToday: true }),
+            getAllDailyMissions: async () => [],
+            getRouletteSubEventNo: () => 'draw-event',
+            getRouletteParticipationCount: async () => ({ value: { participation_cnt: 0 } }),
+            getRouletteExtraSubEventNo: () => 'extra-event',
+            getRouletteExtra: async () => ({ value: { current_cnt: 0, milestones: [] } }),
+            getDailyShopRewards: async () => ({ value: { daily_attendances: 'bad' } }),
+            getMajakDailyShopRewards: async () => ({ value: { accumulated_attendances: [] } }),
+            getTotalFlakeBalance: async () => 100,
+            getMonthlyFlakeTotal: async () => 25
+        }
+    );
+
+    assert.equal(snapshot.degraded, true);
+    assert.ok(snapshot.errors.shop);
+    assert.ok(snapshot.errors.majak);
+    assert.equal(snapshot.shop.success, false);
+    assert.equal(snapshot.majak.success, false);
+    assert.deepEqual(snapshot.shop.unclaimedDaily, []);
+    assert.deepEqual(snapshot.majak.unclaimedDaily, []);
+});
