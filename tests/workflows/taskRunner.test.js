@@ -93,6 +93,26 @@ test('runLimited clamps concurrency <=0 to 1', async () => {
     assert.deepEqual(results.map(result => result.id), ['a', 'b', 'c']);
 });
 
+test('runLimited clamps non-numeric concurrency to 1', async () => {
+    let active = 0;
+    let maxActive = 0;
+    const tasks = ['a', 'b'].map(id => ({
+        id,
+        run: async () => {
+            active += 1;
+            maxActive = Math.max(maxActive, active);
+            await delay(5);
+            active -= 1;
+            return id;
+        }
+    }));
+
+    const results = await runLimited(tasks, Number.NaN);
+
+    assert.equal(maxActive, 1);
+    assert.deepEqual(results.map(result => result.id), ['a', 'b']);
+});
+
 test('runTaskGroups runs groups serially and tasks inside group concurrently', async () => {
     const events = [];
     let active = 0;
@@ -188,5 +208,30 @@ test('flattenTaskResults attaches groupId', () => {
         { groupId: 'daily', id: 'visit', status: 'fulfilled', value: true },
         { groupId: 'daily', id: 'write', status: 'rejected', reason: 'missing' },
         { groupId: 'shop', id: 'claim', status: 'fulfilled', value: 3 }
+    ]);
+});
+
+test('flattenTaskResults preserves enclosing groupId when result has groupId', () => {
+    const flattened = flattenTaskResults([
+        {
+            groupId: 'enclosing',
+            results: [
+                {
+                    groupId: 'task-owned',
+                    id: 'nested',
+                    status: 'fulfilled',
+                    value: true
+                }
+            ]
+        }
+    ]);
+
+    assert.deepEqual(flattened, [
+        {
+            groupId: 'enclosing',
+            id: 'nested',
+            status: 'fulfilled',
+            value: true
+        }
     ]);
 });

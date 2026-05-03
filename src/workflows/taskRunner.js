@@ -42,8 +42,8 @@ export async function runTaskGroups(groups, hooks = {}) {
 export function flattenTaskResults(groupResults) {
     return groupResults.flatMap(groupResult =>
         groupResult.results.map(result => ({
-            groupId: groupResult.groupId,
-            ...result
+            ...result,
+            groupId: groupResult.groupId
         }))
     );
 }
