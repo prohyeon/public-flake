@@ -356,6 +356,61 @@ test('captureAutomationSnapshot marks resolved invalid payloads degraded and non
     assert.ok(snapshot.errors.flake.monthly);
 });
 
+test('captureAutomationSnapshot marks null roulette participation count degraded and non-actionable', async () => {
+    resetMissionComponents();
+
+    const snapshot = await captureAutomationSnapshot(
+        { Authorization: 'Bearer test' },
+        {
+            getMissionComponentIds: async () => ({ daily: 100 }),
+            checkArticleWriteStatus: async () => ({ success: true, hasWrittenToday: true }),
+            getAllDailyMissions: async () => [],
+            getRouletteSubEventNo: () => 'draw-event',
+            getRouletteParticipationCount: async () => ({ value: { participation_cnt: null } }),
+            getRouletteExtraSubEventNo: () => 'extra-event',
+            getRouletteExtra: async () => ({ value: { current_cnt: 0, milestones: [] } }),
+            getDailyShopRewards: async () => ({ value: { daily_attendances: { rewards: [] } } }),
+            getMajakDailyShopRewards: async () => ({ value: { daily_attendances: { rewards: [] } } }),
+            getTotalFlakeBalance: async () => 100,
+            getMonthlyFlakeTotal: async () => 25
+        }
+    );
+
+    assert.equal(snapshot.degraded, true);
+    assert.ok(snapshot.errors.roulette);
+    assert.equal(snapshot.roulette.success, false);
+    assert.equal(snapshot.roulette.unknown, true);
+    assert.equal(snapshot.roulette.remaining, 0);
+});
+
+test('captureAutomationSnapshot accepts zero roulette participation count', async () => {
+    resetMissionComponents();
+
+    const snapshot = await captureAutomationSnapshot(
+        { Authorization: 'Bearer test' },
+        {
+            getMissionComponentIds: async () => ({ daily: 100 }),
+            checkArticleWriteStatus: async () => ({ success: true, hasWrittenToday: true }),
+            getAllDailyMissions: async () => [],
+            getRouletteSubEventNo: () => 'draw-event',
+            getRouletteParticipationCount: async () => ({ value: { participation_cnt: 0 } }),
+            getRouletteExtraSubEventNo: () => 'extra-event',
+            getRouletteExtra: async () => ({ value: { current_cnt: 0, milestones: [] } }),
+            getDailyShopRewards: async () => ({ value: { daily_attendances: { rewards: [] } } }),
+            getMajakDailyShopRewards: async () => ({ value: { daily_attendances: { rewards: [] } } }),
+            getTotalFlakeBalance: async () => 100,
+            getMonthlyFlakeTotal: async () => 25
+        }
+    );
+
+    assert.equal(snapshot.degraded, false);
+    assert.deepEqual(snapshot.errors, {});
+    assert.equal(snapshot.roulette.success, true);
+    assert.equal(snapshot.roulette.unknown, false);
+    assert.equal(snapshot.roulette.current, 0);
+    assert.equal(snapshot.roulette.remaining, CONFIG.roulette.maxDraws);
+});
+
 test('captureAutomationSnapshot marks malformed truthy rouletteExtra payload degraded and non-actionable', async () => {
     resetMissionComponents();
 

@@ -236,11 +236,11 @@ function validateRouletteResult(result) {
     const validated = validateCodeResult('roulette', result);
     if (!validated.ok || validated.error) return validated;
 
-    const hasParticipationCount = Object.hasOwn(validated.value?.value || {}, 'participation_cnt');
-    if (!hasParticipationCount) {
+    const participationCount = validated.value?.value?.participation_cnt;
+    if (!Number.isFinite(participationCount)) {
         return {
             ...validated,
-            error: makeSnapshotError('roulette', 'Roulette payload missing participation count')
+            error: makeSnapshotError('roulette', 'Roulette payload missing valid participation count')
         };
     }
 
