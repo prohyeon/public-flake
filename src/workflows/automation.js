@@ -43,8 +43,6 @@ export function createAutomationTaskHandlers({ headers, articles = [], allTabs =
             const writeStatus = await checkArticleWriteStatus(headers);
 
             if (writeStatus.success && writeStatus.hasWrittenToday) {
-                state.progress.newArticle = CONFIG.targets.newArticle;
-                updateProgress('new-article', state.progress.newArticle, CONFIG.targets.newArticle);
                 return { skipped: true, reason: 'alreadyWritten', writeStatus };
             }
 
@@ -328,7 +326,7 @@ export async function runAutomation() {
         const dailyAccumulatedFlake = state.earnings.dailyAccumulated || 0;
 
         // Calculate earnings summary
-        const articleWriteFlake = 200;
+        const articleWriteFlake = state.progress.newArticle > 0 ? 200 : 0;
         const articleLikeFlake = state.progress.articleLikes * 3;
         const commentFlake = state.progress.comments * 30;
         const questActivityFlake = articleWriteFlake + articleLikeFlake + commentFlake;
