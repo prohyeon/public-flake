@@ -1,10 +1,22 @@
-export async function runTask(task) {
+async function executeTask(task) {
     try {
         const value = await task.run();
         return { id: task.id, status: 'fulfilled', value };
     } catch (reason) {
         return { id: task.id, status: 'rejected', reason };
     }
+}
+
+export async function runTask(task) {
+    if (task.background) {
+        return {
+            id: task.id,
+            status: 'background',
+            promise: executeTask(task)
+        };
+    }
+
+    return executeTask(task);
 }
 
 export async function runLimited(tasks, concurrency = 1) {
@@ -46,4 +58,32 @@ export function flattenTaskResults(groupResults) {
             groupId: groupResult.groupId
         }))
     );
+}
+
+export async function waitForBackgroundTasks(groupResults, hooks = {}) {
+    const awaitedGroups = [];
+
+    for (const groupResult of groupResults) {
+        const backgroundResults = (groupResult.results || [])
+            .filter(result => result.status === 'background' && result.promise);
+
+        if (backgroundResults.length === 0) continue;
+
+        hooks.onGroupStart?.(groupResult, backgroundResults);
+        const results = await Promise.all(backgroundResults.map(async result => {
+            const settled = await result.promise;
+            return {
+                ...settled,
+                id: result.id
+            };
+        }));
+        hooks.onGroupDone?.(groupResult, results);
+
+        awaitedGroups.push({
+            groupId: groupResult.groupId,
+            results
+        });
+    }
+
+    return awaitedGroups;
 }

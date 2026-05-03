@@ -39,6 +39,18 @@
       afterComment: 11e3
     },
     comment: "Nice!",
+    commentPool: [
+      "굿",
+      "굿굿",
+      "ㅋㅋㅋㅋ",
+      "좋네요",
+      "오 좋다",
+      "잘봤어요",
+      "인정",
+      "나이스",
+      "괜찮네요",
+      "오호"
+    ],
     roulette: {
       enabled: true,
       subEventNo: "1000000353",
@@ -1765,7 +1777,8 @@
         isSectionKnown(articleWrite) && articleWrite.hasWrittenToday === false ? task("community:articleWrite", "articleWrite") : null,
         task("community:articleLikes", "articleLikes"),
         task("community:comments", "comments", {
-          serialInside: true,
+          background: true,
+          rateLimited: true,
           nonAuthoritativeRepair: true
         })
       ]),
@@ -1807,13 +1820,23 @@
     ]);
     return { plannedMissionNos, groups };
   }
-  async function runTask(task2) {
+  async function executeTask(task2) {
     try {
       const value = await task2.run();
       return { id: task2.id, status: "fulfilled", value };
     } catch (reason) {
       return { id: task2.id, status: "rejected", reason };
     }
+  }
+  async function runTask(task2) {
+    if (task2.background) {
+      return {
+        id: task2.id,
+        status: "background",
+        promise: executeTask(task2)
+      };
+    }
+    return executeTask(task2);
   }
   async function runLimited(tasks, concurrency = 1) {
     if (tasks.length === 0) return [];
@@ -1848,6 +1871,75 @@
         groupId: groupResult.groupId
       }))
     );
+  }
+  async function waitForBackgroundTasks(groupResults, hooks = {}) {
+    var _a, _b;
+    const awaitedGroups = [];
+    for (const groupResult of groupResults) {
+      const backgroundResults = (groupResult.results || []).filter((result) => result.status === "background" && result.promise);
+      if (backgroundResults.length === 0) continue;
+      (_a = hooks.onGroupStart) == null ? void 0 : _a.call(hooks, groupResult, backgroundResults);
+      const results = await Promise.all(backgroundResults.map(async (result) => {
+        const settled = await result.promise;
+        return {
+          ...settled,
+          id: result.id
+        };
+      }));
+      (_b = hooks.onGroupDone) == null ? void 0 : _b.call(hooks, groupResult, results);
+      awaitedGroups.push({
+        groupId: groupResult.groupId,
+        results
+      });
+    }
+    return awaitedGroups;
+  }
+  function getCommentPool(pool, fallbackComment) {
+    const candidates = Array.isArray(pool) ? pool : [];
+    const normalized = candidates.map((comment) => String(comment || "").trim()).filter(Boolean);
+    return normalized.length > 0 ? normalized : [fallbackComment || "Nice!"];
+  }
+  function pickRandomComment(pool = CONFIG.commentPool, randomFn = Math.random, fallbackComment = CONFIG.comment) {
+    const comments = getCommentPool(pool, fallbackComment);
+    const rawIndex = Math.floor(randomFn() * comments.length);
+    const index = Math.min(comments.length - 1, Math.max(0, rawIndex));
+    return comments[index];
+  }
+  async function postCommentsSerially(options = {}) {
+    const {
+      headers,
+      articles = [],
+      targetComments = CONFIG.targets.comments,
+      delayMs = CONFIG.delays.afterComment,
+      commentPool = CONFIG.commentPool,
+      fallbackComment = CONFIG.comment,
+      randomFn = Math.random,
+      stateRef = state,
+      postCommentFn = postComment,
+      delayFn = delay,
+      logFn = log,
+      updateProgressFn = updateProgress
+    } = options;
+    const maxComments = Math.min(targetComments, articles.length);
+    const errors = [];
+    const commentIds = [];
+    for (let i = 0; i < maxComments; i++) {
+      const articleId = articles[i].article_id;
+      const content = pickRandomComment(commentPool, randomFn, fallbackComment);
+      try {
+        const commentId = await postCommentFn(headers, articleId, content);
+        logFn(`댓글 작성 완료: ${commentId}`, "success");
+        stateRef.createdCommentIds.push(commentId);
+        stateRef.progress.comments++;
+        commentIds.push(commentId);
+        updateProgressFn("comments", stateRef.progress.comments, CONFIG.targets.comments);
+      } catch (e) {
+        errors.push({ articleId, message: e.message });
+        logFn(`댓글 작성 실패: ${e.message}`, "error");
+      }
+      if (i < maxComments - 1) await delayFn(delayMs);
+    }
+    return { attempted: maxComments, commentIds, errors };
   }
   async function runRouletteDraws(headers) {
     var _a, _b;
@@ -2941,27 +3033,7 @@
         }
         return { attempted: articlesToLike.length, liked, errors };
       },
-      comments: async () => {
-        const maxComments = Math.min(CONFIG.targets.comments, articles.length);
-        const errors = [];
-        const commentIds = [];
-        for (let i = 0; i < maxComments; i++) {
-          const articleId = articles[i].article_id;
-          try {
-            const commentId = await postComment(headers, articleId, CONFIG.comment);
-            log(`댓글 작성 완료: ${commentId}`, "success");
-            state.createdCommentIds.push(commentId);
-            state.progress.comments++;
-            commentIds.push(commentId);
-            updateProgress("comments", state.progress.comments, CONFIG.targets.comments);
-          } catch (e) {
-            errors.push({ articleId, message: e.message });
-            log(`댓글 작성 실패: ${e.message}`, "error");
-          }
-          if (i < maxComments - 1) await delay(CONFIG.delays.afterComment);
-        }
-        return { attempted: maxComments, commentIds, errors };
-      },
+      comments: async () => postCommentsSerially({ headers, articles }),
       singleVisits: async (task2) => autoParticipateVisitMissions(headers, task2),
       dailyMissions: async () => {
         const tabs = await executeDailyMissions(headers);
@@ -3096,10 +3168,21 @@
         onGroupStart: (group2) => log(`그룹 시작: ${group2.id}`, "info"),
         onGroupDone: (group2, results) => {
           const rejectedCount = results.filter((result) => result.status === "rejected").length;
-          log(`그룹 완료: ${group2.id} (${results.length - rejectedCount}/${results.length})`, rejectedCount > 0 ? "warning" : "success");
+          const backgroundCount = results.filter((result) => result.status === "background").length;
+          const foregroundCount = results.length - backgroundCount;
+          const suffix = backgroundCount > 0 ? `, 백그라운드 ${backgroundCount}개` : "";
+          log(`그룹 완료: ${group2.id} (${foregroundCount - rejectedCount}/${foregroundCount}${suffix})`, rejectedCount > 0 ? "warning" : "success");
         }
       });
       logRejectedTasks(groupResults);
+      const backgroundResults = await waitForBackgroundTasks(groupResults, {
+        onGroupStart: (groupResult, results) => log(`백그라운드 작업 대기: ${groupResult.groupId} (${results.length}개)`, "info"),
+        onGroupDone: (groupResult, results) => {
+          const rejectedCount = results.filter((result) => result.status === "rejected").length;
+          log(`백그라운드 작업 완료: ${groupResult.groupId} (${results.length - rejectedCount}/${results.length})`, rejectedCount > 0 ? "warning" : "success");
+        }
+      });
+      logRejectedTasks(backgroundResults);
       log("", "info");
       log("최종 스냅샷 수집 중...", "info");
       let afterSnapshot = await captureAutomationSnapshot(headers);

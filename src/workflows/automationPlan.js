@@ -73,7 +73,8 @@ export function buildAutomationPlan(snapshot = {}) {
                 : null,
             task('community:articleLikes', 'articleLikes'),
             task('community:comments', 'comments', {
-                serialInside: true,
+                background: true,
+                rateLimited: true,
                 nonAuthoritativeRepair: true
             })
         ]),

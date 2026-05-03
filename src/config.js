@@ -19,6 +19,18 @@ export const CONFIG = {
         afterComment: 11000
     },
     comment: "Nice!",
+    commentPool: [
+        '굿',
+        '굿굿',
+        'ㅋㅋㅋㅋ',
+        '좋네요',
+        '오 좋다',
+        '잘봤어요',
+        '인정',
+        '나이스',
+        '괜찮네요',
+        '오호'
+    ],
     roulette: {
         enabled: true,
         subEventNo: '1000000353',

@@ -3,14 +3,15 @@ import { state } from '../state.js';
 import { delay } from '../utils/time.js';
 import { extractHeaders } from '../utils/auth.js';
 import { playCompletionSound } from '../utils/audio.js';
-import { getArticleList, likeArticle, postComment, createArticle, checkArticleLikeStatus } from '../api/articles.js';
+import { getArticleList, likeArticle, createArticle, checkArticleLikeStatus } from '../api/articles.js';
 import { getMissionComponentIds } from '../api/missions.js';
 import { getRouletteEventIds, getPrizeInfo } from '../api/roulette.js';
 import { log } from '../ui/logger.js';
 import { updateProgress, setButtonState } from '../ui/progress.js';
 import { captureAutomationSnapshot, compareSnapshots, getSnapshotSummary } from './snapshot.js';
 import { buildAutomationPlan, buildRepairPlan } from './automationPlan.js';
-import { runTaskGroups, flattenTaskResults } from './taskRunner.js';
+import { runTaskGroups, flattenTaskResults, waitForBackgroundTasks } from './taskRunner.js';
+import { postCommentsSerially } from './comments.js';
 import { runRouletteDraws, claimRouletteExtraRewards } from './roulette.js';
 import { claimDailyShopRewards, claimMajakDailyShopRewards, claimDailyAccumulatedRewards } from './shop.js';
 import {
@@ -97,29 +98,7 @@ export function createAutomationTaskHandlers({ headers, articles = [], allTabs =
             return { attempted: articlesToLike.length, liked, errors };
         },
 
-        comments: async () => {
-            const maxComments = Math.min(CONFIG.targets.comments, articles.length);
-            const errors = [];
-            const commentIds = [];
-
-            for (let i = 0; i < maxComments; i++) {
-                const articleId = articles[i].article_id;
-                try {
-                    const commentId = await postComment(headers, articleId, CONFIG.comment);
-                    log(`댓글 작성 완료: ${commentId}`, 'success');
-                    state.createdCommentIds.push(commentId);
-                    state.progress.comments++;
-                    commentIds.push(commentId);
-                    updateProgress('comments', state.progress.comments, CONFIG.targets.comments);
-                } catch (e) {
-                    errors.push({ articleId, message: e.message });
-                    log(`댓글 작성 실패: ${e.message}`, 'error');
-                }
-                if (i < maxComments - 1) await delay(CONFIG.delays.afterComment);
-            }
-
-            return { attempted: maxComments, commentIds, errors };
-        },
+        comments: async () => postCommentsSerially({ headers, articles }),
 
         singleVisits: async (task) => autoParticipateVisitMissions(headers, task),
 
@@ -278,10 +257,22 @@ export async function runAutomation() {
             onGroupStart: (group) => log(`\uADF8\uB8F9 \uC2DC\uC791: ${group.id}`, 'info'),
             onGroupDone: (group, results) => {
                 const rejectedCount = results.filter(result => result.status === 'rejected').length;
-                log(`\uADF8\uB8F9 \uC644\uB8CC: ${group.id} (${results.length - rejectedCount}/${results.length})`, rejectedCount > 0 ? 'warning' : 'success');
+                const backgroundCount = results.filter(result => result.status === 'background').length;
+                const foregroundCount = results.length - backgroundCount;
+                const suffix = backgroundCount > 0 ? `, \uBC31\uADF8\uB77C\uC6B4\uB4DC ${backgroundCount}\uAC1C` : '';
+                log(`\uADF8\uB8F9 \uC644\uB8CC: ${group.id} (${foregroundCount - rejectedCount}/${foregroundCount}${suffix})`, rejectedCount > 0 ? 'warning' : 'success');
             }
         });
         logRejectedTasks(groupResults);
+
+        const backgroundResults = await waitForBackgroundTasks(groupResults, {
+            onGroupStart: (groupResult, results) => log(`\uBC31\uADF8\uB77C\uC6B4\uB4DC \uC791\uC5C5 \uB300\uAE30: ${groupResult.groupId} (${results.length}\uAC1C)`, 'info'),
+            onGroupDone: (groupResult, results) => {
+                const rejectedCount = results.filter(result => result.status === 'rejected').length;
+                log(`\uBC31\uADF8\uB77C\uC6B4\uB4DC \uC791\uC5C5 \uC644\uB8CC: ${groupResult.groupId} (${results.length - rejectedCount}/${results.length})`, rejectedCount > 0 ? 'warning' : 'success');
+            }
+        });
+        logRejectedTasks(backgroundResults);
 
         log('', 'info');
         log('\uCD5C\uC885 \uC2A4\uB0C5\uC0F7 \uC218\uC9D1 \uC911...', 'info');

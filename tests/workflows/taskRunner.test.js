@@ -5,7 +5,8 @@ import {
     flattenTaskResults,
     runLimited,
     runTask,
-    runTaskGroups
+    runTaskGroups,
+    waitForBackgroundTasks
 } from '../../src/workflows/taskRunner.js';
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -38,6 +39,30 @@ test('runTask captures rejected task result', async () => {
         status: 'rejected',
         reason
     });
+});
+
+test('runTask returns immediately for background tasks and exposes awaited result', async () => {
+    let completed = false;
+
+    const result = await runTask({
+        id: 'background',
+        background: true,
+        run: async () => {
+            await delay(30);
+            completed = true;
+            return 'done';
+        }
+    });
+
+    assert.equal(result.id, 'background');
+    assert.equal(result.status, 'background');
+    assert.equal(completed, false);
+    assert.deepEqual(await result.promise, {
+        id: 'background',
+        status: 'fulfilled',
+        value: 'done'
+    });
+    assert.equal(completed, true);
 });
 
 test('runLimited never exceeds concurrency and preserves task order', async () => {
@@ -156,6 +181,81 @@ test('runTaskGroups runs groups serially and tasks inside group concurrently', a
     assert.equal(maxFirstGroupActive, 2);
     assert.deepEqual(groupResults.map(groupResult => groupResult.groupId), ['first', 'second']);
     assert.ok(events.indexOf('first:done') < events.indexOf('second:three:start'));
+});
+
+test('runTaskGroups lets following groups proceed while background tasks continue', async () => {
+    const events = [];
+    const groups = [
+        {
+            id: 'first',
+            concurrency: 1,
+            tasks: [
+                {
+                    id: 'slow-background',
+                    background: true,
+                    run: async () => {
+                        events.push('background:start');
+                        await delay(30);
+                        events.push('background:done');
+                        return 'slow';
+                    }
+                }
+            ]
+        },
+        {
+            id: 'second',
+            concurrency: 1,
+            tasks: [
+                {
+                    id: 'fast-foreground',
+                    run: async () => {
+                        events.push('foreground:run');
+                        return 'fast';
+                    }
+                }
+            ]
+        }
+    ];
+
+    const groupResults = await runTaskGroups(groups);
+    await waitForBackgroundTasks(groupResults);
+
+    assert.equal(groupResults[0].results[0].status, 'background');
+    assert.ok(events.indexOf('foreground:run') < events.indexOf('background:done'));
+});
+
+test('waitForBackgroundTasks resolves background task results with their group id', async () => {
+    const groupResults = [
+        {
+            groupId: 'community',
+            results: [
+                {
+                    id: 'comments',
+                    status: 'background',
+                    promise: Promise.resolve({
+                        id: 'comments',
+                        status: 'fulfilled',
+                        value: { attempted: 2 }
+                    })
+                }
+            ]
+        }
+    ];
+
+    const backgroundResults = await waitForBackgroundTasks(groupResults);
+
+    assert.deepEqual(backgroundResults, [
+        {
+            groupId: 'community',
+            results: [
+                {
+                    id: 'comments',
+                    status: 'fulfilled',
+                    value: { attempted: 2 }
+                }
+            ]
+        }
+    ]);
 });
 
 test('runTaskGroups calls hooks in order', async () => {

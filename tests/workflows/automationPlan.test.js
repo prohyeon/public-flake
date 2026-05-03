@@ -54,7 +54,8 @@ test('buildAutomationPlan separates safe parallel and serial flake-spending grou
     const community = plan.groups.find(group => group.id === 'community');
     assert.equal(community.concurrency, 3);
     assert.deepEqual(taskKinds(community), ['articleWrite', 'articleLikes', 'comments']);
-    assert.equal(findTask(plan, 'comments').serialInside, true);
+    assert.equal(findTask(plan, 'comments').background, true);
+    assert.equal(findTask(plan, 'comments').rateLimited, true);
     assert.equal(findTask(plan, 'comments').nonAuthoritativeRepair, true);
 
     const visits = plan.groups.find(group => group.id === 'visits');
