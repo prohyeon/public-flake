@@ -8,6 +8,9 @@ import { getMissionComponentIds } from '../api/missions.js';
 import { getRouletteEventIds, getPrizeInfo } from '../api/roulette.js';
 import { log } from '../ui/logger.js';
 import { updateProgress, setButtonState } from '../ui/progress.js';
+import { captureAutomationSnapshot, compareSnapshots, getSnapshotSummary } from './snapshot.js';
+import { buildAutomationPlan, buildRepairPlan } from './automationPlan.js';
+import { runTaskGroups, flattenTaskResults } from './taskRunner.js';
 import { runRouletteDraws, claimRouletteExtraRewards } from './roulette.js';
 import { claimDailyShopRewards, claimMajakDailyShopRewards, claimDailyAccumulatedRewards } from './shop.js';
 import {
@@ -17,6 +20,157 @@ import {
 } from './missions.js';
 import { visitRequiredPages, checkAllStatus, checkArticleWriteStatus } from './status.js';
 import { closeTab } from '../utils/tabs.js';
+
+export function createAutomationTaskHandlers({ headers, articles = [], allTabs = [] }) {
+    return {
+        requiredPages: async () => {
+            const tabs = await visitRequiredPages();
+            if (tabs?.length) allTabs.push(...tabs);
+            return { tabCount: tabs?.length || 0 };
+        },
+
+        componentRefresh: async () => getMissionComponentIds(headers),
+
+        eventRefresh: async () => {
+            const events = await getRouletteEventIds(headers);
+            if (CONFIG.prizeEntry.enabled) {
+                await getPrizeInfo(headers);
+            }
+            return events;
+        },
+
+        articleWrite: async () => {
+            const writeStatus = await checkArticleWriteStatus(headers);
+
+            if (writeStatus.success && writeStatus.hasWrittenToday) {
+                state.progress.newArticle = CONFIG.targets.newArticle;
+                updateProgress('new-article', state.progress.newArticle, CONFIG.targets.newArticle);
+                return { skipped: true, reason: 'alreadyWritten', writeStatus };
+            }
+
+            try {
+                const articleId = await createArticle(headers, '출석', '출석');
+                if (articleId) {
+                    state.progress.newArticle++;
+                    updateProgress('new-article', state.progress.newArticle, CONFIG.targets.newArticle);
+                    return { articleId };
+                }
+                return { error: true, message: 'Article creation returned no article id' };
+            } catch (e) {
+                log(`새글 작성 실패: ${e.message}`, 'error');
+                log('새글 작성 실패했지만 자동화를 계속 진행합니다', 'warning');
+                return { error: true, message: e.message };
+            }
+        },
+
+        articleLikes: async () => {
+            const targetArticleLikes = CONFIG.targets.articleLikes;
+            const candidateCount = Math.min(targetArticleLikes * 3, articles.length);
+            const candidateArticles = articles.slice(0, candidateCount);
+            const candidateArticleIds = candidateArticles.map(a => a.article_id);
+
+            if (candidateArticleIds.length === 0) {
+                return { attempted: 0, liked: 0, errors: [] };
+            }
+
+            const articleLikeStatuses = await checkArticleLikeStatus(headers, candidateArticleIds);
+            const unlikedArticles = candidateArticles.filter(article =>
+                articleLikeStatuses[article.article_id]?.LIKE !== true
+            );
+            const articlesToLike = unlikedArticles.slice(0, targetArticleLikes);
+            const errors = [];
+            let liked = 0;
+
+            for (let i = 0; i < articlesToLike.length; i++) {
+                const articleId = articlesToLike[i].article_id;
+                try {
+                    await likeArticle(headers, articleId);
+                    state.progress.articleLikes++;
+                    liked++;
+                    updateProgress('article-likes', state.progress.articleLikes, CONFIG.targets.articleLikes);
+                    log(`게시글 ${articleId} 좋아요 완료 (${state.progress.articleLikes}/${targetArticleLikes})`, 'success');
+                } catch (e) {
+                    errors.push({ articleId, message: e.message });
+                    log(`게시글 ${articleId} 좋아요 실패: ${e.message}`, 'error');
+                }
+                if (i < articlesToLike.length - 1) await delay(CONFIG.delays.betweenActions);
+            }
+
+            return { attempted: articlesToLike.length, liked, errors };
+        },
+
+        comments: async () => {
+            const maxComments = Math.min(CONFIG.targets.comments, articles.length);
+            const errors = [];
+            const commentIds = [];
+
+            for (let i = 0; i < maxComments; i++) {
+                const articleId = articles[i].article_id;
+                try {
+                    const commentId = await postComment(headers, articleId, CONFIG.comment);
+                    log(`댓글 작성 완료: ${commentId}`, 'success');
+                    state.createdCommentIds.push(commentId);
+                    state.progress.comments++;
+                    commentIds.push(commentId);
+                    updateProgress('comments', state.progress.comments, CONFIG.targets.comments);
+                } catch (e) {
+                    errors.push({ articleId, message: e.message });
+                    log(`댓글 작성 실패: ${e.message}`, 'error');
+                }
+                if (i < maxComments - 1) await delay(CONFIG.delays.afterComment);
+            }
+
+            return { attempted: maxComments, commentIds, errors };
+        },
+
+        singleVisits: async (task) => autoParticipateVisitMissions(headers, task),
+
+        dailyMissions: async () => {
+            const tabs = await executeDailyMissions(headers);
+            if (tabs?.length) allTabs.push(...tabs);
+            return { tabCount: tabs?.length || 0 };
+        },
+
+        contentMissions: async () => {
+            const tabs = await executeContentMissions(headers);
+            if (tabs?.length) allTabs.push(...tabs);
+            return { tabCount: tabs?.length || 0 };
+        },
+
+        bannerMissions: async () => {
+            const tabs = await executeBannerMissions(headers);
+            if (tabs?.length) allTabs.push(...tabs);
+            return { tabCount: tabs?.length || 0 };
+        },
+
+        weeklyMissions: async () => executeWeeklyMissions(headers),
+        attendanceMissions: async () => executeAttendanceMissions(headers),
+        surveyMissions: async () => executeSurveyMissions(headers),
+        rouletteDraws: async () => runRouletteDraws(headers),
+        prizeEntry: async () => executePrizeEntry(headers),
+        rouletteExtra: async () => claimRouletteExtraRewards(headers),
+        dailyShop: async () => claimDailyShopRewards(headers),
+        dailyAccumulatedShop: async () => claimDailyAccumulatedRewards(headers),
+        majakShop: async () => claimMajakDailyShopRewards(headers)
+    };
+}
+
+export function bindTaskHandlers(plan = {}, handlers = {}) {
+    const groups = (plan.groups || [])
+        .map(group => {
+            const tasks = (group.tasks || [])
+                .filter(task => handlers[task.kind])
+                .map(task => ({
+                    ...task,
+                    run: () => handlers[task.kind](task)
+                }));
+
+            return { ...group, tasks };
+        })
+        .filter(group => group.tasks.length > 0);
+
+    return { ...plan, groups };
+}
 
 export async function runAutomation() {
     if (state.isRunning) {
