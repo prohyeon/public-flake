@@ -150,7 +150,11 @@ export function createAutomationTaskHandlers({ headers, articles = [], allTabs =
         prizeEntry: async () => executePrizeEntry(headers),
         rouletteExtra: async () => claimRouletteExtraRewards(headers),
         dailyShop: async () => claimDailyShopRewards(headers),
-        dailyAccumulatedShop: async () => claimDailyAccumulatedRewards(headers),
+        dailyAccumulatedShop: async () => {
+            const flake = await claimDailyAccumulatedRewards(headers);
+            state.earnings.dailyAccumulated = flake;
+            return flake;
+        },
         majakShop: async () => claimMajakDailyShopRewards(headers)
     };
 }
@@ -172,6 +176,46 @@ export function bindTaskHandlers(plan = {}, handlers = {}) {
     return { ...plan, groups };
 }
 
+function hasSafeRepairableItems(diff = {}) {
+    return Boolean(
+        diff.articleStillMissing ||
+        (diff.incompleteMissionNos || []).length > 0 ||
+        diff.unclaimedDailyShop > 0 ||
+        diff.unclaimedMajakShop > 0 ||
+        diff.claimableExtra > 0
+    );
+}
+
+function describeRejectedTask(result) {
+    const reason = result.reason;
+    const message = reason?.message || String(reason);
+    return `${result.groupId}/${result.id}: ${message}`;
+}
+
+function logRejectedTasks(groupResults) {
+    const rejected = flattenTaskResults(groupResults)
+        .filter(result => result.status === 'rejected');
+
+    for (const result of rejected) {
+        log(`\uC791\uC5C5 \uC2E4\uD328: ${describeRejectedTask(result)}`, 'error');
+    }
+}
+
+function logSnapshotSummary(label, snapshot) {
+    const summary = getSnapshotSummary(snapshot);
+    log(
+        `${label}: \uAE00\uC791\uC131 ${summary.articleWritten ? '\uC644\uB8CC' : '\uBBF8\uC644\uB8CC'}, \uB8F0\uB81B ${summary.rouletteRemaining}\uD68C, \uBBF8\uC158 \uC644\uB8CC ${summary.missions.complete}/\uC218\uB839\uAC00\uB2A5 ${summary.missions.receivable}/\uBBF8\uC644\uB8CC ${summary.missions.incomplete}`,
+        'info'
+    );
+}
+
+function logSnapshotDiff(label, diff) {
+    log(
+        `${label}: \uAE00 ${diff.articleStillMissing ? '\uBBF8\uC644\uB8CC' : '\uD655\uC778'}, \uBBF8\uC158 ${diff.incompleteMissionNos.length}\uAC1C, \uB370\uC77C\uB9AC ${diff.unclaimedDailyShop}\uAC1C, \uB9C8\uC791 ${diff.unclaimedMajakShop}\uAC1C, EXTRA ${diff.claimableExtra}\uAC1C`,
+        hasSafeRepairableItems(diff) ? 'warning' : 'success'
+    );
+}
+
 export async function runAutomation() {
     if (state.isRunning) {
         log('이미 자동화가 실행 중입니다', 'warning');
@@ -180,6 +224,20 @@ export async function runAutomation() {
 
     state.isRunning = true;
     setButtonState(true);
+    state.progress = { articleLikes: 0, comments: 0, newArticle: 0 };
+    state.createdCommentIds = [];
+    state.completed = {
+        roulette: false,
+        dailyShop: false,
+        majak: false,
+        dailyMissions: false,
+        contentMissions: false,
+        weeklyMissions: false,
+        bannerMissions: false,
+        attendanceMissions: false,
+        surveyMissions: false,
+        prizeEntry: false
+    };
     const allTabs = [];
 
     const progressSection = document.querySelector('.stove-progress-section');
@@ -192,7 +250,7 @@ export async function runAutomation() {
     state.earnings = {
         roulette: 0, rouletteExtra: 0, dailyShop: 0, majak: 0,
         dailyMissions: 0, contentMissions: 0, weeklyMissions: 0, bannerMissions: 0,
-        attendanceMissions: 0, surveyMissions: 0, prizeEntry: 0
+        attendanceMissions: 0, surveyMissions: 0, prizeEntry: 0, dailyAccumulated: 0
     };
 
     try {
@@ -202,184 +260,72 @@ export async function runAutomation() {
         log('✓ 헤더 정보 추출 완료', 'success');
 
         log('', 'info');
-        const requiredPageTabs = await visitRequiredPages();
-        allTabs.push(...requiredPageTabs);
+        log('\uCD08\uAE30 \uC2A4\uB0C5\uC0F7 \uC218\uC9D1 \uC911...', 'info');
+        const beforeSnapshot = await captureAutomationSnapshot(headers);
+        logSnapshotSummary('\uCD08\uAE30 \uC2A4\uB0C5\uC0F7', beforeSnapshot);
 
         log('', 'info');
-        log('📰 게시글 목록 가져오는 중...', 'info');
+        log('\uAC8C\uC2DC\uAE00 \uBAA9\uB85D \uAC00\uC838\uC624\uB294 \uC911...', 'info');
         const articles = await getArticleList(headers, 30);
-        log(`✓ 게시글 ${articles.length}개 발견`, 'success');
+        log(`\uAC8C\uC2DC\uAE00 ${articles.length}\uAC1C \uBC1C\uACAC`, 'success');
 
         if (articles.length === 0) {
-            log('❌ 게시글이 없습니다', 'error');
-            state.isRunning = false;
-            setButtonState(false);
+            log('\uAC8C\uC2DC\uAE00\uC774 \uC5C6\uC2B5\uB2C8\uB2E4', 'error');
             return;
         }
 
-        await delay(CONFIG.delays.betweenActions);
+        const plan = buildAutomationPlan(beforeSnapshot);
+        const handlers = createAutomationTaskHandlers({ headers, articles, allTabs });
+        const executablePlan = bindTaskHandlers(plan, handlers);
 
-        // Step 0: Comment posting (비동기 처리)
-        log('💬 Step 0: 댓글 작성 시작 (10초 딜레이)...', 'info');
-        const maxComments = Math.min(CONFIG.targets.comments, articles.length);
-        const commentPromise = (async () => {
-            for (let i = 0; i < maxComments; i++) {
-                try {
-                    const commentId = await postComment(headers, articles[i].article_id, CONFIG.comment);
-                    log(`✓ 댓글 작성 완료: ${commentId}`, 'success');
-                    state.createdCommentIds.push(commentId);
-                    state.progress.comments++;
-                    updateProgress('comments', state.progress.comments, CONFIG.targets.comments);
-                } catch (e) {
-                    log(`✗ 댓글 작성 실패: ${e.message}`, 'error');
+        log('', 'info');
+        log(`\uC790\uB3D9\uD654 \uADF8\uB8F9 ${executablePlan.groups.length}\uAC1C \uC2E4\uD589`, 'info');
+        const groupResults = await runTaskGroups(executablePlan.groups, {
+            onGroupStart: (group) => log(`\uADF8\uB8F9 \uC2DC\uC791: ${group.id}`, 'info'),
+            onGroupDone: (group, results) => {
+                const rejectedCount = results.filter(result => result.status === 'rejected').length;
+                log(`\uADF8\uB8F9 \uC644\uB8CC: ${group.id} (${results.length - rejectedCount}/${results.length})`, rejectedCount > 0 ? 'warning' : 'success');
+            }
+        });
+        logRejectedTasks(groupResults);
+
+        log('', 'info');
+        log('\uCD5C\uC885 \uC2A4\uB0C5\uC0F7 \uC218\uC9D1 \uC911...', 'info');
+        let afterSnapshot = await captureAutomationSnapshot(headers);
+        logSnapshotSummary('\uCD5C\uC885 \uC2A4\uB0C5\uC0F7', afterSnapshot);
+        let diff = compareSnapshots(beforeSnapshot, afterSnapshot, plan);
+        logSnapshotDiff('\uC2A4\uB0C5\uC0F7 \uBE44\uAD50', diff);
+
+        if (hasSafeRepairableItems(diff)) {
+            log('\uC548\uC804 \uBCF5\uAD6C \uB300\uC0C1 \uD655\uC778 \uC911...', 'warning');
+            await delay(CONFIG.delays.betweenActions);
+            afterSnapshot = await captureAutomationSnapshot(headers);
+            diff = compareSnapshots(beforeSnapshot, afterSnapshot, plan);
+            logSnapshotDiff('\uC7AC\uD655\uC778 \uACB0\uACFC', diff);
+
+            if (hasSafeRepairableItems(diff)) {
+                const repairPlan = buildRepairPlan(diff);
+                const executableRepairPlan = bindTaskHandlers(repairPlan, handlers);
+
+                if (executableRepairPlan.groups.length > 0) {
+                    log(`\uBCF5\uAD6C \uADF8\uB8F9 ${executableRepairPlan.groups.length}\uAC1C \uC2E4\uD589`, 'warning');
+                    const repairResults = await runTaskGroups(executableRepairPlan.groups, {
+                        onGroupStart: (group) => log(`\uBCF5\uAD6C \uC2DC\uC791: ${group.id}`, 'info'),
+                        onGroupDone: (group, results) => {
+                            const rejectedCount = results.filter(result => result.status === 'rejected').length;
+                            log(`\uBCF5\uAD6C \uC644\uB8CC: ${group.id} (${results.length - rejectedCount}/${results.length})`, rejectedCount > 0 ? 'warning' : 'success');
+                        }
+                    });
+                    logRejectedTasks(repairResults);
+
+                    const repairedSnapshot = await captureAutomationSnapshot(headers);
+                    logSnapshotSummary('\uBCF5\uAD6C \uD6C4 \uC2A4\uB0C5\uC0F7', repairedSnapshot);
+                    logSnapshotDiff('\uBCF5\uAD6C \uD6C4 \uBE44\uAD50', compareSnapshots(beforeSnapshot, repairedSnapshot, plan));
                 }
-                if (i < maxComments - 1) await delay(CONFIG.delays.afterComment);
-            }
-            log('✓ Step 0 완료: 모든 댓글 작성 완료', 'success');
-        })();
-
-        // Step 1: Create article
-        log('', 'info');
-        log('✍️ Step 1: 새글 작성 시작...', 'info');
-        const writeStatus = await checkArticleWriteStatus(headers);
-
-        if (writeStatus.success && writeStatus.hasWrittenToday) {
-            log(`⏩ 오늘 이미 ${writeStatus.todayCount}개 글 작성 완료, 새글 작성 스킵`, 'info');
-            state.progress.newArticle = CONFIG.targets.newArticle;
-            updateProgress('new-article', state.progress.newArticle, CONFIG.targets.newArticle);
-        } else {
-            try {
-                const articleId = await createArticle(headers, '출석', '출석');
-                if (articleId) {
-                    state.progress.newArticle++;
-                    updateProgress('new-article', state.progress.newArticle, CONFIG.targets.newArticle);
-                    log(`✓ Step 1 완료: 새글 작성 완료! 게시글 ID: ${articleId}`, 'success');
-                }
-            } catch (e) {
-                log(`✗ 새글 작성 실패: ${e.message}`, 'error');
-                log('⚠️ 새글 작성 실패했지만 자동화를 계속 진행합니다', 'warning');
             }
         }
 
-        await delay(CONFIG.delays.betweenActions);
-
-        // Step 2: Like articles
-        log('👍 Step 2: 게시글 추천 시작...', 'info');
-
-        const targetArticleLikes = CONFIG.targets.articleLikes;
-        const candidateCount = Math.min(targetArticleLikes * 3, articles.length);
-        const candidateArticles = articles.slice(0, candidateCount);
-        const candidateArticleIds = candidateArticles.map(a => a.article_id);
-
-        const articleLikeStatuses = await checkArticleLikeStatus(headers, candidateArticleIds);
-        const unlikedArticles = candidateArticles.filter(article =>
-            articleLikeStatuses[article.article_id]?.LIKE !== true
-        );
-
-        log(`✓ 좋아요 안 누른 게시글 ${unlikedArticles.length}개 발견`, 'success');
-        const articlesToLike = unlikedArticles.slice(0, targetArticleLikes);
-
-        for (let i = 0; i < articlesToLike.length; i++) {
-            const articleId = articlesToLike[i].article_id;
-            try {
-                await likeArticle(headers, articleId);
-                state.progress.articleLikes++;
-                updateProgress('article-likes', state.progress.articleLikes, CONFIG.targets.articleLikes);
-                log(`✓ 게시글 ${articleId} 좋아요 완료 (${state.progress.articleLikes}/${targetArticleLikes})`, 'success');
-            } catch (e) {
-                log(`✗ 게시글 ${articleId} 좋아요 실패: ${e.message}`, 'error');
-            }
-            if (i < articlesToLike.length - 1) await delay(CONFIG.delays.betweenActions);
-        }
-
-        while (state.progress.articleLikes < targetArticleLikes) {
-            state.progress.articleLikes++;
-            updateProgress('article-likes', state.progress.articleLikes, CONFIG.targets.articleLikes);
-        }
-        log('✓ Step 2 완료: 게시글 추천 완료', 'success');
-
-        await delay(CONFIG.delays.betweenActions);
-
-        // Step 3: SINGLE 미션 자동 참여
-        log('', 'info');
-        log('🎯 Step 3: SINGLE 미션 자동 참여 시작...', 'info');
-        await autoParticipateVisitMissions(headers);
-
-        await delay(CONFIG.delays.betweenActions);
-
-        log('✅ 퀘스트 주요 작업 완료!', 'success');
-
-        // Step 4.4: Load mission component IDs
-        log('', 'info');
-        log('🔄 미션 컴포넌트 ID 로드 중...', 'info');
-        const missionComponents = await getMissionComponentIds(headers);
-        if (!missionComponents) log('⚠️ 미션 컴포넌트 로드 실패 - 미션 기능이 제한될 수 있습니다', 'warning');
-
-        // Step 4.4.1: Load roulette event IDs
-        log('🎰 룰렛 이벤트 ID 로드 중...', 'info');
-        const rouletteEvents = await getRouletteEventIds(headers);
-        if (!rouletteEvents) {
-            log('⚠️ 룰렛 이벤트 ID 로드 실패 - CONFIG 값 사용', 'warning');
-        } else {
-            log(`✓ 룰렛 ID: ${rouletteEvents.draw}, EXTRA ID: ${rouletteEvents.extra}`, 'success');
-        }
-
-        // Step 4.4.2: Load prize info
-        if (CONFIG.prizeEntry.enabled) {
-            log('🎁 경품 정보 로드 중...', 'info');
-            const prizeInfo = await getPrizeInfo(headers);
-            if (!prizeInfo) {
-                log('⚠️ 경품 정보 로드 실패 - CONFIG 값 사용', 'warning');
-            } else {
-                log(`✓ 경품: ${prizeInfo.giftName || CONFIG.prizeEntry.targetGiftName}`, 'success');
-            }
-        }
-
-        // Step 4.5 ~ 4.11: All mission types
-        log('', 'info');
-        await executePrizeEntry(headers);
-        log('', 'info');
-        const dailyTabs = await executeDailyMissions(headers);
-        if (dailyTabs?.length) allTabs.push(...dailyTabs);
-        log('', 'info');
-        const contentTabs = await executeContentMissions(headers);
-        if (contentTabs?.length) allTabs.push(...contentTabs);
-        log('', 'info');
-        await executeWeeklyMissions(headers);
-        log('', 'info');
-        const bannerTabs = await executeBannerMissions(headers);
-        if (bannerTabs?.length) allTabs.push(...bannerTabs);
-        log('', 'info');
-        await executeAttendanceMissions(headers);
-        log('', 'info');
-        await executeSurveyMissions(headers);
-
-        // Step 5: Roulette
-        log('', 'info');
-        await runRouletteDraws(headers);
-
-        // Wait for comments
-        log('', 'info');
-        log('📝 댓글 작성 완료 확인 중...', 'info');
-        await commentPromise;
-
-        // Step 7: Daily shop
-        log('', 'info');
-        log('💝 데일리 보상 수령 시작...', 'info');
-        await claimDailyShopRewards(headers);
-
-        // Step 8: Majak rewards
-        log('', 'info');
-        log('🀄 마작 리워드 수령 시작...', 'info');
-        await claimMajakDailyShopRewards(headers);
-
-        // Step 9: Roulette extra
-        log('', 'info');
-        await claimRouletteExtraRewards(headers);
-
-        // Step 10: Daily accumulated rewards
-        log('', 'info');
-        const dailyAccumulatedFlake = await claimDailyAccumulatedRewards(headers);
+        const dailyAccumulatedFlake = state.earnings.dailyAccumulated || 0;
 
         // Calculate earnings summary
         const articleWriteFlake = 200;
