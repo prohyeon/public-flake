@@ -15,7 +15,7 @@ function filterGroups(groups) {
 }
 
 function isSectionKnown(section) {
-    return section?.success !== false && section?.unknown !== true;
+    return Boolean(section) && section.success !== false && section.unknown !== true;
 }
 
 function getVisitMissionNos(snapshot) {
@@ -28,15 +28,40 @@ function getVisitMissionNos(snapshot) {
         .map(mission => mission.missionNo);
 }
 
+function isConfiguredPrizeMission(mission) {
+    const configuredMissionNo = CONFIG.prizeEntry?.missionNo;
+    const configuredMissionTitle = CONFIG.prizeEntry?.missionTitle;
+
+    return (
+        configuredMissionNo != null &&
+        String(mission?.missionNo) === String(configuredMissionNo)
+    ) || (
+        Boolean(configuredMissionTitle) &&
+        mission?.title === configuredMissionTitle
+    );
+}
+
+function getPrizeEntryMission(snapshot) {
+    return Object.values(snapshot?.missions?.byMissionNo || {})
+        .find(isConfiguredPrizeMission);
+}
+
+function shouldSchedulePrizeEntry(snapshot) {
+    if (!CONFIG.prizeEntry?.enabled || !isSectionKnown(snapshot?.missions)) return false;
+
+    return getPrizeEntryMission(snapshot)?.status === 'INCOMPLETE';
+}
+
 export function buildAutomationPlan(snapshot = {}) {
     const plannedMissionNos = getVisitMissionNos(snapshot);
-    const articleWrite = snapshot.articleWrite || {};
-    const roulette = snapshot.roulette || {};
-    const rouletteExtra = snapshot.rouletteExtra || {};
-    const shop = snapshot.shop || {};
-    const majak = snapshot.majak || {};
+    const articleWrite = snapshot.articleWrite;
+    const roulette = snapshot.roulette;
+    const rouletteExtra = snapshot.rouletteExtra;
+    const shop = snapshot.shop;
+    const majak = snapshot.majak;
 
     const groups = filterGroups([
+        // These legacy tasks are safe/idempotent and may internally no-op on initial runs.
         group('setup', 3, [
             task('setup:requiredPages', 'requiredPages'),
             task('setup:componentRefresh', 'componentRefresh'),
@@ -69,7 +94,7 @@ export function buildAutomationPlan(snapshot = {}) {
             isSectionKnown(roulette) && roulette.remaining > 0
                 ? task('flakeSpending:rouletteDraws', 'rouletteDraws', { spendsFlake: true })
                 : null,
-            CONFIG.prizeEntry?.enabled
+            shouldSchedulePrizeEntry(snapshot)
                 ? task('flakeSpending:prizeEntry', 'prizeEntry', { spendsFlake: true })
                 : null
         ]),
