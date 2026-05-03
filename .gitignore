@@ -287,6 +287,9 @@ logs/
 # If you want to ignore it, uncomment the line below:
 # claudedocs/
 
+# Local captured raw data
+raw/
+
 # ============================================
 # Backup files
 # ============================================
