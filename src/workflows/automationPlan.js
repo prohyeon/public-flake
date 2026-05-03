@@ -1,0 +1,119 @@
+import { CONFIG } from '../config.js';
+
+function task(id, kind, meta = {}) {
+    return { id, kind, ...meta };
+}
+
+function group(id, concurrency, tasks) {
+    const filteredTasks = tasks.filter(Boolean);
+    if (filteredTasks.length === 0) return null;
+    return { id, concurrency, tasks: filteredTasks };
+}
+
+function filterGroups(groups) {
+    return groups.filter(Boolean);
+}
+
+function isSectionKnown(section) {
+    return section?.success !== false && section?.unknown !== true;
+}
+
+function getVisitMissionNos(snapshot) {
+    return Object.values(snapshot?.missions?.byMissionNo || {})
+        .filter(mission =>
+            mission.category === 'daily' &&
+            mission.status === 'INCOMPLETE' &&
+            mission.isVisitMission === true
+        )
+        .map(mission => mission.missionNo);
+}
+
+export function buildAutomationPlan(snapshot = {}) {
+    const plannedMissionNos = getVisitMissionNos(snapshot);
+    const articleWrite = snapshot.articleWrite || {};
+    const roulette = snapshot.roulette || {};
+    const rouletteExtra = snapshot.rouletteExtra || {};
+    const shop = snapshot.shop || {};
+    const majak = snapshot.majak || {};
+
+    const groups = filterGroups([
+        group('setup', 3, [
+            task('setup:requiredPages', 'requiredPages'),
+            task('setup:componentRefresh', 'componentRefresh'),
+            task('setup:eventRefresh', 'eventRefresh')
+        ]),
+        group('community', 3, [
+            isSectionKnown(articleWrite) && articleWrite.hasWrittenToday === false
+                ? task('community:articleWrite', 'articleWrite')
+                : null,
+            task('community:articleLikes', 'articleLikes'),
+            task('community:comments', 'comments', {
+                serialInside: true,
+                nonAuthoritativeRepair: true
+            })
+        ]),
+        group('visits', 4, [
+            plannedMissionNos.length > 0
+                ? task('visits:singleVisits', 'singleVisits', { missionNos: plannedMissionNos })
+                : null,
+            task('visits:dailyMissions', 'dailyMissions'),
+            task('visits:contentMissions', 'contentMissions'),
+            task('visits:bannerMissions', 'bannerMissions')
+        ]),
+        group('missionClaims', 2, [
+            task('missionClaims:weeklyMissions', 'weeklyMissions'),
+            task('missionClaims:attendanceMissions', 'attendanceMissions'),
+            task('missionClaims:surveyMissions', 'surveyMissions')
+        ]),
+        group('flakeSpending', 1, [
+            isSectionKnown(roulette) && roulette.remaining > 0
+                ? task('flakeSpending:rouletteDraws', 'rouletteDraws', { spendsFlake: true })
+                : null,
+            CONFIG.prizeEntry?.enabled
+                ? task('flakeSpending:prizeEntry', 'prizeEntry', { spendsFlake: true })
+                : null
+        ]),
+        group('followups', 1, [
+            isSectionKnown(rouletteExtra) && (rouletteExtra.claimable?.length || 0) > 0
+                ? task('followups:rouletteExtra', 'rouletteExtra')
+                : null,
+            isSectionKnown(shop) && (shop.unclaimedDaily?.length || 0) > 0
+                ? task('followups:dailyShop', 'dailyShop')
+                : null,
+            isSectionKnown(shop)
+                ? task('followups:dailyAccumulatedShop', 'dailyAccumulatedShop')
+                : null,
+            isSectionKnown(majak)
+                ? task('followups:majakShop', 'majakShop')
+                : null
+        ])
+    ]);
+
+    return { plannedMissionNos, groups };
+}
+
+export function buildRepairPlan(diff = {}) {
+    const plannedMissionNos = diff.incompleteMissionNos || [];
+    const tasks = [
+        diff.articleStillMissing
+            ? task('repairSafe:articleWrite', 'articleWrite')
+            : null,
+        plannedMissionNos.length > 0
+            ? task('repairSafe:singleVisits', 'singleVisits', { missionNos: plannedMissionNos })
+            : null,
+        diff.unclaimedDailyShop > 0
+            ? task('repairSafe:dailyShop', 'dailyShop')
+            : null,
+        diff.claimableExtra > 0
+            ? task('repairSafe:rouletteExtra', 'rouletteExtra')
+            : null,
+        diff.unclaimedMajakShop > 0
+            ? task('repairSafe:majakShop', 'majakShop')
+            : null
+    ];
+    const groups = filterGroups([
+        group('repairSafe', 1, tasks)
+    ]);
+
+    return { plannedMissionNos, groups };
+}
