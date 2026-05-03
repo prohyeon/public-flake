@@ -21,6 +21,7 @@ import {
 } from './missions.js';
 import { visitRequiredPages, checkAllStatus, checkArticleWriteStatus } from './status.js';
 import { closeTab } from '../utils/tabs.js';
+import { AUTOMATION_SIGNAL, setAutomationSignal } from '../utils/automationSignal.js';
 
 export function createAutomationTaskHandlers({ headers, articles = [], allTabs = [] }) {
     return {
@@ -196,6 +197,7 @@ export async function runAutomation() {
     }
 
     state.isRunning = true;
+    setAutomationSignal(AUTOMATION_SIGNAL.running, '전체 자동화 실행 중');
     setButtonState(true);
     state.progress = { articleLikes: 0, comments: 0, newArticle: 0 };
     state.createdCommentIds = [];
@@ -243,6 +245,7 @@ export async function runAutomation() {
         log(`\uAC8C\uC2DC\uAE00 ${articles.length}\uAC1C \uBC1C\uACAC`, 'success');
 
         if (articles.length === 0) {
+            setAutomationSignal(AUTOMATION_SIGNAL.error, '게시글 없음');
             log('\uAC8C\uC2DC\uAE00\uC774 \uC5C6\uC2B5\uB2C8\uB2E4', 'error');
             return;
         }
@@ -387,8 +390,10 @@ export async function runAutomation() {
 
         log('', 'info');
         log('🎊 모든 작업이 완료되었습니다!', 'success');
+        setAutomationSignal(AUTOMATION_SIGNAL.done, '전체 자동화 완료');
 
     } catch (error) {
+        setAutomationSignal(AUTOMATION_SIGNAL.error, error.message || '자동화 실패');
         log(`✗ 오류 발생: ${error.message}`, 'error');
     } finally {
         if (allTabs.length > 0) {

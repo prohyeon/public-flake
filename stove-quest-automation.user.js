@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.7.0
+// @version      2.7.1
 // @author       prohyeon
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -19,7 +19,7 @@
   'use strict';
 
   const CONFIG = {
-    version: "2.7.0",
+    version: "2.7.1",
     lastUpdated: "2026-05-03",
     maintenanceMode: {
       enabled: false,
@@ -2965,6 +2965,43 @@
       return { success: false, participated: 0, completed: 0, skipped: 0, total: 0, targeted, targetMissionNos, error: error.message };
     }
   }
+  const AUTOMATION_SIGNAL = Object.freeze({
+    running: "[SG_RUNNING]",
+    done: "[SG_DONE]",
+    error: "[SG_ERROR]"
+  });
+  Object.freeze({
+    [AUTOMATION_SIGNAL.running]: "running",
+    [AUTOMATION_SIGNAL.done]: "done",
+    [AUTOMATION_SIGNAL.error]: "error"
+  });
+  const SIGNAL_PATTERN = /^\[SG_(RUNNING|DONE|ERROR)\]\s*/;
+  function normalizeSignal(signal) {
+    if (AUTOMATION_SIGNAL[signal]) return AUTOMATION_SIGNAL[signal];
+    return signal || "";
+  }
+  function stripAutomationSignalTitle(title = "") {
+    const source = String(title || "").trim();
+    const match = source.match(SIGNAL_PATTERN);
+    if (!match) return source;
+    const rest = source.slice(match[0].length);
+    const baseTitleIndex = rest.indexOf(" | ");
+    if (baseTitleIndex === -1) return "";
+    return rest.slice(baseTitleIndex + 3).trim();
+  }
+  function buildAutomationSignalTitle(signal, message = "", baseTitle = "") {
+    const prefix = normalizeSignal(signal);
+    const text = String(message || "").trim();
+    const cleanBaseTitle = stripAutomationSignalTitle(baseTitle);
+    const signalTitle = [prefix, text].filter(Boolean).join(" ");
+    return cleanBaseTitle ? `${signalTitle} | ${cleanBaseTitle}` : signalTitle;
+  }
+  function setAutomationSignal(signal, message = "", targetDocument) {
+    const doc = typeof document === "undefined" ? null : document;
+    if (!doc) return "";
+    doc.title = buildAutomationSignalTitle(signal, message, doc.title);
+    return doc.title;
+  }
   function createAutomationTaskHandlers({ headers, articles = [], allTabs = [] }) {
     return {
       requiredPages: async () => {
@@ -3106,6 +3143,7 @@
       return;
     }
     state.isRunning = true;
+    setAutomationSignal(AUTOMATION_SIGNAL.running, "전체 자동화 실행 중");
     setButtonState(true);
     state.progress = { articleLikes: 0, comments: 0, newArticle: 0 };
     state.createdCommentIds = [];
@@ -3156,6 +3194,7 @@
       const articles = await getArticleList(headers, 30);
       log(`게시글 ${articles.length}개 발견`, "success");
       if (articles.length === 0) {
+        setAutomationSignal(AUTOMATION_SIGNAL.error, "게시글 없음");
         log("게시글이 없습니다", "error");
         return;
       }
@@ -3267,7 +3306,9 @@
       log("✅ 상태 업데이트 완료!", "success");
       log("", "info");
       log("🎊 모든 작업이 완료되었습니다!", "success");
+      setAutomationSignal(AUTOMATION_SIGNAL.done, "전체 자동화 완료");
     } catch (error) {
+      setAutomationSignal(AUTOMATION_SIGNAL.error, error.message || "자동화 실패");
       log(`✗ 오류 발생: ${error.message}`, "error");
     } finally {
       if (allTabs.length > 0) {
