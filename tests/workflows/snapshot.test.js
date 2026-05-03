@@ -1,14 +1,17 @@
-import test from 'node:test';
+import test, { beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { CONFIG } from '../../src/config.js';
 import { state } from '../../src/state.js';
-import { getTodayString } from '../../src/utils/time.js';
+import { getTodayKSTString } from '../../src/utils/time.js';
 import {
     captureAutomationSnapshot,
     compareSnapshots,
     getSnapshotSummary,
     normalizeMissionSnapshot
 } from '../../src/workflows/snapshot.js';
+
+let originalMissionComponents;
 
 function resetMissionComponents() {
     state.missionComponents = {
@@ -20,6 +23,14 @@ function resetMissionComponents() {
         attendance: null
     };
 }
+
+beforeEach(() => {
+    originalMissionComponents = { ...state.missionComponents };
+});
+
+afterEach(() => {
+    state.missionComponents = originalMissionComponents;
+});
 
 test('normalizeMissionSnapshot indexes missions by mission number and category', () => {
     resetMissionComponents();
@@ -46,13 +57,45 @@ test('normalizeMissionSnapshot indexes missions by mission number and category',
             missions: [
                 { mission_no: 3, title: 'Attendance work', status: 'INCOMPLETE', mission_type: 'ATTENDANCE', url: 'https://attendance.example' }
             ]
+        },
+        {
+            componentNo: 400,
+            component_info: { component_type: 'CONTENT1' },
+            missions: [
+                { mission_no: 4, title: 'Content work', status: 'INCOMPLETE' }
+            ]
+        },
+        {
+            componentNo: 500,
+            component_info: { component_type: 'SURVEY' },
+            missions: [
+                { mission_no: 5, title: 'Survey work', status: 'INCOMPLETE' }
+            ]
+        },
+        {
+            componentNo: 600,
+            component_info: { component_type: 'BANNER' },
+            missions: [
+                { mission_no: 6, title: 'Banner work', status: 'INCOMPLETE' }
+            ]
+        },
+        {
+            componentNo: 700,
+            component_info: { component_type: 'UNKNOWN' },
+            missions: [
+                { mission_no: 7, title: 'Other work', status: 'INCOMPLETE' }
+            ]
         }
-    ]);
+    ], { missionComponents: { weekly: 200, attendance: 300 } });
 
     assert.equal(snapshot.byMissionNo[1].category, 'daily');
     assert.equal(snapshot.byMissionNo[1].buttonUrl, 'https://daily.example');
     assert.equal(snapshot.byMissionNo[2].category, 'weekly');
     assert.equal(snapshot.byMissionNo[3].category, 'attendance');
+    assert.equal(snapshot.byMissionNo[4].category, 'content');
+    assert.equal(snapshot.byMissionNo[5].category, 'survey');
+    assert.equal(snapshot.byMissionNo[6].category, 'banner');
+    assert.equal(snapshot.byMissionNo[7].category, 'other');
     assert.deepEqual(snapshot.categories.daily.complete.map(mission => mission.missionNo), [1]);
     assert.deepEqual(snapshot.categories.weekly.receivable.map(mission => mission.missionNo), [2]);
     assert.deepEqual(snapshot.categories.attendance.incomplete.map(mission => mission.missionNo), [3]);
@@ -130,7 +173,7 @@ test('getSnapshotSummary counts completed and incomplete work', () => {
 
 test('captureAutomationSnapshot uses dependency overrides and survives dependency rejection', async () => {
     resetMissionComponents();
-    const today = getTodayString();
+    const today = getTodayKSTString();
     const calls = [];
     const snapshot = await captureAutomationSnapshot(
         { Authorization: 'Bearer test' },
@@ -193,10 +236,8 @@ test('captureAutomationSnapshot uses dependency overrides and survives dependenc
                     }
                 }
             }),
-            getTotalFlakeBalance: async () => ({ value: { amount: 1000 } }),
-            getMonthlyFlakeTotal: async () => {
-                throw new Error('monthly failed');
-            }
+            getTotalFlakeBalance: async () => 1000,
+            getMonthlyFlakeTotal: async () => ({ value: { total_deposit_amount: 250 } })
         }
     );
 
@@ -204,11 +245,63 @@ test('captureAutomationSnapshot uses dependency overrides and survives dependenc
     assert.equal(snapshot.articleWrite.hasWrittenToday, true);
     assert.equal(snapshot.missions.byMissionNo[1].status, 'COMPLETE');
     assert.equal(snapshot.roulette.current, 2);
-    assert.equal(snapshot.roulette.remaining >= 0, true);
+    assert.equal(snapshot.roulette.remaining, CONFIG.roulette.maxDraws - 2);
     assert.deepEqual(snapshot.rouletteExtra.claimable.map(item => item.gift_no), [1, 2]);
     assert.deepEqual(snapshot.shop.unclaimedDaily.map(item => item.item_no), [10]);
+    assert.equal(snapshot.shop.date, today);
     assert.deepEqual(snapshot.majak.unclaimedDaily, []);
-    assert.deepEqual(snapshot.flake.total, { value: { amount: 1000 } });
-    assert.equal(snapshot.flake.monthly, null);
+    assert.equal(snapshot.majak.date, today);
+    assert.equal(snapshot.flake.total, 1000);
+    assert.equal(snapshot.flake.monthly, 250);
+    assert.equal(snapshot.flake.rawTotal, 1000);
+    assert.deepEqual(snapshot.flake.rawMonthly, { value: { total_deposit_amount: 250 } });
+    assert.equal(snapshot.degraded, false);
+    assert.deepEqual(snapshot.errors, {});
     assert.equal(typeof snapshot.capturedAt, 'string');
+});
+
+test('captureAutomationSnapshot marks failed sections degraded and non-actionable', async () => {
+    resetMissionComponents();
+    state.missionComponents.weekly = 900;
+
+    const snapshot = await captureAutomationSnapshot(
+        { Authorization: 'Bearer test' },
+        {
+            getMissionComponentIds: async () => ({ weekly: 900 }),
+            checkArticleWriteStatus: async () => ({ success: true, hasWrittenToday: true }),
+            getAllDailyMissions: async () => {
+                throw new TypeError('mission failed');
+            },
+            getRouletteSubEventNo: () => 'draw-event',
+            getRouletteParticipationCount: async () => {
+                throw new Error('roulette failed');
+            },
+            getRouletteExtraSubEventNo: () => 'extra-event',
+            getRouletteExtra: async () => ({ value: { current_cnt: 0, milestones: [] } }),
+            getDailyShopRewards: async () => {
+                throw new Error('shop failed');
+            },
+            getMajakDailyShopRewards: async () => {
+                throw new Error('majak failed');
+            },
+            getTotalFlakeBalance: async () => ({ value: { mileage_amount: 123 } }),
+            getMonthlyFlakeTotal: async () => ({ value: 45 })
+        }
+    );
+
+    assert.equal(snapshot.degraded, true);
+    assert.deepEqual(Object.keys(snapshot.errors).sort(), ['majak', 'missions', 'roulette', 'shop']);
+    assert.deepEqual(snapshot.errors.roulette, { name: 'Error', message: 'roulette failed' });
+    assert.equal(snapshot.roulette.remaining, 0);
+    assert.equal(snapshot.roulette.unknown, true);
+    assert.equal(snapshot.roulette.success, false);
+    assert.equal(snapshot.missions.success, false);
+    assert.deepEqual(snapshot.missions.byMissionNo, {});
+    assert.deepEqual(snapshot.missions.categories.daily.all, []);
+    assert.equal(snapshot.shop.success, false);
+    assert.deepEqual(snapshot.shop.unclaimedDaily, []);
+    assert.equal(snapshot.majak.success, false);
+    assert.deepEqual(snapshot.majak.unclaimedDaily, []);
+    assert.equal(snapshot.flake.total, 123);
+    assert.equal(snapshot.flake.monthly, 45);
 });

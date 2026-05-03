@@ -1,6 +1,6 @@
 import { CONFIG } from '../config.js';
 import { state } from '../state.js';
-import { getTodayString } from '../utils/time.js';
+import { getTodayKSTString } from '../utils/time.js';
 import { getAllDailyMissions, getMissionComponentIds } from '../api/missions.js';
 import {
     getRouletteParticipationCount,
@@ -39,7 +39,7 @@ function emptyCategories() {
     );
 }
 
-function getMissionCategory(componentNo, componentType) {
+function getMissionCategory(componentNo, componentType, missionComponents = state.missionComponents) {
     switch (componentType) {
         case 'SINGLE':
             return 'daily';
@@ -50,7 +50,7 @@ function getMissionCategory(componentNo, componentType) {
         case 'BANNER':
             return 'banner';
         case 'ACCUMULATION':
-            return componentNo === state.missionComponents.weekly ? 'weekly' : 'attendance';
+            return componentNo === missionComponents.weekly ? 'weekly' : 'attendance';
         default:
             return 'other';
     }
@@ -64,19 +64,56 @@ function isReceived(value) {
     return false;
 }
 
+function serializeError(error) {
+    return {
+        name: error?.name || 'Error',
+        message: error?.message || String(error)
+    };
+}
+
+function failedSection(error, extra = {}) {
+    return {
+        success: false,
+        error,
+        ...extra
+    };
+}
+
 function normalizeRoulette(rouletteResult) {
-    const current = rouletteResult?.value?.participation_cnt || 0;
+    if (!rouletteResult.ok) {
+        return failedSection(rouletteResult.error, {
+            raw: null,
+            current: 0,
+            limit: CONFIG.roulette.maxDraws,
+            remaining: 0,
+            unknown: true
+        });
+    }
+
+    const current = rouletteResult.value?.value?.participation_cnt || 0;
     const limit = CONFIG.roulette.maxDraws;
     return {
-        raw: rouletteResult,
+        success: true,
+        raw: rouletteResult.value,
         current,
         limit,
-        remaining: Math.max(0, limit - current)
+        remaining: Math.max(0, limit - current),
+        unknown: false
     };
 }
 
 function normalizeRouletteExtra(extraResult) {
-    const value = extraResult?.value || {};
+    if (!extraResult.ok) {
+        return failedSection(extraResult.error, {
+            raw: null,
+            current: 0,
+            currentCycle: null,
+            milestones: [],
+            claimable: []
+        });
+    }
+
+    const value = extraResult.value?.value || {};
     const current = value.current_cnt || 0;
     const milestones = Array.isArray(value.milestones) ? value.milestones : [];
     const claimable = milestones.filter(milestone =>
@@ -85,7 +122,8 @@ function normalizeRouletteExtra(extraResult) {
     );
 
     return {
-        raw: extraResult,
+        success: true,
+        raw: extraResult.value,
         current,
         currentCycle: value.current_cycle ?? null,
         milestones,
@@ -94,17 +132,30 @@ function normalizeRouletteExtra(extraResult) {
 }
 
 function normalizeShop(shopResult) {
-    const value = shopResult?.value || {};
+    const todayString = getTodayKSTString();
+
+    if (!shopResult.ok) {
+        return failedSection(shopResult.error, {
+            raw: null,
+            date: todayString,
+            dailyAttendances: null,
+            accumulatedAttendances: null,
+            unclaimedDaily: []
+        });
+    }
+
+    const value = shopResult.value?.value || {};
     const dailyAttendances = value.daily_attendances || null;
     const accumulatedAttendances = value.accumulated_attendances || null;
     const dailyRewards = Array.isArray(dailyAttendances?.rewards) ? dailyAttendances.rewards : [];
-    const todayString = getTodayString();
     const unclaimedDaily = dailyRewards.filter(reward =>
         reward.attendance_date === todayString && !isReceived(reward.is_received)
     );
 
     return {
-        raw: shopResult,
+        success: true,
+        raw: shopResult.value,
+        date: todayString,
         dailyAttendances,
         accumulatedAttendances,
         unclaimedDaily
@@ -113,20 +164,48 @@ function normalizeShop(shopResult) {
 
 async function settleSnapshotPart(factory) {
     try {
-        return await factory();
-    } catch {
-        return null;
+        return { ok: true, value: await factory(), error: null };
+    } catch (error) {
+        return { ok: false, value: null, error: serializeError(error) };
     }
 }
 
-export function normalizeMissionSnapshot(components = []) {
+function extractNumericFlake(raw) {
+    if (typeof raw === 'number') return raw;
+
+    const value = raw?.value;
+    if (typeof value === 'number') return value;
+    if (typeof value?.mileage_amount === 'number') return value.mileage_amount;
+    if (typeof value?.total_deposit_amount === 'number') return value.total_deposit_amount;
+    if (typeof value?.amount === 'number') return value.amount;
+
+    return null;
+}
+
+function normalizeFlake(totalResult, monthlyResult) {
+    const errors = {};
+    if (!totalResult.ok) errors.total = totalResult.error;
+    if (!monthlyResult.ok) errors.monthly = monthlyResult.error;
+
+    return {
+        success: totalResult.ok && monthlyResult.ok,
+        error: Object.keys(errors).length > 0 ? errors : undefined,
+        total: totalResult.ok ? extractNumericFlake(totalResult.value) : null,
+        monthly: monthlyResult.ok ? extractNumericFlake(monthlyResult.value) : null,
+        rawTotal: totalResult.ok ? totalResult.value : null,
+        rawMonthly: monthlyResult.ok ? monthlyResult.value : null
+    };
+}
+
+export function normalizeMissionSnapshot(components = [], options = {}) {
+    const missionComponents = options.missionComponents || state.missionComponents;
     const categories = emptyCategories();
     const byMissionNo = {};
 
     for (const component of Array.isArray(components) ? components : []) {
         const componentNo = component?.componentNo;
         const componentType = component?.component_info?.component_type;
-        const category = getMissionCategory(componentNo, componentType);
+        const category = getMissionCategory(componentNo, componentType, missionComponents);
         const missions = Array.isArray(component?.missions) ? component.missions : [];
 
         for (const mission of missions) {
@@ -156,14 +235,19 @@ export function normalizeMissionSnapshot(components = []) {
         }
     }
 
-    return { categories, byMissionNo };
+    return { success: true, categories, byMissionNo };
 }
 
 export async function captureAutomationSnapshot(headers, deps = {}) {
     const services = { ...defaultServices, ...deps };
+    const errors = {};
 
-    if (!Object.values(state.missionComponents).some(Boolean)) {
-        await settleSnapshotPart(() => services.getMissionComponentIds(headers));
+    const missionComponentResult = await settleSnapshotPart(() => services.getMissionComponentIds(headers));
+    let missionComponentIds = state.missionComponents;
+    if (missionComponentResult.ok && missionComponentResult.value) {
+        missionComponentIds = missionComponentResult.value;
+    } else if (!missionComponentResult.ok) {
+        errors.missionComponents = missionComponentResult.error;
     }
 
     const [
@@ -186,18 +270,42 @@ export async function captureAutomationSnapshot(headers, deps = {}) {
         settleSnapshotPart(() => services.getMonthlyFlakeTotal(headers))
     ]);
 
+    const sectionResults = {
+        articleWrite,
+        missions: missionComponents,
+        roulette: rouletteResult,
+        rouletteExtra: rouletteExtraResult,
+        shop: shopResult,
+        majak: majakResult
+    };
+
+    for (const [sectionName, result] of Object.entries(sectionResults)) {
+        if (!result.ok) errors[sectionName] = result.error;
+    }
+
+    const flake = normalizeFlake(flakeTotal, flakeMonthly);
+    if (!flakeTotal.ok || !flakeMonthly.ok) {
+        errors.flake = flake.error;
+    }
+
+    const missions = missionComponents.ok
+        ? normalizeMissionSnapshot(missionComponents.value || [], { missionComponents: missionComponentIds })
+        : failedSection(missionComponents.error, {
+            categories: emptyCategories(),
+            byMissionNo: {}
+        });
+
     return {
         capturedAt: new Date().toISOString(),
-        articleWrite,
-        missions: normalizeMissionSnapshot(missionComponents || []),
+        degraded: Object.keys(errors).length > 0,
+        errors,
+        articleWrite: articleWrite.ok ? articleWrite.value : failedSection(articleWrite.error),
+        missions,
         roulette: normalizeRoulette(rouletteResult),
         rouletteExtra: normalizeRouletteExtra(rouletteExtraResult),
         shop: normalizeShop(shopResult),
         majak: normalizeShop(majakResult),
-        flake: {
-            total: flakeTotal,
-            monthly: flakeMonthly
-        }
+        flake
     };
 }
 
