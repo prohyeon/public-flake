@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.7.1
+// @version      2.7.2
 // @author       prohyeon
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -19,7 +19,7 @@
   'use strict';
 
   const CONFIG = {
-    version: "2.7.1",
+    version: "2.7.2",
     lastUpdated: "2026-05-03",
     maintenanceMode: {
       enabled: false,
@@ -1766,6 +1766,7 @@
     const rouletteExtra = snapshot.rouletteExtra;
     const shop = snapshot.shop;
     const majak = snapshot.majak;
+    const shouldRunRouletteDraws = isSectionKnown(roulette) && roulette.remaining > 0;
     const groups = filterGroups([
       // These legacy tasks are safe/idempotent and may internally no-op on initial runs.
       group("setup", 3, [
@@ -1794,11 +1795,12 @@
         task("missionClaims:surveyMissions", "surveyMissions")
       ]),
       group("flakeSpending", 1, [
-        isSectionKnown(roulette) && roulette.remaining > 0 ? task("flakeSpending:rouletteDraws", "rouletteDraws", { spendsFlake: true }) : null,
+        shouldRunRouletteDraws ? task("flakeSpending:rouletteDraws", "rouletteDraws", { spendsFlake: true }) : null,
+        shouldRunRouletteDraws ? task("flakeSpending:rouletteExtra", "rouletteExtra", { afterRouletteDraws: true }) : null,
         shouldSchedulePrizeEntry(snapshot) ? task("flakeSpending:prizeEntry", "prizeEntry", { spendsFlake: true }) : null
       ]),
       group("followups", 1, [
-        isSectionKnown(rouletteExtra) && (((_a = rouletteExtra.claimable) == null ? void 0 : _a.length) || 0) > 0 ? task("followups:rouletteExtra", "rouletteExtra") : null,
+        !shouldRunRouletteDraws && isSectionKnown(rouletteExtra) && (((_a = rouletteExtra.claimable) == null ? void 0 : _a.length) || 0) > 0 ? task("followups:rouletteExtra", "rouletteExtra") : null,
         isSectionKnown(shop) && (((_b = shop.unclaimedDaily) == null ? void 0 : _b.length) || 0) > 0 ? task("followups:dailyShop", "dailyShop") : null,
         isSectionKnown(shop) ? task("followups:dailyAccumulatedShop", "dailyAccumulatedShop") : null,
         isSectionKnown(majak) ? task("followups:majakShop", "majakShop") : null

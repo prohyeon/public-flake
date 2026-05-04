@@ -64,9 +64,9 @@ test('buildAutomationPlan separates safe parallel and serial flake-spending grou
 
     const flakeSpending = plan.groups.find(group => group.id === 'flakeSpending');
     assert.equal(flakeSpending.concurrency, 1);
-    assert.ok(taskKinds(flakeSpending).includes('rouletteDraws'));
-    assert.ok(taskKinds(flakeSpending).includes('prizeEntry'));
+    assert.deepEqual(taskKinds(flakeSpending), ['rouletteDraws', 'rouletteExtra', 'prizeEntry']);
     assert.equal(findTask(plan, 'rouletteDraws').spendsFlake, true);
+    assert.equal(findTask(plan, 'rouletteExtra').afterRouletteDraws, true);
     assert.equal(findTask(plan, 'prizeEntry').spendsFlake, true);
 });
 
@@ -90,10 +90,23 @@ test('buildAutomationPlan includes intended handler kinds for a fully actionable
             ['community', ['articleWrite', 'articleLikes', 'comments']],
             ['visits', ['singleVisits', 'dailyMissions', 'contentMissions', 'bannerMissions']],
             ['missionClaims', ['weeklyMissions', 'attendanceMissions', 'surveyMissions']],
-            ['flakeSpending', ['rouletteDraws', 'prizeEntry']],
-            ['followups', ['rouletteExtra', 'dailyShop', 'dailyAccumulatedShop', 'majakShop']]
+            ['flakeSpending', ['rouletteDraws', 'rouletteExtra', 'prizeEntry']],
+            ['followups', ['dailyShop', 'dailyAccumulatedShop', 'majakShop']]
         ]
     );
+});
+
+test('buildAutomationPlan keeps initially claimable rouletteExtra in followups when no roulette draws are planned', () => {
+    const plan = buildAutomationPlan(baseSnapshot({
+        roulette: { success: true, unknown: false, remaining: 0 },
+        rouletteExtra: { success: true, claimable: [{ milestone: 1 }] }
+    }));
+
+    const flakeSpending = plan.groups.find(group => group.id === 'flakeSpending');
+    const followups = plan.groups.find(group => group.id === 'followups');
+
+    assert.equal(flakeSpending, undefined);
+    assert.deepEqual(taskKinds(followups), ['rouletteExtra', 'dailyAccumulatedShop', 'majakShop']);
 });
 
 test('buildAutomationPlan does not schedule rouletteDraws when roulette snapshot is degraded or unknown', () => {

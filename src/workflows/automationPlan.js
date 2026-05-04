@@ -59,6 +59,7 @@ export function buildAutomationPlan(snapshot = {}) {
     const rouletteExtra = snapshot.rouletteExtra;
     const shop = snapshot.shop;
     const majak = snapshot.majak;
+    const shouldRunRouletteDraws = isSectionKnown(roulette) && roulette.remaining > 0;
 
     const groups = filterGroups([
         // These legacy tasks are safe/idempotent and may internally no-op on initial runs.
@@ -92,15 +93,18 @@ export function buildAutomationPlan(snapshot = {}) {
             task('missionClaims:surveyMissions', 'surveyMissions')
         ]),
         group('flakeSpending', 1, [
-            isSectionKnown(roulette) && roulette.remaining > 0
+            shouldRunRouletteDraws
                 ? task('flakeSpending:rouletteDraws', 'rouletteDraws', { spendsFlake: true })
+                : null,
+            shouldRunRouletteDraws
+                ? task('flakeSpending:rouletteExtra', 'rouletteExtra', { afterRouletteDraws: true })
                 : null,
             shouldSchedulePrizeEntry(snapshot)
                 ? task('flakeSpending:prizeEntry', 'prizeEntry', { spendsFlake: true })
                 : null
         ]),
         group('followups', 1, [
-            isSectionKnown(rouletteExtra) && (rouletteExtra.claimable?.length || 0) > 0
+            !shouldRunRouletteDraws && isSectionKnown(rouletteExtra) && (rouletteExtra.claimable?.length || 0) > 0
                 ? task('followups:rouletteExtra', 'rouletteExtra')
                 : null,
             isSectionKnown(shop) && (shop.unclaimedDaily?.length || 0) > 0
