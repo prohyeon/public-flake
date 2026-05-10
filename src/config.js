@@ -1,5 +1,5 @@
 export const CONFIG = {
-    version: '2.7.3',
+    version: '2.7.4',
     lastUpdated: '2026-05-10',
     maintenanceMode: {
         enabled: false,
@@ -79,5 +79,21 @@ export const CONFIG = {
         pointAmount: 7700,
         requiredFlakeAmount: 192500,
         description: '플레이크 전환'
+    },
+    lostArkCashCharge: {
+        enabled: true,
+        gameCode: '45',
+        pointClientId: 'M_STOVE_PC',
+        pointUseRuleId: 'ML_STOVE_PC_MILE_PAID',
+        pointAmount: 7700,
+        cashAmount: 7700,
+        productName: '7,700 로열 크리스탈',
+        paytoolCode: 58,
+        pgpCode: 'POQ',
+        pgCode: 'SP_CREDITCARD_PLCC',
+        mallId: 'spay_la6',
+        pointPaytoolCode: 99,
+        pointPgCode: 'STOVE_MILEAGE',
+        pointMallId: 'STOVE_MILEAGE'
     }
 };

@@ -5,6 +5,7 @@ import { runAutomation } from './workflows/automation.js';
 import { runPointExchange } from './workflows/pointExchange.js';
 import { openRewardShop } from './workflows/shop.js';
 import { checkAllStatus } from './workflows/status.js';
+import { updatePointCashChargeButtonAvailability } from './ui/pointCashCharge.js';
 
 function createUI() {
     if (document.getElementById('stove-quest-automation')) return;
@@ -75,6 +76,14 @@ function createUI() {
                 font-size: 12px;
                 color: #a7f3d0;
                 font-weight: 500;
+            }
+            .stove-btn-note {
+                display: block;
+                margin-top: 4px;
+                font-size: 11px;
+                color: #fbbf24;
+                font-weight: 500;
+                line-height: 1.3;
             }
             .stove-btn:hover:not(:disabled) {
                 background: #3a3a3a;
@@ -260,6 +269,22 @@ function createUI() {
             .stove-maintenance-icon { font-size: 48px; margin-bottom: 12px; display: block; }
             .stove-maintenance-title { font-size: 18px; font-weight: bold; color: #ffffff; margin-bottom: 8px; }
             .stove-maintenance-message { font-size: 14px; color: #ffebee; line-height: 1.6; }
+            .stove-success-notice {
+                background: #064e3b;
+                border: 1px solid #10b981;
+                border-radius: 8px;
+                color: #d1fae5;
+                font-size: 14px;
+                font-weight: 700;
+                margin-bottom: 16px;
+                padding: 12px 14px;
+                text-align: center;
+                transition: opacity 0.3s ease, transform 0.3s ease;
+            }
+            .stove-success-notice--hide {
+                opacity: 0;
+                transform: translateY(-6px);
+            }
         </style>
 
         <div class="stove-panel-header">
@@ -278,9 +303,10 @@ function createUI() {
 
         <div class="stove-controls">
             <button id="stove-btn-start" class="stove-btn">🚀 전체 자동화</button>
-            <button id="stove-btn-point-exchange" class="stove-btn">
-                <span class="stove-btn-main">💱 7700 포인트 교환</span>
+            <button id="stove-btn-point-cash-charge" class="stove-btn" disabled title="192,500 플레이크 이상일 때 충전 가능">
+                <span class="stove-btn-main">💱 7700 캐시 충전</span>
                 <span class="stove-btn-sub">(192,500 플레이크)</span>
+                <span class="stove-btn-note" id="stove-btn-point-cash-charge-status">플레이크 확인 중</span>
             </button>
             <button id="stove-btn-reward-shop" class="stove-btn">🏪 리워드샵 방문</button>
         </div>
@@ -407,7 +433,7 @@ function createUI() {
         const maintenanceNotice = document.getElementById('stove-maintenance-notice');
         if (maintenanceNotice) maintenanceNotice.style.display = 'block';
 
-        ['stove-btn-start', 'stove-btn-point-exchange', 'stove-btn-reward-shop', 'stove-btn-status-refresh'].forEach(id => {
+        ['stove-btn-start', 'stove-btn-point-cash-charge', 'stove-btn-reward-shop', 'stove-btn-status-refresh'].forEach(id => {
             const btn = document.getElementById(id);
             if (btn) btn.disabled = true;
         });
@@ -415,9 +441,10 @@ function createUI() {
         log('⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다', 'warning');
     } else {
         attachListener('stove-btn-start', runAutomation);
-        attachListener('stove-btn-point-exchange', runPointExchange);
+        attachListener('stove-btn-point-cash-charge', runPointExchange);
         attachListener('stove-btn-reward-shop', openRewardShop);
         attachListener('stove-btn-status-refresh', checkAllStatus);
+        updatePointCashChargeButtonAvailability(null);
         log('자동화 패널이 준비되었습니다', 'info');
     }
 

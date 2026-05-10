@@ -10,6 +10,7 @@ import { getAllDailyMissions, getMissionComponentIds } from '../api/missions.js'
 import { getMyProfile, getMyArticles, getMonthlyFlakeTotal, getTotalFlakeBalance } from '../api/profile.js';
 import { log } from '../ui/logger.js';
 import { updateStatusUI } from '../ui/status.js';
+import { updatePointCashChargeButtonAvailability } from '../ui/pointCashCharge.js';
 
 export async function checkRouletteStatus(headers) {
     try {
@@ -242,6 +243,7 @@ export async function checkAllStatus() {
             totalFlake,
             monthlyFlake
         });
+        updatePointCashChargeButtonAvailability(totalFlake);
 
         console.log('[상태 확인] ✅ 완료');
     } catch (error) {
@@ -257,5 +259,6 @@ export async function checkAllStatus() {
             totalFlake: { error: true },
             monthlyFlake: { error: true }
         });
+        updatePointCashChargeButtonAvailability(null);
     }
 }

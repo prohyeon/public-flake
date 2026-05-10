@@ -2,6 +2,7 @@ import { CONFIG } from '../config.js';
 import { state } from '../state.js';
 import { extractHeaders } from '../utils/auth.js';
 import { log as defaultLog } from '../ui/logger.js';
+import { showSuccessNotice as defaultShowSuccessNotice } from '../ui/notifications.js';
 import { setButtonState } from '../ui/progress.js';
 import {
     createPointExchangePlan,
@@ -10,6 +11,12 @@ import {
     getBillFlakeBalance,
     getPointExchangeRate
 } from '../api/pointExchange.js';
+import {
+    chargeLostArkCashWithPoints,
+    extractLostArkOrderNo,
+    extractStovePointBalance,
+    getLostArkPointBalance
+} from '../api/lostArkCashCharge.js';
 
 function formatNumber(value) {
     return Number(value).toLocaleString('ko-KR');
@@ -103,6 +110,78 @@ export async function exchangeConfiguredPoints(headers, deps = {}) {
     };
 }
 
+function getCashChargeErrorMessage(code, fallback) {
+    const messages = {
+        54040: '로스트아크 포인트 설정을 찾을 수 없습니다'
+    };
+
+    return messages[code] || fallback || '알 수 없는 오류';
+}
+
+export async function runPointCashChargeAllInOne(headers, deps = {}) {
+    const {
+        getLostArkPointBalance: fetchPointBalance = getLostArkPointBalance,
+        chargeLostArkCashWithPoints: postCashCharge = chargeLostArkCashWithPoints,
+        showSuccessNotice = defaultShowSuccessNotice,
+        log = defaultLog
+    } = deps;
+
+    if (!CONFIG.lostArkCashCharge.enabled) {
+        log('⏭️ 로스트아크 캐시 충전 기능이 비활성화되어 있습니다', 'info');
+        return { success: false, reason: 'disabled' };
+    }
+
+    const exchangeResult = await exchangeConfiguredPoints(headers, { ...deps, log });
+    if (!exchangeResult.success) {
+        return exchangeResult;
+    }
+
+    const targetPoints = CONFIG.lostArkCashCharge.pointAmount;
+    const targetCash = CONFIG.lostArkCashCharge.cashAmount;
+
+    log(`💳 ${formatNumber(targetPoints)} 포인트로 ${formatNumber(targetCash)} 캐시 충전 준비 중...`, 'info');
+
+    const pointBalanceResponse = await fetchPointBalance(headers);
+    if (!pointBalanceResponse || pointBalanceResponse.code !== 0) {
+        const message = getCashChargeErrorMessage(pointBalanceResponse?.code, pointBalanceResponse?.message);
+        log(`✗ 포인트 잔액 조회 실패: ${message}`, 'error');
+        return { success: false, reason: 'pointBalanceLookupFailed', message };
+    }
+
+    const availablePoints = extractStovePointBalance(pointBalanceResponse);
+    if (availablePoints !== null) {
+        log(`  💰 현재 포인트: ${formatNumber(availablePoints)} P`, 'info');
+    }
+
+    if (availablePoints !== null && availablePoints < targetPoints) {
+        log(`✗ 포인트 부족: ${formatNumber(availablePoints)} / ${formatNumber(targetPoints)} P`, 'error');
+        return {
+            success: false,
+            reason: 'insufficientPoints',
+            availablePoints,
+            requiredPoints: targetPoints
+        };
+    }
+
+    const chargeResult = await postCashCharge(headers);
+    if (!chargeResult || chargeResult.code !== 0) {
+        const message = getCashChargeErrorMessage(chargeResult?.code, chargeResult?.message);
+        log(`✗ 로스트아크 캐시 충전 실패: ${message}`, 'error');
+        return { success: false, reason: 'cashChargeFailed', message, code: chargeResult?.code };
+    }
+
+    const orderNo = extractLostArkOrderNo(chargeResult);
+    log(`✓ ${targetCash} 캐시 충전 완료${orderNo ? ` (주문번호: ${orderNo})` : ''}`, 'success');
+    showSuccessNotice(`${targetCash} 캐시 충전 성공`);
+
+    return {
+        success: true,
+        pointAmount: targetPoints,
+        chargedCash: targetCash,
+        orderNo
+    };
+}
+
 export async function runPointExchange() {
     if (state.isRunning) {
         defaultLog('⚠️ 이미 실행 중입니다', 'warning');
@@ -114,9 +193,9 @@ export async function runPointExchange() {
 
     try {
         const headers = extractHeaders();
-        await exchangeConfiguredPoints(headers);
+        await runPointCashChargeAllInOne(headers);
     } catch (error) {
-        defaultLog(`✗ 포인트 교환 오류: ${error.message}`, 'error');
+        defaultLog(`✗ 올인원 충전 오류: ${error.message}`, 'error');
     } finally {
         state.isRunning = false;
         setButtonState(false);

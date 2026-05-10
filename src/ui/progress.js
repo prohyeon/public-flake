@@ -1,5 +1,6 @@
 import { CONFIG } from '../config.js';
 import { state } from '../state.js';
+import { updatePointCashChargeButtonAvailability } from './pointCashCharge.js';
 
 export function updateProgress(task, current, total) {
     if (task) {
@@ -35,7 +36,7 @@ export function updateProgress(task, current, total) {
 }
 
 export function setButtonState(running) {
-    const btnIds = ['stove-btn-start', 'stove-btn-point-exchange', 'stove-btn-reward-shop', 'stove-btn-test-tab'];
+    const btnIds = ['stove-btn-start', 'stove-btn-reward-shop', 'stove-btn-status-refresh', 'stove-btn-test-tab'];
 
     for (const id of btnIds) {
         const btn = document.getElementById(id);
@@ -44,6 +45,8 @@ export function setButtonState(running) {
             btn.style.opacity = running ? '0.5' : '1';
         }
     }
+
+    updatePointCashChargeButtonAvailability(state.pointCashCharge.availableFlake, { running });
 }
 
 export function extractComments(articles, count) {

@@ -12,7 +12,7 @@ export default defineConfig({
             userscript: {
                 name: 'STOVE Quest Automation',
                 namespace: 'https://profile.onstove.com/',
-                version: '2.7.3',
+                version: '2.7.4',
                 description: 'STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)',
                 author: 'prohyeon',
                 match: ['https://profile.onstove.com/ko*'],

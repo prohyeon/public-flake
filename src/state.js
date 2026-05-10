@@ -51,5 +51,9 @@ export const state = {
         giftNo: null,
         giftName: null,
         flakeCost: null
+    },
+    pointCashCharge: {
+        availableFlake: null,
+        hasRequiredFlake: false
     }
 };

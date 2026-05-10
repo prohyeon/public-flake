@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.7.3
+// @version      2.7.4
 // @author       prohyeon
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -19,7 +19,7 @@
   'use strict';
 
   const CONFIG = {
-    version: "2.7.3",
+    version: "2.7.4",
     lastUpdated: "2026-05-10",
     maintenanceMode: {
       enabled: false,
@@ -99,6 +99,22 @@
       pointAmount: 7700,
       requiredFlakeAmount: 192500,
       description: "플레이크 전환"
+    },
+    lostArkCashCharge: {
+      enabled: true,
+      gameCode: "45",
+      pointClientId: "M_STOVE_PC",
+      pointUseRuleId: "ML_STOVE_PC_MILE_PAID",
+      pointAmount: 7700,
+      cashAmount: 7700,
+      productName: "7,700 로열 크리스탈",
+      paytoolCode: 58,
+      pgpCode: "POQ",
+      pgCode: "SP_CREDITCARD_PLCC",
+      mallId: "spay_la6",
+      pointPaytoolCode: 99,
+      pointPgCode: "STOVE_MILEAGE",
+      pointMallId: "STOVE_MILEAGE"
     }
   };
   function log(message, type = "info") {
@@ -169,6 +185,10 @@
       giftNo: null,
       giftName: null,
       flakeCost: null
+    },
+    pointCashCharge: {
+      availableFlake: null,
+      hasRequiredFlake: false
     }
   };
   function getKSTDate() {
@@ -697,6 +717,38 @@
     console.log("[룰렛 EXTRA 수령] Response:", response);
     return response;
   }
+  function formatNumber$1(value) {
+    return Number(value).toLocaleString("ko-KR");
+  }
+  function toFiniteNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+  function isPointCashChargeAvailable(availableFlake, requiredFlake = CONFIG.pointExchange.requiredFlakeAmount) {
+    const available = toFiniteNumber(availableFlake);
+    return available !== null && available >= requiredFlake;
+  }
+  function updatePointCashChargeButtonAvailability(availableFlake, options = {}) {
+    const requiredFlake = options.requiredFlake ?? CONFIG.pointExchange.requiredFlakeAmount;
+    const isRunning = options.running ?? state.isRunning;
+    const available = toFiniteNumber(availableFlake);
+    const hasRequiredFlake = isPointCashChargeAvailable(available, requiredFlake);
+    const shortage = available === null ? null : Math.max(0, requiredFlake - available);
+    state.pointCashCharge.availableFlake = available;
+    state.pointCashCharge.hasRequiredFlake = hasRequiredFlake;
+    const button = document.getElementById("stove-btn-point-cash-charge");
+    const status = document.getElementById("stove-btn-point-cash-charge-status");
+    if (button) {
+      button.disabled = isRunning || !hasRequiredFlake;
+      button.style.opacity = isRunning ? "0.5" : hasRequiredFlake ? "1" : "0.45";
+      button.title = hasRequiredFlake ? `${formatNumber$1(requiredFlake)} 플레이크 보유: 충전 가능` : available === null ? `${formatNumber$1(requiredFlake)} 플레이크 이상일 때 충전 가능` : `${formatNumber$1(requiredFlake)} 플레이크 필요 (현재 ${formatNumber$1(available)})`;
+    }
+    if (status) {
+      status.textContent = hasRequiredFlake ? "충전 가능" : shortage === null ? "플레이크 확인 중" : `${formatNumber$1(shortage)} 플레이크 부족`;
+      status.style.color = hasRequiredFlake ? "#a7f3d0" : "#fbbf24";
+    }
+    return hasRequiredFlake;
+  }
   function updateProgress(task2, current, total) {
     if (task2) {
       const element = document.getElementById(`stove-${task2}`);
@@ -722,7 +774,7 @@
     }
   }
   function setButtonState(running) {
-    const btnIds = ["stove-btn-start", "stove-btn-point-exchange", "stove-btn-reward-shop", "stove-btn-test-tab"];
+    const btnIds = ["stove-btn-start", "stove-btn-reward-shop", "stove-btn-status-refresh", "stove-btn-test-tab"];
     for (const id of btnIds) {
       const btn = document.getElementById(id);
       if (btn) {
@@ -730,6 +782,7 @@
         btn.style.opacity = running ? "0.5" : "1";
       }
     }
+    updatePointCashChargeButtonAvailability(state.pointCashCharge.availableFlake, { running });
   }
   function makeEventHeaders(headers) {
     return {
@@ -1292,6 +1345,7 @@
         totalFlake,
         monthlyFlake
       });
+      updatePointCashChargeButtonAvailability(totalFlake);
       console.log("[상태 확인] ✅ 완료");
     } catch (error) {
       console.error("[상태 확인 오류]", error);
@@ -1306,6 +1360,7 @@
         totalFlake: { error: true },
         monthlyFlake: { error: true }
       });
+      updatePointCashChargeButtonAvailability(null);
     }
   }
   const SNAPSHOT_CATEGORIES = ["daily", "content", "weekly", "banner", "attendance", "survey", "other"];
@@ -3313,10 +3368,28 @@
       setButtonState(false);
     }
   }
+  function showSuccessNotice(message) {
+    const existing = document.getElementById("stove-success-notice");
+    if (existing) existing.remove();
+    const notice = document.createElement("div");
+    notice.id = "stove-success-notice";
+    notice.className = "stove-success-notice";
+    notice.textContent = message;
+    const panel = document.getElementById("stove-quest-automation");
+    if (panel) {
+      panel.insertBefore(notice, panel.firstChild);
+    } else {
+      document.body.appendChild(notice);
+    }
+    setTimeout(() => {
+      notice.classList.add("stove-success-notice--hide");
+      setTimeout(() => notice.remove(), 300);
+    }, 6e3);
+  }
   function getPointExchangeConfig(overrides = {}) {
     return { ...CONFIG.pointExchange, ...overrides };
   }
-  function numberOrNull(value) {
+  function numberOrNull$1(value) {
     const number = Number(value);
     return Number.isFinite(number) ? number : null;
   }
@@ -3346,9 +3419,9 @@
     return `${CONFIG.api.baseUrl}/mileage/v1.0/balance?${params.toString()}`;
   }
   function calculateRequiredFlake(pointAmount, exchangeRate) {
-    const fromAmount = numberOrNull(exchangeRate == null ? void 0 : exchangeRate.from_amount);
-    const toAmount = numberOrNull(exchangeRate == null ? void 0 : exchangeRate.to_amount);
-    const targetPoints = numberOrNull(pointAmount);
+    const fromAmount = numberOrNull$1(exchangeRate == null ? void 0 : exchangeRate.from_amount);
+    const toAmount = numberOrNull$1(exchangeRate == null ? void 0 : exchangeRate.to_amount);
+    const targetPoints = numberOrNull$1(pointAmount);
     if (!targetPoints || !fromAmount || !toAmount) {
       throw new Error("Invalid point exchange rate");
     }
@@ -3360,10 +3433,10 @@
   }
   function createPointExchangePlan(exchangeRate, configOverrides = {}) {
     const config = getPointExchangeConfig(configOverrides);
-    const pointAmount = numberOrNull(config.pointAmount);
-    const minAmount = numberOrNull(exchangeRate == null ? void 0 : exchangeRate.min_exchange_amount);
-    const maxAmount = numberOrNull(exchangeRate == null ? void 0 : exchangeRate.max_exchange_amount);
-    const exchangeId = numberOrNull(exchangeRate == null ? void 0 : exchangeRate.exchange_id);
+    const pointAmount = numberOrNull$1(config.pointAmount);
+    const minAmount = numberOrNull$1(exchangeRate == null ? void 0 : exchangeRate.min_exchange_amount);
+    const maxAmount = numberOrNull$1(exchangeRate == null ? void 0 : exchangeRate.max_exchange_amount);
+    const exchangeId = numberOrNull$1(exchangeRate == null ? void 0 : exchangeRate.exchange_id);
     if (!pointAmount || !exchangeId) {
       throw new Error("Invalid point exchange target");
     }
@@ -3374,7 +3447,7 @@
       throw new Error(`Target point amount exceeds maximum exchange amount ${maxAmount}`);
     }
     const fromAmount = calculateRequiredFlake(pointAmount, exchangeRate);
-    const expectedFlake = numberOrNull(config.requiredFlakeAmount);
+    const expectedFlake = numberOrNull$1(config.requiredFlakeAmount);
     if (expectedFlake !== null && fromAmount !== expectedFlake) {
       throw new Error(`Expected ${expectedFlake} flake but exchange rate requires ${fromAmount}`);
     }
@@ -3391,7 +3464,7 @@
   }
   function extractBillFlakeBalance(response) {
     var _a;
-    const balance = numberOrNull((_a = response == null ? void 0 : response.value) == null ? void 0 : _a.mileage_amount);
+    const balance = numberOrNull$1((_a = response == null ? void 0 : response.value) == null ? void 0 : _a.mileage_amount);
     return balance === null ? null : balance;
   }
   async function getPointExchangeRate(headers) {
@@ -3404,6 +3477,107 @@
     const url = `${CONFIG.api.baseUrl}/mileage/v1.0/exchange/point`;
     const payload = buildPointExchangePayload(plan);
     return apiRequest(url, "POST", makePointExchangeHeaders(headers), payload);
+  }
+  function getLostArkCashChargeConfig(overrides = {}) {
+    return { ...CONFIG.lostArkCashCharge, ...overrides };
+  }
+  function numberOrNull(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+  function extractBearerToken(headers) {
+    const authorization = headers.Authorization || headers.authorization || "";
+    const match = authorization.match(/^Bearer\s+(.+)$/i);
+    return match ? match[1] : authorization;
+  }
+  function makeLostArkPaymentHeaders(headers) {
+    return {
+      "Content-Type": "application/json",
+      Authorization: headers.Authorization || headers.authorization,
+      "X-Lang": headers["X-Lang"] || headers["x-lang"] || "ko",
+      "X-Nation": headers["X-Nation"] || headers["x-nation"] || "KR",
+      "caller-id": "bill-payweb",
+      "caller-detail": headers["caller-detail"] || headers["X-UUID"] || ""
+    };
+  }
+  function buildLostArkPointBalanceUrl(configOverrides = {}) {
+    const config = getLostArkCashChargeConfig(configOverrides);
+    const params = new URLSearchParams({
+      client_id: config.pointClientId,
+      use_rule_id: config.pointUseRuleId
+    });
+    return `${CONFIG.api.baseUrl}/point/v1.0/balance?${params.toString()}`;
+  }
+  function buildLostArkCashChargeUrl(configOverrides = {}) {
+    const config = getLostArkCashChargeConfig(configOverrides);
+    return `${CONFIG.api.baseUrl}/pay/v1.0/payment/${config.gameCode}/request/direct`;
+  }
+  function buildLostArkPointCashChargePayload({ accessToken }, configOverrides = {}) {
+    const config = getLostArkCashChargeConfig(configOverrides);
+    return {
+      speed_charge_flag: "Y",
+      access_token: accessToken,
+      return_url: "",
+      is_channeling: false,
+      cp_item_id: 0,
+      coupon_info: null,
+      location_code: "1",
+      prod_name: config.productName,
+      sales_prod_name: config.productName,
+      multi_pay_list: [
+        {
+          paytool_code: config.pointPaytoolCode,
+          pg_code: config.pointPgCode,
+          mall_id: config.pointMallId,
+          cash_amt: config.cashAmount,
+          pay_amt: 0
+        }
+      ],
+      paytool_code: config.paytoolCode,
+      pgp_code: config.pgpCode,
+      pg_code: config.pgCode,
+      mall_id: config.mallId,
+      total_pay_amt: config.cashAmount,
+      currency_code: "KRW",
+      pay_amt: 0,
+      cash_amt: 0,
+      cash_unit_price: 1,
+      display_digit_num: -2,
+      game_cash_unit_price: 1,
+      min_pay_amt: 100,
+      max_pay_amt: null,
+      is_mobile: false,
+      is_gift: false,
+      request_url: "https://pay.onstove.com",
+      position: "PCWEB",
+      is_client: false,
+      auth_confirm_order_no: "",
+      game_point_use_flag: null
+    };
+  }
+  function extractStovePointBalance(response) {
+    var _a;
+    const balance = numberOrNull((_a = response == null ? void 0 : response.value) == null ? void 0 : _a.mileage_amount);
+    return balance === null ? null : balance;
+  }
+  function extractLostArkOrderNo(response) {
+    var _a;
+    const orderNo = (_a = response == null ? void 0 : response.value) == null ? void 0 : _a.order_no;
+    return orderNo == null || orderNo === "" ? null : String(orderNo);
+  }
+  async function getLostArkPointBalance(headers) {
+    return apiRequest(buildLostArkPointBalanceUrl(), "GET", makeLostArkPaymentHeaders(headers));
+  }
+  async function chargeLostArkCashWithPoints(headers) {
+    const payload = buildLostArkPointCashChargePayload({
+      accessToken: extractBearerToken(headers)
+    });
+    return apiRequest(
+      buildLostArkCashChargeUrl(),
+      "POST",
+      makeLostArkPaymentHeaders(headers),
+      payload
+    );
   }
   function formatNumber(value) {
     return Number(value).toLocaleString("ko-KR");
@@ -3483,6 +3657,61 @@
       residueFlake
     };
   }
+  function getCashChargeErrorMessage(code, fallback) {
+    const messages = {
+      54040: "로스트아크 포인트 설정을 찾을 수 없습니다"
+    };
+    return messages[code] || fallback || "알 수 없는 오류";
+  }
+  async function runPointCashChargeAllInOne(headers, deps = {}) {
+    const {
+      getLostArkPointBalance: fetchPointBalance = getLostArkPointBalance,
+      chargeLostArkCashWithPoints: postCashCharge = chargeLostArkCashWithPoints,
+      showSuccessNotice: showSuccessNotice$1 = showSuccessNotice,
+      log: log$1 = log
+    } = deps;
+    const exchangeResult = await exchangeConfiguredPoints(headers, { ...deps, log: log$1 });
+    if (!exchangeResult.success) {
+      return exchangeResult;
+    }
+    const targetPoints = CONFIG.lostArkCashCharge.pointAmount;
+    const targetCash = CONFIG.lostArkCashCharge.cashAmount;
+    log$1(`💳 ${formatNumber(targetPoints)} 포인트로 ${formatNumber(targetCash)} 캐시 충전 준비 중...`, "info");
+    const pointBalanceResponse = await fetchPointBalance(headers);
+    if (!pointBalanceResponse || pointBalanceResponse.code !== 0) {
+      const message = getCashChargeErrorMessage(pointBalanceResponse == null ? void 0 : pointBalanceResponse.code, pointBalanceResponse == null ? void 0 : pointBalanceResponse.message);
+      log$1(`✗ 포인트 잔액 조회 실패: ${message}`, "error");
+      return { success: false, reason: "pointBalanceLookupFailed", message };
+    }
+    const availablePoints = extractStovePointBalance(pointBalanceResponse);
+    if (availablePoints !== null) {
+      log$1(`  💰 현재 포인트: ${formatNumber(availablePoints)} P`, "info");
+    }
+    if (availablePoints !== null && availablePoints < targetPoints) {
+      log$1(`✗ 포인트 부족: ${formatNumber(availablePoints)} / ${formatNumber(targetPoints)} P`, "error");
+      return {
+        success: false,
+        reason: "insufficientPoints",
+        availablePoints,
+        requiredPoints: targetPoints
+      };
+    }
+    const chargeResult = await postCashCharge(headers);
+    if (!chargeResult || chargeResult.code !== 0) {
+      const message = getCashChargeErrorMessage(chargeResult == null ? void 0 : chargeResult.code, chargeResult == null ? void 0 : chargeResult.message);
+      log$1(`✗ 로스트아크 캐시 충전 실패: ${message}`, "error");
+      return { success: false, reason: "cashChargeFailed", message, code: chargeResult == null ? void 0 : chargeResult.code };
+    }
+    const orderNo = extractLostArkOrderNo(chargeResult);
+    log$1(`✓ ${targetCash} 캐시 충전 완료${orderNo ? ` (주문번호: ${orderNo})` : ""}`, "success");
+    showSuccessNotice$1(`${targetCash} 캐시 충전 성공`);
+    return {
+      success: true,
+      pointAmount: targetPoints,
+      chargedCash: targetCash,
+      orderNo
+    };
+  }
   async function runPointExchange() {
     if (state.isRunning) {
       log("⚠️ 이미 실행 중입니다", "warning");
@@ -3492,9 +3721,9 @@
     setButtonState(true);
     try {
       const headers = extractHeaders();
-      await exchangeConfiguredPoints(headers);
+      await runPointCashChargeAllInOne(headers);
     } catch (error) {
-      log(`✗ 포인트 교환 오류: ${error.message}`, "error");
+      log(`✗ 올인원 충전 오류: ${error.message}`, "error");
     } finally {
       state.isRunning = false;
       setButtonState(false);
@@ -3568,6 +3797,14 @@
                 font-size: 12px;
                 color: #a7f3d0;
                 font-weight: 500;
+            }
+            .stove-btn-note {
+                display: block;
+                margin-top: 4px;
+                font-size: 11px;
+                color: #fbbf24;
+                font-weight: 500;
+                line-height: 1.3;
             }
             .stove-btn:hover:not(:disabled) {
                 background: #3a3a3a;
@@ -3753,6 +3990,22 @@
             .stove-maintenance-icon { font-size: 48px; margin-bottom: 12px; display: block; }
             .stove-maintenance-title { font-size: 18px; font-weight: bold; color: #ffffff; margin-bottom: 8px; }
             .stove-maintenance-message { font-size: 14px; color: #ffebee; line-height: 1.6; }
+            .stove-success-notice {
+                background: #064e3b;
+                border: 1px solid #10b981;
+                border-radius: 8px;
+                color: #d1fae5;
+                font-size: 14px;
+                font-weight: 700;
+                margin-bottom: 16px;
+                padding: 12px 14px;
+                text-align: center;
+                transition: opacity 0.3s ease, transform 0.3s ease;
+            }
+            .stove-success-notice--hide {
+                opacity: 0;
+                transform: translateY(-6px);
+            }
         </style>
 
         <div class="stove-panel-header">
@@ -3771,9 +4024,10 @@
 
         <div class="stove-controls">
             <button id="stove-btn-start" class="stove-btn">🚀 전체 자동화</button>
-            <button id="stove-btn-point-exchange" class="stove-btn">
-                <span class="stove-btn-main">💱 7700 포인트 교환</span>
+            <button id="stove-btn-point-cash-charge" class="stove-btn" disabled title="192,500 플레이크 이상일 때 충전 가능">
+                <span class="stove-btn-main">💱 7700 캐시 충전</span>
                 <span class="stove-btn-sub">(192,500 플레이크)</span>
+                <span class="stove-btn-note" id="stove-btn-point-cash-charge-status">플레이크 확인 중</span>
             </button>
             <button id="stove-btn-reward-shop" class="stove-btn">🏪 리워드샵 방문</button>
         </div>
@@ -3895,9 +4149,10 @@
     };
     {
       attachListener("stove-btn-start", runAutomation);
-      attachListener("stove-btn-point-exchange", runPointExchange);
+      attachListener("stove-btn-point-cash-charge", runPointExchange);
       attachListener("stove-btn-reward-shop", openRewardShop);
       attachListener("stove-btn-status-refresh", checkAllStatus);
+      updatePointCashChargeButtonAvailability(null);
       log("자동화 패널이 준비되었습니다", "info");
     }
     attachListener("stove-btn-copy-log", copyLogToClipboard);
