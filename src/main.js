@@ -2,7 +2,7 @@ import { CONFIG } from './config.js';
 import { isMaintenanceMode } from './utils/maintenance.js';
 import { log } from './ui/logger.js';
 import { runAutomation } from './workflows/automation.js';
-import { runRoulette } from './workflows/roulette.js';
+import { runPointExchange } from './workflows/pointExchange.js';
 import { openRewardShop } from './workflows/shop.js';
 import { checkAllStatus } from './workflows/status.js';
 
@@ -64,6 +64,17 @@ function createUI() {
                 font-size: 14px;
                 font-weight: 600;
                 transition: all 0.2s ease;
+            }
+            .stove-btn-main,
+            .stove-btn-sub {
+                display: block;
+                line-height: 1.35;
+            }
+            .stove-btn-sub {
+                margin-top: 2px;
+                font-size: 12px;
+                color: #a7f3d0;
+                font-weight: 500;
             }
             .stove-btn:hover:not(:disabled) {
                 background: #3a3a3a;
@@ -267,7 +278,10 @@ function createUI() {
 
         <div class="stove-controls">
             <button id="stove-btn-start" class="stove-btn">🚀 전체 자동화</button>
-            <button id="stove-btn-roulette" class="stove-btn">🎰 룰렛만</button>
+            <button id="stove-btn-point-exchange" class="stove-btn">
+                <span class="stove-btn-main">💱 7700 포인트 교환</span>
+                <span class="stove-btn-sub">(192,500 플레이크)</span>
+            </button>
             <button id="stove-btn-reward-shop" class="stove-btn">🏪 리워드샵 방문</button>
         </div>
 
@@ -393,7 +407,7 @@ function createUI() {
         const maintenanceNotice = document.getElementById('stove-maintenance-notice');
         if (maintenanceNotice) maintenanceNotice.style.display = 'block';
 
-        ['stove-btn-start', 'stove-btn-roulette', 'stove-btn-reward-shop', 'stove-btn-status-refresh'].forEach(id => {
+        ['stove-btn-start', 'stove-btn-point-exchange', 'stove-btn-reward-shop', 'stove-btn-status-refresh'].forEach(id => {
             const btn = document.getElementById(id);
             if (btn) btn.disabled = true;
         });
@@ -401,7 +415,7 @@ function createUI() {
         log('⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다', 'warning');
     } else {
         attachListener('stove-btn-start', runAutomation);
-        attachListener('stove-btn-roulette', runRoulette);
+        attachListener('stove-btn-point-exchange', runPointExchange);
         attachListener('stove-btn-reward-shop', openRewardShop);
         attachListener('stove-btn-status-refresh', checkAllStatus);
         log('자동화 패널이 준비되었습니다', 'info');

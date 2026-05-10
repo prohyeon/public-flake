@@ -1,6 +1,6 @@
 export const CONFIG = {
-    version: '2.7.2',
-    lastUpdated: '2026-05-03',
+    version: '2.7.3',
+    lastUpdated: '2026-05-10',
     maintenanceMode: {
         enabled: false,
         startDate: '2025-11-01',
@@ -70,5 +70,14 @@ export const CONFIG = {
         missionTitle: '경품 응모하기',
         targetGiftName: '스토브 5,000 포인트',
         flakeCost: 500
+    },
+    pointExchange: {
+        enabled: true,
+        clientId: 'M_STOVE_COMMUNITY',
+        fromUseRuleId: 'ML_STOVE_COMMUNITY_MILE_PLAY',
+        toDepositRuleId: 'PL_STOVE_COMMUNITY_MILE_PAID',
+        pointAmount: 7700,
+        requiredFlakeAmount: 192500,
+        description: '플레이크 전환'
     }
 };

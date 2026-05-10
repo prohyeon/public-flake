@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.7.2
+// @version      2.7.3
 // @author       prohyeon
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -19,8 +19,8 @@
   'use strict';
 
   const CONFIG = {
-    version: "2.7.2",
-    lastUpdated: "2026-05-03",
+    version: "2.7.3",
+    lastUpdated: "2026-05-10",
     maintenanceMode: {
       enabled: false,
       startDate: "2025-11-01",
@@ -90,6 +90,15 @@
       missionTitle: "경품 응모하기",
       targetGiftName: "스토브 5,000 포인트",
       flakeCost: 500
+    },
+    pointExchange: {
+      enabled: true,
+      clientId: "M_STOVE_COMMUNITY",
+      fromUseRuleId: "ML_STOVE_COMMUNITY_MILE_PLAY",
+      toDepositRuleId: "PL_STOVE_COMMUNITY_MILE_PAID",
+      pointAmount: 7700,
+      requiredFlakeAmount: 192500,
+      description: "플레이크 전환"
     }
   };
   function log(message, type = "info") {
@@ -713,7 +722,7 @@
     }
   }
   function setButtonState(running) {
-    const btnIds = ["stove-btn-start", "stove-btn-roulette", "stove-btn-reward-shop", "stove-btn-test-tab"];
+    const btnIds = ["stove-btn-start", "stove-btn-point-exchange", "stove-btn-reward-shop", "stove-btn-test-tab"];
     for (const id of btnIds) {
       const btn = document.getElementById(id);
       if (btn) {
@@ -2112,24 +2121,6 @@
     log("✅ 룰렛 EXTRA 처리 완료!", "success");
     return extraFlakeEarned;
   }
-  async function runRoulette() {
-    if (state.isRunning) {
-      log("⚠️ 이미 실행 중입니다", "warning");
-      return;
-    }
-    state.isRunning = true;
-    setButtonState(true);
-    try {
-      log("🎰 룰렛 실행 시작...", "info");
-      const headers = extractHeaders();
-      await runRouletteDraws(headers);
-    } catch (error) {
-      log(`✗ 오류 발생: ${error.message}`, "error");
-    } finally {
-      state.isRunning = false;
-      setButtonState(false);
-    }
-  }
   async function claimDailyShopRewards(headers) {
     var _a;
     log("데일리 보상 확인 중...", "info");
@@ -3322,6 +3313,193 @@
       setButtonState(false);
     }
   }
+  function getPointExchangeConfig(overrides = {}) {
+    return { ...CONFIG.pointExchange, ...overrides };
+  }
+  function numberOrNull(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+  function makePointExchangeHeaders(headers) {
+    return {
+      Authorization: headers.Authorization || headers.authorization,
+      "caller-id": "billuser",
+      Accept: "application/json",
+      "Content-Type": "application/json"
+    };
+  }
+  function buildPointExchangeRateUrl(configOverrides = {}) {
+    const config = getPointExchangeConfig(configOverrides);
+    const params = new URLSearchParams({
+      from_use_rule_id: config.fromUseRuleId,
+      to_deposit_rule_id: config.toDepositRuleId,
+      client_id: config.clientId
+    });
+    return `${CONFIG.api.baseUrl}/mileage/v1.0/exchange?${params.toString()}`;
+  }
+  function buildBillFlakeBalanceUrl(configOverrides = {}) {
+    const config = getPointExchangeConfig(configOverrides);
+    const params = new URLSearchParams({
+      client_id: config.clientId,
+      use_rule_id: config.fromUseRuleId
+    });
+    return `${CONFIG.api.baseUrl}/mileage/v1.0/balance?${params.toString()}`;
+  }
+  function calculateRequiredFlake(pointAmount, exchangeRate) {
+    const fromAmount = numberOrNull(exchangeRate == null ? void 0 : exchangeRate.from_amount);
+    const toAmount = numberOrNull(exchangeRate == null ? void 0 : exchangeRate.to_amount);
+    const targetPoints = numberOrNull(pointAmount);
+    if (!targetPoints || !fromAmount || !toAmount) {
+      throw new Error("Invalid point exchange rate");
+    }
+    const requiredFlake = targetPoints * (fromAmount / toAmount);
+    if (!Number.isInteger(requiredFlake)) {
+      throw new Error("Point exchange amount must resolve to a whole flake amount");
+    }
+    return requiredFlake;
+  }
+  function createPointExchangePlan(exchangeRate, configOverrides = {}) {
+    const config = getPointExchangeConfig(configOverrides);
+    const pointAmount = numberOrNull(config.pointAmount);
+    const minAmount = numberOrNull(exchangeRate == null ? void 0 : exchangeRate.min_exchange_amount);
+    const maxAmount = numberOrNull(exchangeRate == null ? void 0 : exchangeRate.max_exchange_amount);
+    const exchangeId = numberOrNull(exchangeRate == null ? void 0 : exchangeRate.exchange_id);
+    if (!pointAmount || !exchangeId) {
+      throw new Error("Invalid point exchange target");
+    }
+    if (minAmount !== null && pointAmount < minAmount) {
+      throw new Error(`Target point amount is below minimum exchange amount ${minAmount}`);
+    }
+    if (maxAmount !== null && pointAmount > maxAmount) {
+      throw new Error(`Target point amount exceeds maximum exchange amount ${maxAmount}`);
+    }
+    const fromAmount = calculateRequiredFlake(pointAmount, exchangeRate);
+    const expectedFlake = numberOrNull(config.requiredFlakeAmount);
+    if (expectedFlake !== null && fromAmount !== expectedFlake) {
+      throw new Error(`Expected ${expectedFlake} flake but exchange rate requires ${fromAmount}`);
+    }
+    return { exchangeId, pointAmount, fromAmount };
+  }
+  function buildPointExchangePayload({ exchangeId, fromAmount }, configOverrides = {}) {
+    const config = getPointExchangeConfig(configOverrides);
+    return {
+      client_id: config.clientId,
+      exchange_id: Number(exchangeId),
+      from_amount: Number(fromAmount),
+      descriptions: config.description
+    };
+  }
+  function extractBillFlakeBalance(response) {
+    var _a;
+    const balance = numberOrNull((_a = response == null ? void 0 : response.value) == null ? void 0 : _a.mileage_amount);
+    return balance === null ? null : balance;
+  }
+  async function getPointExchangeRate(headers) {
+    return apiRequest(buildPointExchangeRateUrl(), "GET", makePointExchangeHeaders(headers));
+  }
+  async function getBillFlakeBalance(headers) {
+    return apiRequest(buildBillFlakeBalanceUrl(), "GET", makePointExchangeHeaders(headers));
+  }
+  async function exchangeFlakeForPoints(headers, plan) {
+    const url = `${CONFIG.api.baseUrl}/mileage/v1.0/exchange/point`;
+    const payload = buildPointExchangePayload(plan);
+    return apiRequest(url, "POST", makePointExchangeHeaders(headers), payload);
+  }
+  function formatNumber(value) {
+    return Number(value).toLocaleString("ko-KR");
+  }
+  function getExchangeErrorMessage(code, fallback) {
+    const messages = {
+      55002: "플레이크 잔액이 부족합니다",
+      55018: "최저 전환 금액보다 작습니다",
+      55019: "최대 전환 금액을 초과했습니다",
+      55021: "플레이크 사용 일일 한도를 초과했습니다",
+      55022: "플레이크 사용 월간 한도를 초과했습니다",
+      55024: "포인트 적립 일일 한도를 초과했습니다",
+      55025: "포인트 적립 월간 한도를 초과했습니다"
+    };
+    return messages[code] || fallback || "알 수 없는 오류";
+  }
+  async function exchangeConfiguredPoints(headers, deps = {}) {
+    var _a, _b, _c;
+    const {
+      getBillFlakeBalance: fetchBalance = getBillFlakeBalance,
+      getPointExchangeRate: fetchRate = getPointExchangeRate,
+      exchangeFlakeForPoints: postExchange = exchangeFlakeForPoints,
+      log: log$1 = log
+    } = deps;
+    if (!CONFIG.pointExchange.enabled) {
+      log$1("⏭️ 포인트 교환 기능이 비활성화되어 있습니다", "info");
+      return { success: false, reason: "disabled" };
+    }
+    const targetPoints = CONFIG.pointExchange.pointAmount;
+    const expectedFlake = CONFIG.pointExchange.requiredFlakeAmount;
+    log$1(`💱 ${targetPoints} 포인트 교환 준비 중...`, "info");
+    const balanceResponse = await fetchBalance(headers);
+    const availableFlake = extractBillFlakeBalance(balanceResponse);
+    if (availableFlake !== null) {
+      log$1(`  💎 현재 보유: ${formatNumber(availableFlake)} FLAKE`, "info");
+    }
+    const rateResponse = await fetchRate(headers);
+    if (!rateResponse || rateResponse.code !== 0 || !rateResponse.value) {
+      const message = getExchangeErrorMessage(rateResponse == null ? void 0 : rateResponse.code, rateResponse == null ? void 0 : rateResponse.message);
+      log$1(`✗ 전환 비율 조회 실패: ${message}`, "error");
+      return { success: false, reason: "rateLookupFailed", message };
+    }
+    const plan = createPointExchangePlan(rateResponse.value, CONFIG.pointExchange);
+    log$1(`  ✓ 필요 플레이크: ${formatNumber(plan.fromAmount)} FLAKE`, "info");
+    if (availableFlake !== null && availableFlake < plan.fromAmount) {
+      log$1(
+        `✗ 플레이크 부족: ${formatNumber(availableFlake)} / ${formatNumber(plan.fromAmount)} FLAKE`,
+        "error"
+      );
+      return {
+        success: false,
+        reason: "insufficientBalance",
+        availableFlake,
+        requiredFlake: expectedFlake
+      };
+    }
+    const exchangeResult = await postExchange(headers, plan);
+    if (!exchangeResult || exchangeResult.code !== 0) {
+      const message = getExchangeErrorMessage(exchangeResult == null ? void 0 : exchangeResult.code, exchangeResult == null ? void 0 : exchangeResult.message);
+      log$1(`✗ 포인트 교환 실패: ${message}`, "error");
+      return { success: false, reason: "exchangeFailed", message, code: exchangeResult == null ? void 0 : exchangeResult.code };
+    }
+    const exchangedAmount = ((_a = exchangeResult.value) == null ? void 0 : _a.exchanged_amount) ?? plan.pointAmount;
+    const residueFlake = ((_b = exchangeResult.value) == null ? void 0 : _b.residue_mileage) ?? ((_c = exchangeResult.value) == null ? void 0 : _c.residue_flake) ?? null;
+    log$1(
+      `✓ ${formatNumber(exchangedAmount)} 포인트 교환 완료 (-${formatNumber(plan.fromAmount)} FLAKE)`,
+      "success"
+    );
+    if (residueFlake !== null) {
+      log$1(`  💰 잔여 FLAKE: ${formatNumber(residueFlake)}`, "info");
+    }
+    return {
+      success: true,
+      pointAmount: plan.pointAmount,
+      spentFlake: plan.fromAmount,
+      exchangedAmount,
+      residueFlake
+    };
+  }
+  async function runPointExchange() {
+    if (state.isRunning) {
+      log("⚠️ 이미 실행 중입니다", "warning");
+      return;
+    }
+    state.isRunning = true;
+    setButtonState(true);
+    try {
+      const headers = extractHeaders();
+      await exchangeConfiguredPoints(headers);
+    } catch (error) {
+      log(`✗ 포인트 교환 오류: ${error.message}`, "error");
+    } finally {
+      state.isRunning = false;
+      setButtonState(false);
+    }
+  }
   function createUI() {
     if (document.getElementById("stove-quest-automation")) return;
     const container = document.createElement("div");
@@ -3379,6 +3557,17 @@
                 font-size: 14px;
                 font-weight: 600;
                 transition: all 0.2s ease;
+            }
+            .stove-btn-main,
+            .stove-btn-sub {
+                display: block;
+                line-height: 1.35;
+            }
+            .stove-btn-sub {
+                margin-top: 2px;
+                font-size: 12px;
+                color: #a7f3d0;
+                font-weight: 500;
             }
             .stove-btn:hover:not(:disabled) {
                 background: #3a3a3a;
@@ -3582,7 +3771,10 @@
 
         <div class="stove-controls">
             <button id="stove-btn-start" class="stove-btn">🚀 전체 자동화</button>
-            <button id="stove-btn-roulette" class="stove-btn">🎰 룰렛만</button>
+            <button id="stove-btn-point-exchange" class="stove-btn">
+                <span class="stove-btn-main">💱 7700 포인트 교환</span>
+                <span class="stove-btn-sub">(192,500 플레이크)</span>
+            </button>
             <button id="stove-btn-reward-shop" class="stove-btn">🏪 리워드샵 방문</button>
         </div>
 
@@ -3703,7 +3895,7 @@
     };
     {
       attachListener("stove-btn-start", runAutomation);
-      attachListener("stove-btn-roulette", runRoulette);
+      attachListener("stove-btn-point-exchange", runPointExchange);
       attachListener("stove-btn-reward-shop", openRewardShop);
       attachListener("stove-btn-status-refresh", checkAllStatus);
       log("자동화 패널이 준비되었습니다", "info");
