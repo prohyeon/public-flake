@@ -128,7 +128,13 @@ test('compareSnapshots reports still-incomplete planned missions', () => {
         incompleteMissionNos: [10],
         unclaimedDailyShop: 2,
         unclaimedMajakShop: 1,
-        claimableExtra: 1
+        claimableExtra: 1,
+        monthlyAttendanceProgress: {
+            checked: 0,
+            increased: 0,
+            notIncreasedMissionNos: [],
+            unknownMissionNos: []
+        }
     });
 });
 
@@ -140,6 +146,106 @@ test('compareSnapshots treats missing planned mission in after snapshot as incom
     );
 
     assert.deepEqual(result.incompleteMissionNos, [22]);
+});
+
+test('compareSnapshots verifies monthly attendance progress increased by one day', () => {
+    const before = {
+        missions: normalizeMissionSnapshot([
+            {
+                componentNo: 300,
+                component_info: { component_type: 'ACCUMULATION' },
+                missions: [
+                    {
+                        mission_no: 31,
+                        title: 'Monthly attendance',
+                        status: 'INCOMPLETE',
+                        mission_type: 'ACCUMULATION',
+                        user_complete_cnt: 4,
+                        milestone_per_cnt: 1,
+                        milestone_total_cnt: 10
+                    }
+                ]
+            }
+        ], { missionComponents: { weekly: 200, attendance: 300 } })
+    };
+    const after = {
+        missions: normalizeMissionSnapshot([
+            {
+                componentNo: 300,
+                component_info: { component_type: 'ACCUMULATION' },
+                missions: [
+                    {
+                        mission_no: 31,
+                        title: 'Monthly attendance',
+                        status: 'INCOMPLETE',
+                        mission_type: 'ACCUMULATION',
+                        user_complete_cnt: 5,
+                        milestone_per_cnt: 1,
+                        milestone_total_cnt: 10
+                    }
+                ]
+            }
+        ], { missionComponents: { weekly: 200, attendance: 300 } })
+    };
+
+    const result = compareSnapshots(before, after);
+
+    assert.deepEqual(result.monthlyAttendanceProgress, {
+        checked: 1,
+        increased: 1,
+        notIncreasedMissionNos: [],
+        unknownMissionNos: []
+    });
+});
+
+test('compareSnapshots reports monthly attendance progress that did not increase', () => {
+    const before = {
+        missions: normalizeMissionSnapshot([
+            {
+                componentNo: 300,
+                component_info: { component_type: 'ACCUMULATION' },
+                missions: [
+                    {
+                        mission_no: 31,
+                        title: 'Monthly attendance',
+                        status: 'INCOMPLETE',
+                        mission_type: 'ACCUMULATION',
+                        user_complete_cnt: 4,
+                        milestone_per_cnt: 1,
+                        milestone_total_cnt: 10
+                    }
+                ]
+            }
+        ], { missionComponents: { weekly: 200, attendance: 300 } })
+    };
+    const after = {
+        missions: normalizeMissionSnapshot([
+            {
+                componentNo: 300,
+                component_info: { component_type: 'ACCUMULATION' },
+                missions: [
+                    {
+                        mission_no: 31,
+                        title: 'Monthly attendance',
+                        status: 'INCOMPLETE',
+                        mission_type: 'ACCUMULATION',
+                        user_complete_cnt: 4,
+                        milestone_per_cnt: 1,
+                        milestone_total_cnt: 10
+                    }
+                ]
+            }
+        ], { missionComponents: { weekly: 200, attendance: 300 } })
+    };
+
+    const result = compareSnapshots(before, after);
+
+    assert.deepEqual(result.monthlyAttendanceProgress, {
+        checked: 1,
+        increased: 0,
+        notIncreasedMissionNos: [31],
+        unknownMissionNos: []
+    });
 });
 
 test('getSnapshotSummary counts completed and incomplete work', () => {

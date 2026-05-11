@@ -64,6 +64,15 @@ function isReceived(value) {
     return false;
 }
 
+function toFiniteNumber(value) {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    if (typeof value === 'string' && value.trim() !== '') {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : null;
+    }
+    return null;
+}
+
 function serializeError(error) {
     return {
         name: error?.name || 'Error',
@@ -354,6 +363,9 @@ export function normalizeMissionSnapshot(components = [], options = {}) {
                 missionType: mission.mission_type,
                 isVisitMission: mission.is_visit_mission === true,
                 rewardAmount: mission.reward_amount || 0,
+                userCompleteCount: toFiniteNumber(mission.user_complete_cnt),
+                milestonePerCount: toFiniteNumber(mission.milestone_per_cnt),
+                milestoneTotalCount: toFiniteNumber(mission.milestone_total_cnt),
                 buttonUrl: mission.button_url || mission.url || null
             };
 
@@ -468,6 +480,45 @@ export async function captureAutomationSnapshot(headers, deps = {}) {
     };
 }
 
+function compareMonthlyAttendanceProgress(before, after) {
+    const beforeMissions = Object.values(before?.missions?.byMissionNo || {});
+    const afterMissions = after?.missions?.byMissionNo || {};
+    const notIncreasedMissionNos = [];
+    const unknownMissionNos = [];
+    let checked = 0;
+    let increased = 0;
+
+    for (const mission of beforeMissions) {
+        if (
+            mission.category !== 'attendance' ||
+            mission.status !== 'INCOMPLETE' ||
+            !Number.isFinite(mission.userCompleteCount)
+        ) {
+            continue;
+        }
+
+        checked += 1;
+        const afterMission = afterMissions[mission.missionNo];
+        if (!afterMission || !Number.isFinite(afterMission.userCompleteCount)) {
+            unknownMissionNos.push(mission.missionNo);
+            continue;
+        }
+
+        if (afterMission.userCompleteCount - mission.userCompleteCount >= 1) {
+            increased += 1;
+        } else {
+            notIncreasedMissionNos.push(mission.missionNo);
+        }
+    }
+
+    return {
+        checked,
+        increased,
+        notIncreasedMissionNos,
+        unknownMissionNos
+    };
+}
+
 export function compareSnapshots(before, after, plan = {}) {
     const plannedMissionNos = plan.plannedMissionNos || [];
     const afterMissions = after?.missions?.byMissionNo || {};
@@ -483,7 +534,8 @@ export function compareSnapshots(before, after, plan = {}) {
         incompleteMissionNos,
         unclaimedDailyShop: after?.shop?.unclaimedDaily?.length || 0,
         unclaimedMajakShop: after?.majak?.unclaimedDaily?.length || 0,
-        claimableExtra: after?.rouletteExtra?.claimable?.length || 0
+        claimableExtra: after?.rouletteExtra?.claimable?.length || 0,
+        monthlyAttendanceProgress: compareMonthlyAttendanceProgress(before, after)
     };
 }
 

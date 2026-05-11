@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.7.4
+// @version      2.7.5
 // @author       prohyeon
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -19,8 +19,8 @@
   'use strict';
 
   const CONFIG = {
-    version: "2.7.4",
-    lastUpdated: "2026-05-10",
+    version: "2.7.5",
+    lastUpdated: "2026-05-11",
     maintenanceMode: {
       enabled: false,
       startDate: "2025-11-01",
@@ -720,18 +720,18 @@
   function formatNumber$1(value) {
     return Number(value).toLocaleString("ko-KR");
   }
-  function toFiniteNumber(value) {
+  function toFiniteNumber$1(value) {
     const number = Number(value);
     return Number.isFinite(number) ? number : null;
   }
   function isPointCashChargeAvailable(availableFlake, requiredFlake = CONFIG.pointExchange.requiredFlakeAmount) {
-    const available = toFiniteNumber(availableFlake);
+    const available = toFiniteNumber$1(availableFlake);
     return available !== null && available >= requiredFlake;
   }
   function updatePointCashChargeButtonAvailability(availableFlake, options = {}) {
     const requiredFlake = options.requiredFlake ?? CONFIG.pointExchange.requiredFlakeAmount;
     const isRunning = options.running ?? state.isRunning;
-    const available = toFiniteNumber(availableFlake);
+    const available = toFiniteNumber$1(availableFlake);
     const hasRequiredFlake = isPointCashChargeAvailable(available, requiredFlake);
     const shortage = available === null ? null : Math.max(0, requiredFlake - available);
     state.pointCashCharge.availableFlake = available;
@@ -1410,6 +1410,14 @@
     }
     return false;
   }
+  function toFiniteNumber(value) {
+    if (typeof value === "number") return Number.isFinite(value) ? value : null;
+    if (typeof value === "string" && value.trim() !== "") {
+      const number = Number(value);
+      return Number.isFinite(number) ? number : null;
+    }
+    return null;
+  }
   function serializeError(error) {
     return {
       name: (error == null ? void 0 : error.name) || "Error",
@@ -1666,6 +1674,9 @@
           missionType: mission.mission_type,
           isVisitMission: mission.is_visit_mission === true,
           rewardAmount: mission.reward_amount || 0,
+          userCompleteCount: toFiniteNumber(mission.user_complete_cnt),
+          milestonePerCount: toFiniteNumber(mission.milestone_per_cnt),
+          milestoneTotalCount: toFiniteNumber(mission.milestone_total_cnt),
           buttonUrl: mission.button_url || mission.url || null
         };
         categories[category].all.push(normalized);
@@ -1757,6 +1768,37 @@
       flake
     };
   }
+  function compareMonthlyAttendanceProgress(before, after) {
+    var _a, _b;
+    const beforeMissions = Object.values(((_a = before == null ? void 0 : before.missions) == null ? void 0 : _a.byMissionNo) || {});
+    const afterMissions = ((_b = after == null ? void 0 : after.missions) == null ? void 0 : _b.byMissionNo) || {};
+    const notIncreasedMissionNos = [];
+    const unknownMissionNos = [];
+    let checked = 0;
+    let increased = 0;
+    for (const mission of beforeMissions) {
+      if (mission.category !== "attendance" || mission.status !== "INCOMPLETE" || !Number.isFinite(mission.userCompleteCount)) {
+        continue;
+      }
+      checked += 1;
+      const afterMission = afterMissions[mission.missionNo];
+      if (!afterMission || !Number.isFinite(afterMission.userCompleteCount)) {
+        unknownMissionNos.push(mission.missionNo);
+        continue;
+      }
+      if (afterMission.userCompleteCount - mission.userCompleteCount >= 1) {
+        increased += 1;
+      } else {
+        notIncreasedMissionNos.push(mission.missionNo);
+      }
+    }
+    return {
+      checked,
+      increased,
+      notIncreasedMissionNos,
+      unknownMissionNos
+    };
+  }
   function compareSnapshots(before, after, plan = {}) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
     const plannedMissionNos = plan.plannedMissionNos || [];
@@ -1771,7 +1813,8 @@
       incompleteMissionNos,
       unclaimedDailyShop: ((_f = (_e = after == null ? void 0 : after.shop) == null ? void 0 : _e.unclaimedDaily) == null ? void 0 : _f.length) || 0,
       unclaimedMajakShop: ((_h = (_g = after == null ? void 0 : after.majak) == null ? void 0 : _g.unclaimedDaily) == null ? void 0 : _h.length) || 0,
-      claimableExtra: ((_j = (_i = after == null ? void 0 : after.rouletteExtra) == null ? void 0 : _i.claimable) == null ? void 0 : _j.length) || 0
+      claimableExtra: ((_j = (_i = after == null ? void 0 : after.rouletteExtra) == null ? void 0 : _i.claimable) == null ? void 0 : _j.length) || 0,
+      monthlyAttendanceProgress: compareMonthlyAttendanceProgress(before, after)
     };
   }
   function getSnapshotSummary(snapshot) {
@@ -3050,6 +3093,7 @@
     doc.title = buildAutomationSignalTitle(signal, message, doc.title);
     return doc.title;
   }
+  const REWARD_SHOP_URL = "https://reward.onstove.com/ko";
   function createAutomationTaskHandlers({ headers, articles = [], allTabs = [] }) {
     return {
       requiredPages: async () => {
@@ -3161,6 +3205,22 @@
       diff.articleStillMissing || (diff.incompleteMissionNos || []).length > 0 || diff.unclaimedDailyShop > 0 || diff.unclaimedMajakShop > 0 || diff.claimableExtra > 0
     );
   }
+  function hasMonthlyAttendanceVerificationIssue(diff = {}) {
+    const progress = diff.monthlyAttendanceProgress || {};
+    return Boolean(
+      (progress.notIncreasedMissionNos || []).length > 0 || (progress.unknownMissionNos || []).length > 0
+    );
+  }
+  function hasSnapshotDiffWarning(diff = {}) {
+    return hasSafeRepairableItems(diff) || hasMonthlyAttendanceVerificationIssue(diff);
+  }
+  function focusRewardShopForMonthlyAttendanceIfNeeded(diff = {}, deps = {}) {
+    if (!hasMonthlyAttendanceVerificationIssue(diff)) return null;
+    const writeLog = deps.writeLog || log;
+    const openRewardShop2 = deps.openRewardShop || openTabInBackground;
+    writeLog("월간출석 +1 확인이 안 되어 리워드샵으로 포커스를 이동합니다", "warning");
+    return openRewardShop2(REWARD_SHOP_URL, true);
+  }
   function describeRejectedTask(result) {
     const reason = result.reason;
     const message = (reason == null ? void 0 : reason.message) || String(reason);
@@ -3179,10 +3239,19 @@
       "info"
     );
   }
+  function formatMonthlyAttendanceProgress(progress = {}) {
+    var _a, _b;
+    const checked = progress.checked || 0;
+    if (checked === 0) return "월간출석 +1 대상없음";
+    const notIncreased = ((_a = progress.notIncreasedMissionNos) == null ? void 0 : _a.length) || 0;
+    const unknown = ((_b = progress.unknownMissionNos) == null ? void 0 : _b.length) || 0;
+    const suffix = notIncreased > 0 || unknown > 0 ? ` (미증가 ${notIncreased}개, 확인불가 ${unknown}개)` : "";
+    return `월간출석 +1 ${progress.increased || 0}/${checked}${suffix}`;
+  }
   function logSnapshotDiff(label, diff) {
     log(
-      `${label}: 글 ${diff.articleStillMissing ? "미완료" : "확인"}, 미션 ${diff.incompleteMissionNos.length}개, 데일리 ${diff.unclaimedDailyShop}개, 마작 ${diff.unclaimedMajakShop}개, EXTRA ${diff.claimableExtra}개`,
-      hasSafeRepairableItems(diff) ? "warning" : "success"
+      `${label}: 글 ${diff.articleStillMissing ? "미완료" : "확인"}, 미션 ${diff.incompleteMissionNos.length}개, 데일리 ${diff.unclaimedDailyShop}개, 마작 ${diff.unclaimedMajakShop}개, EXTRA ${diff.claimableExtra}개, ${formatMonthlyAttendanceProgress(diff.monthlyAttendanceProgress)}`,
+      hasSnapshotDiffWarning(diff) ? "warning" : "success"
     );
   }
   async function runAutomation() {
@@ -3233,6 +3302,12 @@
       log("헤더 정보 추출 중...", "info");
       const headers = extractHeaders();
       log("✓ 헤더 정보 추출 완료", "success");
+      let rewardShopFocusedForMonthlyAttendance = false;
+      const focusRewardShopAfterDiff = (currentDiff) => {
+        if (rewardShopFocusedForMonthlyAttendance) return;
+        const tab = focusRewardShopForMonthlyAttendanceIfNeeded(currentDiff);
+        if (tab) rewardShopFocusedForMonthlyAttendance = true;
+      };
       log("", "info");
       log("초기 스냅샷 수집 중...", "info");
       const beforeSnapshot = await captureAutomationSnapshot(headers);
@@ -3276,12 +3351,14 @@
       logSnapshotSummary("최종 스냅샷", afterSnapshot);
       let diff = compareSnapshots(beforeSnapshot, afterSnapshot, plan);
       logSnapshotDiff("스냅샷 비교", diff);
+      focusRewardShopAfterDiff(diff);
       if (hasSafeRepairableItems(diff)) {
         log("안전 복구 대상 확인 중...", "warning");
         await delay(CONFIG.delays.betweenActions);
         afterSnapshot = await captureAutomationSnapshot(headers);
         diff = compareSnapshots(beforeSnapshot, afterSnapshot, plan);
         logSnapshotDiff("재확인 결과", diff);
+        focusRewardShopAfterDiff(diff);
         if (hasSafeRepairableItems(diff)) {
           const repairPlan = buildRepairPlan(diff);
           const executableRepairPlan = bindTaskHandlers(repairPlan, handlers);
@@ -3297,7 +3374,9 @@
             logRejectedTasks(repairResults);
             const repairedSnapshot = await captureAutomationSnapshot(headers);
             logSnapshotSummary("복구 후 스냅샷", repairedSnapshot);
-            logSnapshotDiff("복구 후 비교", compareSnapshots(beforeSnapshot, repairedSnapshot, plan));
+            const repairedDiff = compareSnapshots(beforeSnapshot, repairedSnapshot, plan);
+            logSnapshotDiff("복구 후 비교", repairedDiff);
+            focusRewardShopAfterDiff(repairedDiff);
           }
         }
       }

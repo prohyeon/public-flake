@@ -20,8 +20,10 @@ import {
     executePrizeEntry, autoParticipateVisitMissions
 } from './missions.js';
 import { visitRequiredPages, checkAllStatus, checkArticleWriteStatus } from './status.js';
-import { closeTab } from '../utils/tabs.js';
+import { closeTab, openTabInBackground } from '../utils/tabs.js';
 import { AUTOMATION_SIGNAL, setAutomationSignal } from '../utils/automationSignal.js';
+
+export const REWARD_SHOP_URL = 'https://reward.onstove.com/ko';
 
 export function createAutomationTaskHandlers({ headers, articles = [], allTabs = [] }) {
     return {
@@ -160,6 +162,28 @@ function hasSafeRepairableItems(diff = {}) {
     );
 }
 
+function hasMonthlyAttendanceVerificationIssue(diff = {}) {
+    const progress = diff.monthlyAttendanceProgress || {};
+    return Boolean(
+        (progress.notIncreasedMissionNos || []).length > 0 ||
+        (progress.unknownMissionNos || []).length > 0
+    );
+}
+
+function hasSnapshotDiffWarning(diff = {}) {
+    return hasSafeRepairableItems(diff) || hasMonthlyAttendanceVerificationIssue(diff);
+}
+
+export function focusRewardShopForMonthlyAttendanceIfNeeded(diff = {}, deps = {}) {
+    if (!hasMonthlyAttendanceVerificationIssue(diff)) return null;
+
+    const writeLog = deps.writeLog || log;
+    const openRewardShop = deps.openRewardShop || openTabInBackground;
+    writeLog('\uC6D4\uAC04\uCD9C\uC11D +1 \uD655\uC778\uC774 \uC548 \uB418\uC5B4 \uB9AC\uC6CC\uB4DC\uC0F5\uC73C\uB85C \uD3EC\uCEE4\uC2A4\uB97C \uC774\uB3D9\uD569\uB2C8\uB2E4', 'warning');
+
+    return openRewardShop(REWARD_SHOP_URL, true);
+}
+
 function describeRejectedTask(result) {
     const reason = result.reason;
     const message = reason?.message || String(reason);
@@ -183,10 +207,23 @@ function logSnapshotSummary(label, snapshot) {
     );
 }
 
+function formatMonthlyAttendanceProgress(progress = {}) {
+    const checked = progress.checked || 0;
+    if (checked === 0) return '\uC6D4\uAC04\uCD9C\uC11D +1 \uB300\uC0C1\uC5C6\uC74C';
+
+    const notIncreased = progress.notIncreasedMissionNos?.length || 0;
+    const unknown = progress.unknownMissionNos?.length || 0;
+    const suffix = notIncreased > 0 || unknown > 0
+        ? ` (\uBBF8\uC99D\uAC00 ${notIncreased}\uAC1C, \uD655\uC778\uBD88\uAC00 ${unknown}\uAC1C)`
+        : '';
+
+    return `\uC6D4\uAC04\uCD9C\uC11D +1 ${progress.increased || 0}/${checked}${suffix}`;
+}
+
 function logSnapshotDiff(label, diff) {
     log(
-        `${label}: \uAE00 ${diff.articleStillMissing ? '\uBBF8\uC644\uB8CC' : '\uD655\uC778'}, \uBBF8\uC158 ${diff.incompleteMissionNos.length}\uAC1C, \uB370\uC77C\uB9AC ${diff.unclaimedDailyShop}\uAC1C, \uB9C8\uC791 ${diff.unclaimedMajakShop}\uAC1C, EXTRA ${diff.claimableExtra}\uAC1C`,
-        hasSafeRepairableItems(diff) ? 'warning' : 'success'
+        `${label}: \uAE00 ${diff.articleStillMissing ? '\uBBF8\uC644\uB8CC' : '\uD655\uC778'}, \uBBF8\uC158 ${diff.incompleteMissionNos.length}\uAC1C, \uB370\uC77C\uB9AC ${diff.unclaimedDailyShop}\uAC1C, \uB9C8\uC791 ${diff.unclaimedMajakShop}\uAC1C, EXTRA ${diff.claimableExtra}\uAC1C, ${formatMonthlyAttendanceProgress(diff.monthlyAttendanceProgress)}`,
+        hasSnapshotDiffWarning(diff) ? 'warning' : 'success'
     );
 }
 
@@ -233,6 +270,13 @@ export async function runAutomation() {
         log('헤더 정보 추출 중...', 'info');
         const headers = extractHeaders();
         log('✓ 헤더 정보 추출 완료', 'success');
+        let rewardShopFocusedForMonthlyAttendance = false;
+
+        const focusRewardShopAfterDiff = (currentDiff) => {
+            if (rewardShopFocusedForMonthlyAttendance) return;
+            const tab = focusRewardShopForMonthlyAttendanceIfNeeded(currentDiff);
+            if (tab) rewardShopFocusedForMonthlyAttendance = true;
+        };
 
         log('', 'info');
         log('\uCD08\uAE30 \uC2A4\uB0C5\uC0F7 \uC218\uC9D1 \uC911...', 'info');
@@ -283,6 +327,7 @@ export async function runAutomation() {
         logSnapshotSummary('\uCD5C\uC885 \uC2A4\uB0C5\uC0F7', afterSnapshot);
         let diff = compareSnapshots(beforeSnapshot, afterSnapshot, plan);
         logSnapshotDiff('\uC2A4\uB0C5\uC0F7 \uBE44\uAD50', diff);
+        focusRewardShopAfterDiff(diff);
 
         if (hasSafeRepairableItems(diff)) {
             log('\uC548\uC804 \uBCF5\uAD6C \uB300\uC0C1 \uD655\uC778 \uC911...', 'warning');
@@ -290,6 +335,7 @@ export async function runAutomation() {
             afterSnapshot = await captureAutomationSnapshot(headers);
             diff = compareSnapshots(beforeSnapshot, afterSnapshot, plan);
             logSnapshotDiff('\uC7AC\uD655\uC778 \uACB0\uACFC', diff);
+            focusRewardShopAfterDiff(diff);
 
             if (hasSafeRepairableItems(diff)) {
                 const repairPlan = buildRepairPlan(diff);
@@ -308,7 +354,9 @@ export async function runAutomation() {
 
                     const repairedSnapshot = await captureAutomationSnapshot(headers);
                     logSnapshotSummary('\uBCF5\uAD6C \uD6C4 \uC2A4\uB0C5\uC0F7', repairedSnapshot);
-                    logSnapshotDiff('\uBCF5\uAD6C \uD6C4 \uBE44\uAD50', compareSnapshots(beforeSnapshot, repairedSnapshot, plan));
+                    const repairedDiff = compareSnapshots(beforeSnapshot, repairedSnapshot, plan);
+                    logSnapshotDiff('\uBCF5\uAD6C \uD6C4 \uBE44\uAD50', repairedDiff);
+                    focusRewardShopAfterDiff(repairedDiff);
                 }
             }
         }
