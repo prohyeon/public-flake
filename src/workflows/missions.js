@@ -691,9 +691,36 @@ export function isTargetedSingleVisitMission(mission, options) {
     return options.targetMissionNoSet.has(String(mission.mission_no));
 }
 
+const ACTIONABLE_SINGLE_VISIT_STATUSES = new Set(['INCOMPLETE', 'RECEIVABLE']);
+const COMPLETE_SINGLE_VISIT_STATUSES = new Set(['COMPLETE', 'COMPLETED']);
+
+function getSingleVisitMissionDeps(options = {}) {
+    return {
+        getAllDailyMissions,
+        participateMission,
+        receiveMissionReward,
+        openTabInBackground,
+        delay,
+        log,
+        ...(options.deps || {})
+    };
+}
+
+function getMissionResultStatus(result) {
+    return result?.value?.status || result?.status || result?.missionInfo?.status || null;
+}
+
+function isRewardClaimResult(result) {
+    const status = getMissionResultStatus(result);
+    return COMPLETE_SINGLE_VISIT_STATUSES.has(status) ||
+        result?.reward_amount !== undefined ||
+        result?.value?.reward_amount !== undefined;
+}
+
 export async function autoParticipateVisitMissions(headers, options = {}) {
     const missionOptions = normalizeSingleVisitMissionOptions(options);
     const { targeted, targetMissionNos } = missionOptions;
+    const services = getSingleVisitMissionDeps(options);
 
     try {
         log('[SINGLE 미션] 자동 참여 시작', 'info');
@@ -702,7 +729,7 @@ export async function autoParticipateVisitMissions(headers, options = {}) {
             log(`[SINGLE 미션] Target missionNo filter active: ${targetMissionNos.length}`, 'info');
         }
 
-        const allMissions = await getAllDailyMissions(headers);
+        const allMissions = await services.getAllDailyMissions(headers);
         if (!allMissions || allMissions.length === 0) {
             log('[SINGLE 미션] 조회된 미션 없음', 'warning');
             return { success: false, participated: 0, completed: 0, skipped: 0, total: 0, targeted, targetMissionNos };
@@ -716,14 +743,16 @@ export async function autoParticipateVisitMissions(headers, options = {}) {
                 if (!isTargetedSingleVisitMission(mission, missionOptions)) return;
 
                 if (mission.mission_type === 'SINGLE' &&
-                    mission.status === 'INCOMPLETE' &&
+                    ACTIONABLE_SINGLE_VISIT_STATUSES.has(mission.status) &&
                     !CONFIG.dailyMissions.skipMissions.includes(mission.mission_no)) {
                     const normalizedMission = {
                         mission_no: mission.mission_no,
                         component_no: comp.componentNo,
                         title: mission.title,
+                        status: mission.status,
                         reward_amount: mission.reward_amount,
-                        is_visit_mission: mission.is_visit_mission
+                        is_visit_mission: mission.is_visit_mission,
+                        button_url: mission.button_url
                     };
 
                     if (mission.is_visit_mission === true) {
@@ -755,12 +784,25 @@ export async function autoParticipateVisitMissions(headers, options = {}) {
         for (const mission of singleMissions) {
             try {
                 log(`[SINGLE 미션] "${mission.title}" 참여 중...`, 'info');
-                const result = await participateMission(headers, mission.mission_no, mission.component_no);
+                if (mission.status === 'RECEIVABLE') {
+                    const claimResult = await services.receiveMissionReward(headers, mission.mission_no, mission.component_no);
+                    if (isRewardClaimResult(claimResult)) completed++;
+                    await services.delay(1000);
+                    continue;
+                }
+
+                const result = await services.participateMission(headers, mission.mission_no, mission.component_no);
+
+                if (mission.button_url?.trim()) {
+                    services.openTabInBackground(mission.button_url, false);
+                }
 
                 if (result?.value) {
                     const status = result.value.status;
                     if (status === 'RECEIVABLE') {
                         log(`[SINGLE 미션] ✅ "${mission.title}" 참여 완료 (수령 가능)`, 'success');
+                        const claimResult = await services.receiveMissionReward(headers, mission.mission_no, mission.component_no);
+                        if (isRewardClaimResult(claimResult)) completed++;
                         participated++;
                     } else if (status === 'COMPLETE' || status === 'COMPLETED') {
                         log(`[SINGLE 미션] 🎁 "${mission.title}" 보상 수령 완료 (+${mission.reward_amount} 플레이크)`, 'success');
@@ -772,7 +814,12 @@ export async function autoParticipateVisitMissions(headers, options = {}) {
                     log(`[SINGLE 미션] ⚠️ "${mission.title}" 응답 없음`, 'warning');
                 }
 
-                await delay(1000);
+                if (!result?.value) {
+                    const claimResult = await services.receiveMissionReward(headers, mission.mission_no, mission.component_no);
+                    if (isRewardClaimResult(claimResult)) completed++;
+                }
+
+                await services.delay(1000);
             } catch (error) {
                 log(`[SINGLE 미션] ❌ "${mission.title}" 오류: ${error.message}`, 'error');
             }

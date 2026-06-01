@@ -125,7 +125,7 @@ test('compareSnapshots reports still-incomplete planned missions', () => {
     assert.deepEqual(result, {
         articleStillMissing: true,
         rouletteStillRemaining: true,
-        incompleteMissionNos: [10],
+        incompleteMissionNos: [10, 11],
         unclaimedDailyShop: 2,
         unclaimedMajakShop: 1,
         claimableExtra: 1,
@@ -136,6 +136,16 @@ test('compareSnapshots reports still-incomplete planned missions', () => {
             unknownMissionNos: []
         }
     });
+});
+
+test('compareSnapshots treats receivable planned mission as still needing reward claim', () => {
+    const result = compareSnapshots(
+        {},
+        { missions: { byMissionNo: { 406: { status: 'RECEIVABLE' } } } },
+        { plannedMissionNos: [406] }
+    );
+
+    assert.deepEqual(result.incompleteMissionNos, [406]);
 });
 
 test('compareSnapshots treats missing planned mission in after snapshot as incomplete', () => {

@@ -59,7 +59,7 @@ test('buildAutomationPlan separates safe parallel and serial flake-spending grou
     assert.equal(findTask(plan, 'comments').nonAuthoritativeRepair, true);
 
     const visits = plan.groups.find(group => group.id === 'visits');
-    assert.equal(visits.concurrency, 4);
+    assert.equal(visits.concurrency, 1);
     assert.deepEqual(findTask(plan, 'singleVisits').missionNos, [11]);
 
     const flakeSpending = plan.groups.find(group => group.id === 'flakeSpending');
@@ -127,6 +127,16 @@ test('buildAutomationPlan schedules rouletteDraws when roulette success and rema
     }));
 
     assert.equal(findTask(plan, 'rouletteDraws').spendsFlake, true);
+});
+
+test('buildAutomationPlan schedules receivable visit missions for reward claiming', () => {
+    const missions = missionSnapshot([
+        { mission_no: 406, title: '스토브 메인 방문하기', status: 'RECEIVABLE', is_visit_mission: true }
+    ]);
+    const plan = buildAutomationPlan(baseSnapshot({ missions }));
+
+    assert.deepEqual(plan.plannedMissionNos, [406]);
+    assert.deepEqual(findTask(plan, 'singleVisits').missionNos, [406]);
 });
 
 test('buildAutomationPlan schedules prizeEntry when configured prize mission is incomplete', () => {

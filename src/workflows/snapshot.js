@@ -14,7 +14,7 @@ import { checkArticleWriteStatus } from './status.js';
 
 const SNAPSHOT_CATEGORIES = ['daily', 'content', 'weekly', 'banner', 'attendance', 'survey', 'other'];
 const COMPLETE_STATUSES = new Set(['COMPLETE', 'COMPLETED']);
-const DONE_OR_READY_STATUSES = new Set(['COMPLETE', 'COMPLETED', 'RECEIVABLE']);
+const DONE_STATUSES = new Set(['COMPLETE', 'COMPLETED']);
 
 const defaultServices = {
     checkArticleWriteStatus,
@@ -524,7 +524,7 @@ export function compareSnapshots(before, after, plan = {}) {
     const afterMissions = after?.missions?.byMissionNo || {};
     const incompleteMissionNos = plannedMissionNos.filter(missionNo => {
         const mission = afterMissions[missionNo];
-        return !mission || !DONE_OR_READY_STATUSES.has(mission.status);
+        return !mission || !DONE_STATUSES.has(mission.status);
     });
 
     return {

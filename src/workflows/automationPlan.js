@@ -22,7 +22,7 @@ function getVisitMissionNos(snapshot) {
     return Object.values(snapshot?.missions?.byMissionNo || {})
         .filter(mission =>
             mission.category === 'daily' &&
-            mission.status === 'INCOMPLETE' &&
+            (mission.status === 'INCOMPLETE' || mission.status === 'RECEIVABLE') &&
             mission.isVisitMission === true
         )
         .map(mission => mission.missionNo);
@@ -79,7 +79,7 @@ export function buildAutomationPlan(snapshot = {}) {
                 nonAuthoritativeRepair: true
             })
         ]),
-        group('visits', 4, [
+        group('visits', plannedMissionNos.length > 0 ? 1 : 4, [
             plannedMissionNos.length > 0
                 ? task('visits:singleVisits', 'singleVisits', { missionNos: plannedMissionNos })
                 : null,

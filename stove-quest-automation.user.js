@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.7.5
+// @version      2.7.6
 // @author       prohyeon
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -19,8 +19,8 @@
   'use strict';
 
   const CONFIG = {
-    version: "2.7.5",
-    lastUpdated: "2026-05-11",
+    version: "2.7.6",
+    lastUpdated: "2026-06-01",
     maintenanceMode: {
       enabled: false,
       startDate: "2025-11-01",
@@ -1301,7 +1301,7 @@
       log("  📋 리워드샵 페이지 방문 중...", "info");
       tabs.push(openTabInBackground("https://reward.onstove.com/ko", false));
       log("  🏠 스토브 메인 페이지 방문 중...", "info");
-      tabs.push(openTabInBackground("https://www.onstove.com/ko", false));
+      tabs.push(openTabInBackground("https://store.onstove.com/", false));
       log("✓ 필수 페이지 탭 열림", "success");
     } catch (error) {
       log(`⚠️ 페이지 방문 중 오류: ${error.message}`, "warning");
@@ -1365,7 +1365,7 @@
   }
   const SNAPSHOT_CATEGORIES = ["daily", "content", "weekly", "banner", "attendance", "survey", "other"];
   const COMPLETE_STATUSES = /* @__PURE__ */ new Set(["COMPLETE", "COMPLETED"]);
-  const DONE_OR_READY_STATUSES = /* @__PURE__ */ new Set(["COMPLETE", "COMPLETED", "RECEIVABLE"]);
+  const DONE_STATUSES = /* @__PURE__ */ new Set(["COMPLETE", "COMPLETED"]);
   const defaultServices = {
     checkArticleWriteStatus,
     getAllDailyMissions,
@@ -1805,7 +1805,7 @@
     const afterMissions = ((_a = after == null ? void 0 : after.missions) == null ? void 0 : _a.byMissionNo) || {};
     const incompleteMissionNos = plannedMissionNos.filter((missionNo) => {
       const mission = afterMissions[missionNo];
-      return !mission || !DONE_OR_READY_STATUSES.has(mission.status);
+      return !mission || !DONE_STATUSES.has(mission.status);
     });
     return {
       articleStillMissing: ((_b = before == null ? void 0 : before.articleWrite) == null ? void 0 : _b.hasWrittenToday) === false && ((_c = after == null ? void 0 : after.articleWrite) == null ? void 0 : _c.hasWrittenToday) === false,
@@ -1847,7 +1847,7 @@
   function getVisitMissionNos(snapshot) {
     var _a;
     return Object.values(((_a = snapshot == null ? void 0 : snapshot.missions) == null ? void 0 : _a.byMissionNo) || {}).filter(
-      (mission) => mission.category === "daily" && mission.status === "INCOMPLETE" && mission.isVisitMission === true
+      (mission) => mission.category === "daily" && (mission.status === "INCOMPLETE" || mission.status === "RECEIVABLE") && mission.isVisitMission === true
     ).map((mission) => mission.missionNo);
   }
   function isConfiguredPrizeMission(mission) {
@@ -1890,7 +1890,7 @@
           nonAuthoritativeRepair: true
         })
       ]),
-      group("visits", 4, [
+      group("visits", plannedMissionNos.length > 0 ? 1 : 4, [
         plannedMissionNos.length > 0 ? task("visits:singleVisits", "singleVisits", { missionNos: plannedMissionNos }) : null,
         task("visits:dailyMissions", "dailyMissions"),
         task("visits:contentMissions", "contentMissions"),
@@ -2978,15 +2978,39 @@
     if (!(options == null ? void 0 : options.targeted)) return true;
     return options.targetMissionNoSet.has(String(mission.mission_no));
   }
+  const ACTIONABLE_SINGLE_VISIT_STATUSES = /* @__PURE__ */ new Set(["INCOMPLETE", "RECEIVABLE"]);
+  const COMPLETE_SINGLE_VISIT_STATUSES = /* @__PURE__ */ new Set(["COMPLETE", "COMPLETED"]);
+  function getSingleVisitMissionDeps(options = {}) {
+    return {
+      getAllDailyMissions,
+      participateMission,
+      receiveMissionReward,
+      openTabInBackground,
+      delay,
+      log,
+      ...options.deps || {}
+    };
+  }
+  function getMissionResultStatus(result) {
+    var _a, _b;
+    return ((_a = result == null ? void 0 : result.value) == null ? void 0 : _a.status) || (result == null ? void 0 : result.status) || ((_b = result == null ? void 0 : result.missionInfo) == null ? void 0 : _b.status) || null;
+  }
+  function isRewardClaimResult(result) {
+    var _a;
+    const status = getMissionResultStatus(result);
+    return COMPLETE_SINGLE_VISIT_STATUSES.has(status) || (result == null ? void 0 : result.reward_amount) !== void 0 || ((_a = result == null ? void 0 : result.value) == null ? void 0 : _a.reward_amount) !== void 0;
+  }
   async function autoParticipateVisitMissions(headers, options = {}) {
+    var _a;
     const missionOptions = normalizeSingleVisitMissionOptions(options);
     const { targeted, targetMissionNos } = missionOptions;
+    const services = getSingleVisitMissionDeps(options);
     try {
       log("[SINGLE 미션] 자동 참여 시작", "info");
       if (targeted) {
         log(`[SINGLE 미션] Target missionNo filter active: ${targetMissionNos.length}`, "info");
       }
-      const allMissions = await getAllDailyMissions(headers);
+      const allMissions = await services.getAllDailyMissions(headers);
       if (!allMissions || allMissions.length === 0) {
         log("[SINGLE 미션] 조회된 미션 없음", "warning");
         return { success: false, participated: 0, completed: 0, skipped: 0, total: 0, targeted, targetMissionNos };
@@ -2997,13 +3021,15 @@
         const missions = comp.missions || [];
         missions.forEach((mission) => {
           if (!isTargetedSingleVisitMission(mission, missionOptions)) return;
-          if (mission.mission_type === "SINGLE" && mission.status === "INCOMPLETE" && !CONFIG.dailyMissions.skipMissions.includes(mission.mission_no)) {
+          if (mission.mission_type === "SINGLE" && ACTIONABLE_SINGLE_VISIT_STATUSES.has(mission.status) && !CONFIG.dailyMissions.skipMissions.includes(mission.mission_no)) {
             const normalizedMission = {
               mission_no: mission.mission_no,
               component_no: comp.componentNo,
               title: mission.title,
+              status: mission.status,
               reward_amount: mission.reward_amount,
-              is_visit_mission: mission.is_visit_mission
+              is_visit_mission: mission.is_visit_mission,
+              button_url: mission.button_url
             };
             if (mission.is_visit_mission === true) {
               singleMissions.push(normalizedMission);
@@ -3029,11 +3055,22 @@
       for (const mission of singleMissions) {
         try {
           log(`[SINGLE 미션] "${mission.title}" 참여 중...`, "info");
-          const result = await participateMission(headers, mission.mission_no, mission.component_no);
+          if (mission.status === "RECEIVABLE") {
+            const claimResult = await services.receiveMissionReward(headers, mission.mission_no, mission.component_no);
+            if (isRewardClaimResult(claimResult)) completed++;
+            await services.delay(1e3);
+            continue;
+          }
+          const result = await services.participateMission(headers, mission.mission_no, mission.component_no);
+          if ((_a = mission.button_url) == null ? void 0 : _a.trim()) {
+            services.openTabInBackground(mission.button_url, false);
+          }
           if (result == null ? void 0 : result.value) {
             const status = result.value.status;
             if (status === "RECEIVABLE") {
               log(`[SINGLE 미션] ✅ "${mission.title}" 참여 완료 (수령 가능)`, "success");
+              const claimResult = await services.receiveMissionReward(headers, mission.mission_no, mission.component_no);
+              if (isRewardClaimResult(claimResult)) completed++;
               participated++;
             } else if (status === "COMPLETE" || status === "COMPLETED") {
               log(`[SINGLE 미션] 🎁 "${mission.title}" 보상 수령 완료 (+${mission.reward_amount} 플레이크)`, "success");
@@ -3044,7 +3081,11 @@
           } else {
             log(`[SINGLE 미션] ⚠️ "${mission.title}" 응답 없음`, "warning");
           }
-          await delay(1e3);
+          if (!(result == null ? void 0 : result.value)) {
+            const claimResult = await services.receiveMissionReward(headers, mission.mission_no, mission.component_no);
+            if (isRewardClaimResult(claimResult)) completed++;
+          }
+          await services.delay(1e3);
         } catch (error) {
           log(`[SINGLE 미션] ❌ "${mission.title}" 오류: ${error.message}`, "error");
         }
