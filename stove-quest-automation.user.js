@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.7.6
+// @version      2.8.0
 // @author       prohyeon
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -19,8 +19,8 @@
   'use strict';
 
   const CONFIG = {
-    version: "2.7.6",
-    lastUpdated: "2026-06-01",
+    version: "2.8.0",
+    lastUpdated: "2026-06-02",
     maintenanceMode: {
       enabled: false,
       startDate: "2025-11-01",
@@ -204,18 +204,6 @@
   }
   function getTimestamp() {
     return Date.now();
-  }
-  function getCurrentMonthDateRange() {
-    const now = /* @__PURE__ */ new Date();
-    const kstOffset = 9 * 60 * 60 * 1e3;
-    const kstNow = new Date(now.getTime() + kstOffset);
-    const year = kstNow.getUTCFullYear();
-    const month = kstNow.getUTCMonth();
-    const startDate = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
-    const startTimestamp = startDate.getTime() - kstOffset;
-    const endDate = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999));
-    const endTimestamp = endDate.getTime() - kstOffset;
-    return { startDate: startTimestamp, endDate: endTimestamp };
   }
   function getTodayString() {
     const today = /* @__PURE__ */ new Date();
@@ -888,8 +876,10 @@
   }
   async function getMonthlyFlakeTotal(headers) {
     try {
-      const dateRange = getCurrentMonthDateRange();
-      const url = `${CONFIG.api.baseUrl}/mileage/v2.0/master/deposit/total?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`;
+      const now = /* @__PURE__ */ new Date();
+      const yyyyMM = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const tzOffset = now.getTimezoneOffset() * -1;
+      const url = `${CONFIG.api.baseUrl}/mileage/v2.0/master/deposit/total?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&tz_offset=${tzOffset}&yyyyMM=${yyyyMM}`;
       const mileageHeaders = {
         "Authorization": headers["Authorization"],
         "caller-id": "flake-fe",

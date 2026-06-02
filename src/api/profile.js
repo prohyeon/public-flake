@@ -1,6 +1,6 @@
 import { CONFIG } from '../config.js';
 import { apiRequest } from './request.js';
-import { getTimestamp, getCurrentMonthDateRange } from '../utils/time.js';
+import { getTimestamp } from '../utils/time.js';
 
 export async function getMyProfile(headers) {
     const url = `${CONFIG.api.baseUrl}/postie/v1.0/user/me?timestemp=${getTimestamp()}`;
@@ -35,8 +35,10 @@ export async function getMyArticles(headers, userId, size = 10) {
 
 export async function getMonthlyFlakeTotal(headers) {
     try {
-        const dateRange = getCurrentMonthDateRange();
-        const url = `${CONFIG.api.baseUrl}/mileage/v2.0/master/deposit/total?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`;
+        const now = new Date();
+        const yyyyMM = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const tzOffset = now.getTimezoneOffset() * -1;
+        const url = `${CONFIG.api.baseUrl}/mileage/v2.0/master/deposit/total?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&tz_offset=${tzOffset}&yyyyMM=${yyyyMM}`;
 
         const mileageHeaders = {
             'Authorization': headers['Authorization'],
