@@ -31,7 +31,7 @@ async function getPrizeEntryMission(headers) {
 
         if (mission) {
             log(`  ✓ 경품 응모 미션 확인: ${mission.mission_no} (${mission.status})`, 'info');
-            return { ...mission, component_no: state.missionComponents.daily };
+            return { ...mission, component_no: mission.component_no || state.missionComponents.daily };
         }
     } catch (error) {
         log(`  ⚠️ 경품 응모 미션 조회 실패: ${error.message}`, 'warning');
@@ -114,7 +114,7 @@ export async function executeDailyMissions(headers) {
         if (receivableMissions.length > 0) {
             log(`🎁 수령 가능한 보상 ${receivableMissions.length}개 발견`, 'info');
             for (const mission of receivableMissions) {
-                const result = await receiveMissionReward(headers, mission.mission_no, state.missionComponents.daily);
+                const result = await receiveMissionReward(headers, mission.mission_no, mission.component_no || state.missionComponents.daily);
                 if (result && result.reward_amount) totalEarned += result.reward_amount;
                 await delay(CONFIG.delays.betweenActions);
             }

@@ -6,7 +6,7 @@ import { openTabInBackground } from '../utils/tabs.js';
 import { getRouletteParticipationCount, getRouletteSubEventNo } from '../api/roulette.js';
 import { getDailyShopRewards, getMajakDailyShopRewards } from '../api/shop.js';
 import { apiRequest } from '../api/request.js';
-import { getAllDailyMissions, getMissionComponentIds } from '../api/missions.js';
+import { getAllDailyMissions, getMissionComponentIds, getMissionComponentNos } from '../api/missions.js';
 import { getMyProfile, getMyArticles, getMonthlyFlakeTotal, getTotalFlakeBalance } from '../api/profile.js';
 import { log } from '../ui/logger.js';
 import { updateStatusUI } from '../ui/status.js';
@@ -218,7 +218,7 @@ export async function checkAllStatus() {
         });
 
         // Load mission component IDs if not loaded
-        if (!Object.values(state.missionComponents).some(Boolean)) {
+        if (getMissionComponentNos().length === 0) {
             await getMissionComponentIds(headers);
         }
 

@@ -22,9 +22,83 @@ export function isWeeklyAccumulation(startDt, endDt) {
     return diffDays <= 14;
 }
 
-export function isComponentActive(startDt, endDt) {
-    const now = new Date();
+export function isComponentActive(startDt, endDt, now = new Date()) {
     return now >= new Date(startDt) && now <= new Date(endDt);
+}
+
+function pushUniqueComponentNo(componentNos, componentNo) {
+    if (Array.isArray(componentNo)) {
+        componentNo.forEach(no => pushUniqueComponentNo(componentNos, no));
+        return;
+    }
+
+    if (componentNo != null && !componentNos.includes(componentNo)) {
+        componentNos.push(componentNo);
+    }
+}
+
+export function getDailyComponentNos(missionComponents = state.missionComponents) {
+    const componentNos = [];
+    pushUniqueComponentNo(componentNos, missionComponents.dailyComponents);
+    pushUniqueComponentNo(componentNos, missionComponents.daily);
+    return componentNos;
+}
+
+export function getMissionComponentNos(missionComponents = state.missionComponents) {
+    const componentNos = [];
+    getDailyComponentNos(missionComponents).forEach(componentNo => pushUniqueComponentNo(componentNos, componentNo));
+    pushUniqueComponentNo(componentNos, missionComponents.content);
+    pushUniqueComponentNo(componentNos, missionComponents.weekly);
+    pushUniqueComponentNo(componentNos, missionComponents.survey);
+    pushUniqueComponentNo(componentNos, missionComponents.banner);
+    pushUniqueComponentNo(componentNos, missionComponents.attendance);
+    return componentNos;
+}
+
+export function mapMissionComponentIds(componentList = [], options = {}) {
+    const now = options.now || new Date();
+    const components = {
+        daily: null,
+        dailyComponents: [],
+        content: null,
+        weekly: null,
+        survey: null,
+        banner: null,
+        attendance: null
+    };
+
+    for (const comp of componentList) {
+        if (!isComponentActive(comp.start_dt, comp.end_dt, now)) {
+            continue;
+        }
+
+        switch (comp.type) {
+            case 'SINGLE':
+                components.daily = comp.component_no;
+                pushUniqueComponentNo(components.dailyComponents, comp.component_no);
+                break;
+            case 'CONTENT1':
+                components.content = comp.component_no;
+                break;
+            case 'SURVEY':
+                components.survey = comp.component_no;
+                break;
+            case 'BANNER':
+                components.banner = comp.component_no;
+                break;
+            case 'ACCUMULATION':
+                if (isWeeklyAccumulation(comp.start_dt, comp.end_dt)) {
+                    components.weekly = comp.component_no;
+                } else {
+                    components.attendance = comp.component_no;
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    return components;
 }
 
 export async function getMissionComponentIds(headers) {
@@ -37,52 +111,7 @@ export async function getMissionComponentIds(headers) {
         const response = await apiRequest(url, 'GET', missionHeaders);
 
         if (response && response.code === 0 && response.value?.component_list) {
-            const componentList = response.value.component_list;
-            const components = {
-                daily: null, content: null, weekly: null,
-                survey: null, banner: null, attendance: null
-            };
-
-            for (const comp of componentList) {
-                if (!isComponentActive(comp.start_dt, comp.end_dt)) {
-                    console.log(`[미션 컴포넌트] ⏭️ ${comp.type} (${comp.component_no}) - 비활성 기간`);
-                    continue;
-                }
-
-                switch (comp.type) {
-                    case 'SINGLE':
-                        components.daily = comp.component_no;
-                        console.log(`[미션 컴포넌트] ✓ SINGLE → daily: ${comp.component_no}`);
-                        break;
-                    case 'CONTENT1':
-                        components.content = comp.component_no;
-                        console.log(`[미션 컴포넌트] ✓ CONTENT1 → content: ${comp.component_no}`);
-                        break;
-                    case 'SURVEY':
-                        components.survey = comp.component_no;
-                        console.log(`[미션 컴포넌트] ✓ SURVEY → survey: ${comp.component_no}`);
-                        break;
-                    case 'BANNER':
-                        components.banner = comp.component_no;
-                        console.log(`[미션 컴포넌트] ✓ BANNER → banner: ${comp.component_no}`);
-                        break;
-                    case 'ACCUMULATION':
-                        if (isWeeklyAccumulation(comp.start_dt, comp.end_dt)) {
-                            components.weekly = comp.component_no;
-                            const weekInfo = `${comp.start_dt.slice(5, 10)} ~ ${comp.end_dt.slice(5, 10)}`;
-                            console.log(`[미션 컴포넌트] ✓ ACCUMULATION (주간) → weekly: ${comp.component_no} (${weekInfo})`);
-                        } else {
-                            components.attendance = comp.component_no;
-                            console.log(`[미션 컴포넌트] ✓ ACCUMULATION (월간) → attendance: ${comp.component_no}`);
-                        }
-                        break;
-                    case 'ACHIEVEMENT':
-                        console.log(`[미션 컴포넌트] ⏭️ ACHIEVEMENT (${comp.component_no}) - 제외됨`);
-                        break;
-                    default:
-                        console.log(`[미션 컴포넌트] ⚠️ 알 수 없는 타입: ${comp.type} (${comp.component_no})`);
-                }
-            }
+            const components = mapMissionComponentIds(response.value.component_list);
 
             state.missionComponents = components;
             console.log('[미션 컴포넌트 로드] ✓ 완료:', components);
@@ -98,26 +127,55 @@ export async function getMissionComponentIds(headers) {
 }
 
 export async function getDailyMissions(headers) {
-    const componentNo = state.missionComponents.daily;
-    if (!componentNo) {
+    const componentNos = getDailyComponentNos();
+    if (componentNos.length === 0) {
         console.error('[데일리 미션 조회] ✗ componentNo가 로드되지 않음');
         return null;
     }
 
-    const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
     const missionHeaders = makeMissionHeaders(headers);
 
-    console.log(`[데일리 미션 조회] URL: ${url} (componentNo: ${componentNo})`);
+    console.log(`[데일리 미션 조회] componentNos: ${componentNos.join(', ')}`);
 
     try {
-        const response = await apiRequest(url, 'GET', missionHeaders);
-        if (response && response.code === 0 && response.value) {
-            console.log(`[데일리 미션 조회] ✓ 미션 ${response.value.missions?.length || 0}개 조회 완료`);
-            return response.value;
-        } else {
-            console.error('[데일리 미션 조회] ✗ API 오류:', response);
+        const values = [];
+
+        for (const componentNo of componentNos) {
+            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
+            const response = await apiRequest(url, 'GET', missionHeaders);
+
+            if (response && response.code === 0 && response.value) {
+                values.push({
+                    componentNo,
+                    ...response.value,
+                    missions: (response.value.missions || []).map(mission => ({
+                        ...mission,
+                        component_no: mission.component_no || componentNo
+                    }))
+                });
+            } else {
+                console.error(`[데일리 미션 조회] ✗ API 오류 (componentNo: ${componentNo}):`, response);
+            }
+        }
+
+        if (values.length === 0) {
             return null;
         }
+
+        const missions = values.flatMap(value => value.missions || []);
+        console.log(`[데일리 미션 조회] ✓ 미션 ${missions.length}개 조회 완료`);
+
+        return values.length === 1
+            ? values[0]
+            : {
+                componentNo: state.missionComponents.daily,
+                component_info: {
+                    component_no: state.missionComponents.daily,
+                    component_type: 'SINGLE'
+                },
+                components: values,
+                missions
+            };
     } catch (e) {
         console.error('[데일리 미션 조회] ✗ 실패:', e.message);
         return null;
@@ -159,12 +217,12 @@ export async function getDailyMissionStatus(headers, componentNo = 1) {
 }
 
 export async function getAllDailyMissions(headers) {
-    const componentNos = Object.values(state.missionComponents).filter(Boolean);
+    const componentNos = getMissionComponentNos();
 
     if (componentNos.length === 0) {
         console.log('[전체 미션 조회] 동적 ID 없음, 로드 시도...');
         await getMissionComponentIds(headers);
-        const reloaded = Object.values(state.missionComponents).filter(Boolean);
+        const reloaded = getMissionComponentNos();
         if (reloaded.length === 0) {
             console.error('[전체 미션 조회] 동적 component ID를 로드할 수 없습니다');
             return [];

@@ -34,6 +34,7 @@ export const state = {
     },
     missionComponents: {
         daily: null,
+        dailyComponents: [],
         content: null,
         weekly: null,
         survey: null,

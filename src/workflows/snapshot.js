@@ -302,7 +302,9 @@ function validateAttendanceShopResult(section, result) {
 }
 
 function hasComponentIds(value) {
-    return Boolean(value && typeof value === 'object' && Object.values(value).some(componentNo => componentNo != null));
+    return Boolean(value && typeof value === 'object' && Object.values(value).some(componentNo =>
+        Array.isArray(componentNo) ? componentNo.length > 0 : componentNo != null
+    ));
 }
 
 function extractNumericFlake(raw) {
