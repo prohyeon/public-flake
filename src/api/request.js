@@ -4,6 +4,7 @@ export function apiRequest(url, method, headers, body = null) {
             method,
             url,
             headers,
+            anonymous: true,
             data: body ? JSON.stringify(body) : null,
             onload(response) {
                 console.log(`[API Request] ${method} ${url} - Status: ${response.status}`);

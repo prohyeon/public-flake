@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.9.0
+// @version      2.9.1
 // @author       prohyeon
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -19,8 +19,8 @@
   'use strict';
 
   const CONFIG = {
-    version: "2.9.0",
-    lastUpdated: "2026-07-07",
+    version: "2.9.1",
+    lastUpdated: "2026-09-06",
     maintenanceMode: {
       enabled: false,
       startDate: "2025-11-01",
@@ -268,6 +268,7 @@
         method,
         url,
         headers,
+        anonymous: true,
         data: body ? JSON.stringify(body) : null,
         onload(response) {
           console.log(`[API Request] ${method} ${url} - Status: ${response.status}`);
