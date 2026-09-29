@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.9.1
+// @version      2.9.2
 // @author       prohyeon
 // @description  STOVE 자동화 (게시글 추천 10회, 댓글 5회 작성, 새글 1회, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -19,8 +19,8 @@
   'use strict';
 
   const CONFIG = {
-    version: "2.9.1",
-    lastUpdated: "2026-09-06",
+    version: "2.9.2",
+    lastUpdated: "2026-09-29",
     maintenanceMode: {
       enabled: false,
       startDate: "2025-11-01",
@@ -3881,8 +3881,328 @@
       setButtonState(false);
     }
   }
+  const PANEL_ID$1 = "stove-quest-automation";
+  const OBSERVER_OPTIONS$1 = { childList: true, subtree: true };
+  function startPanelMount({
+    createPanel,
+    onFirstMount = () => {
+    },
+    document: doc = globalThis.document
+  }) {
+    var _a;
+    if (!doc) throw new TypeError("startPanelMount requires a document");
+    if (typeof createPanel !== "function") {
+      throw new TypeError("startPanelMount requires createPanel()");
+    }
+    const existingPanel = doc.getElementById(PANEL_ID$1);
+    let panel = existingPanel;
+    if (!panel) panel = createPanel();
+    if (!panel) throw new TypeError("createPanel() must return a panel element");
+    const timerHost = doc.defaultView || globalThis;
+    let stopped = false;
+    let firstMountNotified = Boolean(existingPanel);
+    let reconcileTimer = null;
+    let observer = null;
+    function isInsidePanel(node) {
+      return node === panel || typeof panel.contains === "function" && panel.contains(node);
+    }
+    function getMountTargets() {
+      const targets = [];
+      const myHomeBody = doc.querySelector('#__nuxt [data-slot="Body"]');
+      if (myHomeBody == null ? void 0 : myHomeBody.parentNode) {
+        targets.push({
+          mode: "myhome",
+          parent: myHomeBody.parentNode,
+          before: myHomeBody
+        });
+      }
+      const legacyContent = doc.querySelector(".inds-content-body");
+      if (legacyContent) {
+        targets.push({ mode: "legacy", parent: legacyContent, before: legacyContent.firstChild });
+      }
+      const main = doc.querySelector("main");
+      if (main) {
+        targets.push({ mode: "legacy", parent: main, before: main.firstChild });
+      }
+      if (doc.body) {
+        targets.push({ mode: "fallback", parent: doc.body, before: doc.body.firstChild });
+      }
+      return targets;
+    }
+    function isAlreadyAtTarget(parent, before) {
+      if (panel.parentNode !== parent) return false;
+      if (before === panel) return true;
+      return panel.nextSibling === before;
+    }
+    function isConnectedToDocument() {
+      var _a2;
+      if (typeof panel.isConnected === "boolean") return panel.isConnected;
+      if ((_a2 = doc.documentElement) == null ? void 0 : _a2.contains(panel)) return true;
+      return typeof doc.contains === "function" && doc.contains(panel);
+    }
+    function notifyFirstMount() {
+      if (firstMountNotified || !isConnectedToDocument()) return;
+      firstMountNotified = true;
+      onFirstMount();
+    }
+    function reconcile() {
+      if (stopped) return;
+      for (const target of getMountTargets()) {
+        const { parent, before, mode } = target;
+        if (parent === panel || isInsidePanel(parent)) continue;
+        if (before === panel && panel.parentNode !== parent) continue;
+        if (!isAlreadyAtTarget(parent, before)) {
+          panel.dataset.stoveMount = mode;
+          try {
+            parent.insertBefore(panel, before);
+          } catch {
+            continue;
+          }
+        } else if (panel.dataset.stoveMount !== mode) {
+          panel.dataset.stoveMount = mode;
+        }
+        try {
+          notifyFirstMount();
+        } catch (error) {
+          stop();
+          throw error;
+        }
+        return;
+      }
+    }
+    function scheduleReconcile() {
+      if (stopped || reconcileTimer !== null) return;
+      reconcileTimer = timerHost.setTimeout(() => {
+        reconcileTimer = null;
+        reconcile();
+      }, 0);
+    }
+    function handleMutations(records) {
+      if (stopped) return;
+      if (records.some((record) => !isInsidePanel(record.target))) scheduleReconcile();
+    }
+    function handleReady() {
+      scheduleReconcile();
+    }
+    const MutationObserverImpl = ((_a = doc.defaultView) == null ? void 0 : _a.MutationObserver) || globalThis.MutationObserver;
+    if (MutationObserverImpl) {
+      observer = new MutationObserverImpl(handleMutations);
+      try {
+        observer.observe(doc, OBSERVER_OPTIONS$1);
+      } catch {
+        if (doc.documentElement) observer.observe(doc.documentElement, OBSERVER_OPTIONS$1);
+        else observer = null;
+      }
+    }
+    doc.addEventListener("DOMContentLoaded", handleReady);
+    reconcile();
+    function stop() {
+      if (stopped) return;
+      stopped = true;
+      if (observer) observer.disconnect();
+      doc.removeEventListener("DOMContentLoaded", handleReady);
+      if (reconcileTimer !== null) {
+        timerHost.clearTimeout(reconcileTimer);
+        reconcileTimer = null;
+      }
+    }
+    return stop;
+  }
+  const WATCHER_KEY = Symbol.for("stove.myhomeNoticeDismissal");
+  const PANEL_ID = "stove-quest-automation";
+  const GUIDE_SELECTOR = ".driver-popover.myhome-coachmark-popover";
+  const BADGE_SELECTOR = '[role="tooltip"][id^="badge-tooltip-"]';
+  const MAX_CLICKS_PER_NOTICE = 2;
+  const OBSERVER_OPTIONS = {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["class", "style", "hidden", "disabled", "aria-disabled", "aria-hidden", "inert"]
+  };
+  function startMyHomeNoticeDismissal({
+    document: doc = globalThis.document,
+    settleDelayMs = 600
+  } = {}) {
+    var _a;
+    if (!doc) throw new TypeError("startMyHomeNoticeDismissal requires a document");
+    const existingWatcher = doc[WATCHER_KEY];
+    if (existingWatcher && !existingWatcher.stopped && typeof existingWatcher.stop === "function") {
+      return existingWatcher.stop;
+    }
+    const delay2 = Number.isFinite(Number(settleDelayMs)) ? Math.max(0, Number(settleDelayMs)) : 600;
+    const timerHost = doc.defaultView || globalThis;
+    const lifecycle = { stopped: false, stop: null };
+    let observer = null;
+    let scanTimer = null;
+    const guideAttempts = /* @__PURE__ */ new WeakMap();
+    const badgeAttempts = /* @__PURE__ */ new WeakMap();
+    function isInsideAutomationPanel(node) {
+      const panel = doc.getElementById(PANEL_ID);
+      return Boolean(panel && (node === panel || panel.contains(node)));
+    }
+    function isVisible(element) {
+      var _a2, _b, _c, _d, _e;
+      if (!element || !((_a2 = doc.documentElement) == null ? void 0 : _a2.contains(element))) return false;
+      for (let current = element; current && current.nodeType === 1; current = current.parentElement) {
+        if (current.hidden || current.hasAttribute("hidden")) return false;
+        if (((_b = current.getAttribute("aria-hidden")) == null ? void 0 : _b.trim().toLowerCase()) === "true") return false;
+        const style = getComputedStyleFor(current);
+        const display = (style == null ? void 0 : style.display) || ((_c = current.style) == null ? void 0 : _c.display);
+        const visibility = (style == null ? void 0 : style.visibility) || ((_d = current.style) == null ? void 0 : _d.visibility);
+        const opacity = (style == null ? void 0 : style.opacity) || ((_e = current.style) == null ? void 0 : _e.opacity);
+        if ((display == null ? void 0 : display.toLowerCase()) === "none") return false;
+        if ((visibility == null ? void 0 : visibility.toLowerCase()) === "hidden" || (visibility == null ? void 0 : visibility.toLowerCase()) === "collapse") return false;
+        if (opacity !== void 0 && opacity !== "") {
+          const numericOpacity = Number.parseFloat(opacity);
+          if (Number.isFinite(numericOpacity) && numericOpacity <= 0) return false;
+        }
+      }
+      return true;
+    }
+    function getComputedStyleFor(element) {
+      var _a2;
+      try {
+        return (_a2 = timerHost.getComputedStyle) == null ? void 0 : _a2.call(timerHost, element);
+      } catch {
+        return null;
+      }
+    }
+    function isEnabled(element) {
+      var _a2;
+      for (let current = element; current && current.nodeType === 1; current = current.parentElement) {
+        if (current.disabled === true) return false;
+        if (((_a2 = current.getAttribute("aria-disabled")) == null ? void 0 : _a2.trim().toLowerCase()) === "true") return false;
+        if (current.inert === true || current.hasAttribute("inert")) return false;
+      }
+      return true;
+    }
+    function canClick(element) {
+      var _a2, _b;
+      if (!isVisible(element) || !isEnabled(element)) return false;
+      return ((_b = (_a2 = getComputedStyleFor(element)) == null ? void 0 : _a2.pointerEvents) == null ? void 0 : _b.toLowerCase()) !== "none";
+    }
+    function firstActionable(container, selector) {
+      for (const element of container.querySelectorAll(selector)) {
+        if (canClick(element) && typeof element.click === "function") return element;
+      }
+      return null;
+    }
+    function findGuideButton(popover) {
+      return firstActionable(popover, ".driver-popover-close-btn") || firstActionable(popover, ".driver-popover-done-btn") || firstActionable(popover, ".driver-popover-next-btn");
+    }
+    function getKnownGuideStep(popover) {
+      for (const step of ["myhome-coachmark-step-1", "myhome-coachmark-step-2"]) {
+        if (popover.classList.contains(step)) return step;
+      }
+      return null;
+    }
+    function findBadgeCloseButton(tooltip) {
+      var _a2;
+      for (const button of tooltip.querySelectorAll("button[aria-label]")) {
+        const label = (_a2 = button.getAttribute("aria-label")) == null ? void 0 : _a2.trim().toLowerCase();
+        if ((label === "닫기" || label === "close") && canClick(button) && typeof button.click === "function") {
+          return button;
+        }
+      }
+      return null;
+    }
+    function clickAndWait(button) {
+      button.click();
+      scheduleScan(delay2);
+    }
+    function scan() {
+      if (lifecycle.stopped) return;
+      const visibleGuides = [...doc.querySelectorAll(GUIDE_SELECTOR)].filter(isVisible);
+      if (visibleGuides.length > 0) {
+        const guide = visibleGuides.find(getKnownGuideStep);
+        if (!guide) {
+          return;
+        }
+        const step = getKnownGuideStep(guide);
+        let attemptsByStep = guideAttempts.get(guide);
+        if (!attemptsByStep) {
+          attemptsByStep = /* @__PURE__ */ new Map();
+          guideAttempts.set(guide, attemptsByStep);
+        }
+        const state2 = attemptsByStep.get(step) || { clicks: 0 };
+        attemptsByStep.set(step, state2);
+        const button = findGuideButton(guide);
+        if (button && state2.clicks < MAX_CLICKS_PER_NOTICE) {
+          state2.clicks += 1;
+          clickAndWait(button);
+        }
+        return;
+      }
+      const visibleBadges = [...doc.querySelectorAll(BADGE_SELECTOR)].filter(isVisible);
+      for (const tooltip of visibleBadges) {
+        const button = findBadgeCloseButton(tooltip);
+        if (!button) continue;
+        const state2 = badgeAttempts.get(tooltip) || { clicks: 0 };
+        if (state2.clicks >= MAX_CLICKS_PER_NOTICE) continue;
+        state2.clicks += 1;
+        badgeAttempts.set(tooltip, state2);
+        clickAndWait(button);
+        return;
+      }
+    }
+    function scheduleScan(waitMs = delay2, resetPending = false) {
+      if (lifecycle.stopped) return;
+      if (scanTimer !== null) {
+        if (!resetPending) return;
+        timerHost.clearTimeout(scanTimer);
+      }
+      scanTimer = timerHost.setTimeout(() => {
+        scanTimer = null;
+        scan();
+      }, waitMs);
+    }
+    function handleMutations(records) {
+      if (lifecycle.stopped) return;
+      if (records.some((record) => !isInsideAutomationPanel(record.target))) scheduleScan(delay2);
+    }
+    function handleReady() {
+      scheduleScan(delay2, true);
+    }
+    function stop() {
+      if (lifecycle.stopped) return;
+      lifecycle.stopped = true;
+      if (observer) observer.disconnect();
+      doc.removeEventListener("DOMContentLoaded", handleReady);
+      if (scanTimer !== null) {
+        timerHost.clearTimeout(scanTimer);
+        scanTimer = null;
+      }
+      if (doc[WATCHER_KEY] === lifecycle) delete doc[WATCHER_KEY];
+    }
+    lifecycle.stop = stop;
+    Object.defineProperty(doc, WATCHER_KEY, {
+      configurable: true,
+      value: lifecycle
+    });
+    const MutationObserverImpl = ((_a = doc.defaultView) == null ? void 0 : _a.MutationObserver) || globalThis.MutationObserver;
+    if (MutationObserverImpl) {
+      observer = new MutationObserverImpl(handleMutations);
+      try {
+        observer.observe(doc, OBSERVER_OPTIONS);
+      } catch {
+        if (doc.documentElement) {
+          try {
+            observer.observe(doc.documentElement, OBSERVER_OPTIONS);
+          } catch {
+            observer.disconnect();
+            observer = null;
+          }
+        } else {
+          observer.disconnect();
+          observer = null;
+        }
+      }
+    }
+    doc.addEventListener("DOMContentLoaded", handleReady);
+    scheduleScan(delay2, true);
+    return stop;
+  }
   function createUI() {
-    if (document.getElementById("stove-quest-automation")) return;
     const container = document.createElement("div");
     container.id = "stove-quest-automation";
     container.innerHTML = `
@@ -3897,7 +4217,17 @@
                 color: #e0e0e0;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                 width: 100%;
+                min-width: 0;
                 box-sizing: border-box;
+            }
+            #stove-quest-automation[data-stove-mount="myhome"] {
+                width: calc(100% - 40px);
+                max-width: 1300px;
+                margin: 24px auto;
+                flex: 0 0 auto;
+            }
+            #stove-quest-automation[data-stove-mount="fallback"] {
+                margin-top: 96px;
             }
             .stove-panel-header {
                 font-size: 20px;
@@ -3910,8 +4240,10 @@
                 color: #ffffff;
                 border-bottom: 2px solid #2a2a2a;
                 padding-bottom: 12px;
+                min-width: 0;
+                flex-wrap: wrap;
             }
-            .stove-panel-title { flex: 1; }
+            .stove-panel-title { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
             .stove-panel-version {
                 display: flex;
                 flex-direction: column;
@@ -3921,10 +4253,12 @@
                 color: #888888;
                 line-height: 1.4;
                 font-family: 'Courier New', monospace;
+                min-width: 0;
+                overflow-wrap: anywhere;
             }
             .stove-controls {
                 display: grid;
-                grid-template-columns: repeat(3, 1fr);
+                grid-template-columns: repeat(3, minmax(0, 1fr));
                 gap: 12px;
                 margin-bottom: 20px;
             }
@@ -3938,7 +4272,10 @@
                 font-size: 14px;
                 font-weight: 600;
                 transition: all 0.2s ease;
+                min-width: 0;
+                overflow-wrap: anywhere;
             }
+            .stove-controls > * { min-width: 0; }
             .stove-btn-main,
             .stove-btn-sub {
                 display: block;
@@ -4005,7 +4342,7 @@
             }
             .stove-task-list {
                 display: grid;
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(2, minmax(0, 1fr));
                 gap: 8px;
             }
             .stove-task {
@@ -4015,6 +4352,8 @@
                 border-radius: 6px;
                 font-size: 14px;
                 color: #d0d0d0;
+                min-width: 0;
+                overflow-wrap: anywhere;
             }
             .stove-log-section {
                 background: #0f0f0f;
@@ -4093,9 +4432,11 @@
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
+                gap: 8px;
+                min-width: 0;
             }
-            .stove-status-label { font-weight: 600; }
-            .stove-status-value { font-family: 'Courier New', monospace; }
+            .stove-status-label { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+            .stove-status-value { font-family: 'Courier New', monospace; min-width: 0; overflow-wrap: anywhere; text-align: right; }
             .stove-mission-item { position: relative; cursor: help; }
             .stove-mission-item:hover { background: #252525; border-color: #3a3a3a; }
             .stove-mission-tooltip {
@@ -4157,6 +4498,20 @@
             .stove-success-notice--hide {
                 opacity: 0;
                 transform: translateY(-6px);
+            }
+            @media (max-width: 720px) {
+                #stove-quest-automation[data-stove-mount="myhome"] { width: calc(100% - 24px); }
+                .stove-controls,
+                .stove-task-list { grid-template-columns: minmax(0, 1fr); }
+                .stove-panel-header { align-items: flex-start; }
+                .stove-panel-version { align-items: flex-start; }
+                .stove-status-header,
+                .stove-log-header { flex-wrap: wrap; gap: 8px; }
+                .stove-mission-tooltip {
+                    min-width: 0;
+                    width: min(400px, calc(100vw - 48px));
+                    max-width: calc(100vw - 48px);
+                }
             }
         </style>
 
@@ -4259,21 +4614,9 @@
             <div id="stove-log-content"></div>
         </div>
     `;
-    const targetSelectors = [".inds-content-body", "main", "body"];
-    let insertTarget = null;
-    for (const selector of targetSelectors) {
-      insertTarget = document.querySelector(selector);
-      if (insertTarget) break;
-    }
-    if (insertTarget) {
-      try {
-        insertTarget.insertBefore(container, insertTarget.firstChild);
-      } catch (err) {
-        insertTarget.appendChild(container);
-      }
-    } else {
-      document.body.insertBefore(container, document.body.firstChild);
-    }
+    return container;
+  }
+  function initializeUI() {
     function copyLogToClipboard() {
       const logContent = document.getElementById("stove-log-content");
       if (!logContent) return;
@@ -4312,21 +4655,19 @@
       checkAllStatus();
     }, 500);
   }
-  function tryCreateUI(retries = 5) {
-    const contentBody = document.querySelector(".inds-content-body");
-    const main = document.querySelector("main");
-    if (contentBody || main || retries <= 0) {
-      createUI();
-    } else {
-      setTimeout(() => tryCreateUI(retries - 1), 500);
-    }
-  }
   function init() {
     console.log("[STOVE Automation] Initializing...");
+    const mountPanel = () => {
+      startMyHomeNoticeDismissal();
+      startPanelMount({
+        createPanel: createUI,
+        onFirstMount: initializeUI
+      });
+    };
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", () => tryCreateUI());
+      document.addEventListener("DOMContentLoaded", mountPanel, { once: true });
     } else {
-      tryCreateUI();
+      mountPanel();
     }
   }
   init();

@@ -1,6 +1,6 @@
 {
   "name": "stove-quest-automation",
-  "version": "2.9.1",
+  "version": "2.9.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,6 +10,7 @@
     "check": "node scripts/check-syntax.mjs"
   },
   "devDependencies": {
+    "jsdom": "^29.1.1",
     "vite": "^5.4.0",
     "vite-plugin-monkey": "^4.0.0"
   }

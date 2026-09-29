@@ -6,10 +6,10 @@ import { runPointExchange } from './workflows/pointExchange.js';
 import { openRewardShop } from './workflows/shop.js';
 import { checkAllStatus } from './workflows/status.js';
 import { updatePointCashChargeButtonAvailability } from './ui/pointCashCharge.js';
+import { startPanelMount } from './ui/mount.js';
+import { startMyHomeNoticeDismissal } from './ui/dismissMyHomeNotices.js';
 
 function createUI() {
-    if (document.getElementById('stove-quest-automation')) return;
-
     const container = document.createElement('div');
     container.id = 'stove-quest-automation';
     container.innerHTML = `
@@ -24,7 +24,17 @@ function createUI() {
                 color: #e0e0e0;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                 width: 100%;
+                min-width: 0;
                 box-sizing: border-box;
+            }
+            #stove-quest-automation[data-stove-mount="myhome"] {
+                width: calc(100% - 40px);
+                max-width: 1300px;
+                margin: 24px auto;
+                flex: 0 0 auto;
+            }
+            #stove-quest-automation[data-stove-mount="fallback"] {
+                margin-top: 96px;
             }
             .stove-panel-header {
                 font-size: 20px;
@@ -37,8 +47,10 @@ function createUI() {
                 color: #ffffff;
                 border-bottom: 2px solid #2a2a2a;
                 padding-bottom: 12px;
+                min-width: 0;
+                flex-wrap: wrap;
             }
-            .stove-panel-title { flex: 1; }
+            .stove-panel-title { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
             .stove-panel-version {
                 display: flex;
                 flex-direction: column;
@@ -48,10 +60,12 @@ function createUI() {
                 color: #888888;
                 line-height: 1.4;
                 font-family: 'Courier New', monospace;
+                min-width: 0;
+                overflow-wrap: anywhere;
             }
             .stove-controls {
                 display: grid;
-                grid-template-columns: repeat(3, 1fr);
+                grid-template-columns: repeat(3, minmax(0, 1fr));
                 gap: 12px;
                 margin-bottom: 20px;
             }
@@ -65,7 +79,10 @@ function createUI() {
                 font-size: 14px;
                 font-weight: 600;
                 transition: all 0.2s ease;
+                min-width: 0;
+                overflow-wrap: anywhere;
             }
+            .stove-controls > * { min-width: 0; }
             .stove-btn-main,
             .stove-btn-sub {
                 display: block;
@@ -132,7 +149,7 @@ function createUI() {
             }
             .stove-task-list {
                 display: grid;
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(2, minmax(0, 1fr));
                 gap: 8px;
             }
             .stove-task {
@@ -142,6 +159,8 @@ function createUI() {
                 border-radius: 6px;
                 font-size: 14px;
                 color: #d0d0d0;
+                min-width: 0;
+                overflow-wrap: anywhere;
             }
             .stove-log-section {
                 background: #0f0f0f;
@@ -220,9 +239,11 @@ function createUI() {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
+                gap: 8px;
+                min-width: 0;
             }
-            .stove-status-label { font-weight: 600; }
-            .stove-status-value { font-family: 'Courier New', monospace; }
+            .stove-status-label { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+            .stove-status-value { font-family: 'Courier New', monospace; min-width: 0; overflow-wrap: anywhere; text-align: right; }
             .stove-mission-item { position: relative; cursor: help; }
             .stove-mission-item:hover { background: #252525; border-color: #3a3a3a; }
             .stove-mission-tooltip {
@@ -284,6 +305,20 @@ function createUI() {
             .stove-success-notice--hide {
                 opacity: 0;
                 transform: translateY(-6px);
+            }
+            @media (max-width: 720px) {
+                #stove-quest-automation[data-stove-mount="myhome"] { width: calc(100% - 24px); }
+                .stove-controls,
+                .stove-task-list { grid-template-columns: minmax(0, 1fr); }
+                .stove-panel-header { align-items: flex-start; }
+                .stove-panel-version { align-items: flex-start; }
+                .stove-status-header,
+                .stove-log-header { flex-wrap: wrap; gap: 8px; }
+                .stove-mission-tooltip {
+                    min-width: 0;
+                    width: min(400px, calc(100vw - 48px));
+                    max-width: calc(100vw - 48px);
+                }
             }
         </style>
 
@@ -387,23 +422,10 @@ function createUI() {
         </div>
     `;
 
-    const targetSelectors = ['.inds-content-body', 'main', 'body'];
-    let insertTarget = null;
-    for (const selector of targetSelectors) {
-        insertTarget = document.querySelector(selector);
-        if (insertTarget) break;
-    }
+    return container;
+}
 
-    if (insertTarget) {
-        try {
-            insertTarget.insertBefore(container, insertTarget.firstChild);
-        } catch (err) {
-            insertTarget.appendChild(container);
-        }
-    } else {
-        document.body.insertBefore(container, document.body.firstChild);
-    }
-
+function initializeUI() {
     function copyLogToClipboard() {
         const logContent = document.getElementById('stove-log-content');
         if (!logContent) return;
@@ -453,24 +475,21 @@ function createUI() {
     setTimeout(() => { checkAllStatus(); }, 500);
 }
 
-function tryCreateUI(retries = 5) {
-    const contentBody = document.querySelector('.inds-content-body');
-    const main = document.querySelector('main');
-
-    if (contentBody || main || retries <= 0) {
-        createUI();
-    } else {
-        setTimeout(() => tryCreateUI(retries - 1), 500);
-    }
-}
-
 function init() {
     console.log('[STOVE Automation] Initializing...');
 
+    const mountPanel = () => {
+        startMyHomeNoticeDismissal();
+        startPanelMount({
+            createPanel: createUI,
+            onFirstMount: initializeUI,
+        });
+    };
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => tryCreateUI());
+        document.addEventListener('DOMContentLoaded', mountPanel, { once: true });
     } else {
-        tryCreateUI();
+        mountPanel();
     }
 }
 
