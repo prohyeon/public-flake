@@ -5,13 +5,42 @@ import { CONFIG } from '../../src/config.js';
 import { state } from '../../src/state.js';
 import { getTodayKSTString } from '../../src/utils/time.js';
 import {
-    captureAutomationSnapshot,
+    captureAutomationSnapshot as captureSnapshot,
     compareSnapshots,
     getSnapshotSummary,
     normalizeMissionSnapshot
 } from '../../src/workflows/snapshot.js';
 
+// Legacy snapshot cases isolate their existing sections from the new read-only service.
+const captureAutomationSnapshot = (headers, deps) => captureSnapshot(headers, {
+    checkBoostStatus: async () => ({ success: true, notAvailable: true }), ...deps
+});
+
 let originalMissionComponents;
+
+test('boost snapshot records a known mission or an isolated non-actionable lookup failure', async () => {
+    const deps = {
+        getMissionComponentIds: async () => ({ daily: 100 }),
+        checkArticleWriteStatus: async () => ({ success: true, hasWrittenToday: true }),
+        getAllDailyMissions: async () => [],
+        getRouletteParticipationCount: async () => ({ value: { participation_cnt: 30 } }),
+        getRouletteExtra: async () => ({ value: { milestones: [] } }),
+        getDailyShopRewards: async () => ({ value: { daily_attendances: { rewards: [] } } }),
+        getMajakDailyShopRewards: async () => ({ value: { daily_attendances: { rewards: [] } } }),
+        getTotalFlakeBalance: async () => 100,
+        getMonthlyFlakeTotal: async () => 50
+    };
+    const boost = { success: true, remainingCount: 5, mission: { current: 0, required: 1, rewarded: false } };
+    const known = await captureAutomationSnapshot({}, { ...deps, checkBoostStatus: async () => boost });
+    assert.equal(known.degraded, false);
+    assert.equal(known.boost, boost);
+    const unknown = await captureAutomationSnapshot({}, { ...deps,
+        checkBoostStatus: async () => ({ success: false, unknown: true, error: 'offline' }) });
+    assert.equal(unknown.boost.success, false);
+    assert.equal(unknown.boost.unknown, true);
+    assert.deepEqual(Object.keys(unknown.errors), ['boost']);
+    assert.equal(unknown.roulette.success, true, 'boost lookup failure does not disable other sections');
+});
 
 function resetMissionComponents() {
     state.missionComponents = {

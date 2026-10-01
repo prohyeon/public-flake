@@ -11,12 +11,14 @@ import {
 import { getDailyShopRewards, getMajakDailyShopRewards } from '../api/shop.js';
 import { getTotalFlakeBalance, getMonthlyFlakeTotal } from '../api/profile.js';
 import { checkArticleWriteStatus } from './status.js';
+import { checkBoostStatus } from './boost.js';
 
 const SNAPSHOT_CATEGORIES = ['daily', 'content', 'weekly', 'banner', 'attendance', 'survey', 'other'];
 const COMPLETE_STATUSES = new Set(['COMPLETE', 'COMPLETED']);
 const DONE_STATUSES = new Set(['COMPLETE', 'COMPLETED']);
 
 const defaultServices = {
+    checkBoostStatus,
     checkArticleWriteStatus,
     getAllDailyMissions,
     getMissionComponentIds,
@@ -409,7 +411,8 @@ export async function captureAutomationSnapshot(headers, deps = {}) {
         rawShopResult,
         rawMajakResult,
         flakeTotal,
-        flakeMonthly
+        flakeMonthly,
+        boostResult
     ] = await Promise.all([
         settleSnapshotPart(() => services.checkArticleWriteStatus(headers)),
         settleSnapshotPart(() => services.getAllDailyMissions(headers)),
@@ -418,7 +421,8 @@ export async function captureAutomationSnapshot(headers, deps = {}) {
         settleSnapshotPart(() => services.getDailyShopRewards(headers)),
         settleSnapshotPart(() => services.getMajakDailyShopRewards(headers)),
         settleSnapshotPart(() => services.getTotalFlakeBalance(headers)),
-        settleSnapshotPart(() => services.getMonthlyFlakeTotal(headers))
+        settleSnapshotPart(() => services.getMonthlyFlakeTotal(headers)),
+        settleSnapshotPart(() => services.checkBoostStatus(headers))
     ]);
 
     const rouletteResult = validateRouletteResult(rawRouletteResult);
@@ -458,6 +462,9 @@ export async function captureAutomationSnapshot(headers, deps = {}) {
     if (!flake.success) {
         errors.flake = flake.error;
     }
+    const boostError = !boostResult.ok ? boostResult.error :
+        boostResult.value?.success !== true ? makeSnapshotError('boost', boostResult.value?.error || '부스트 상태 확인 실패') : null;
+    if (boostError) errors.boost = boostError;
 
     const missions = missionComponents.ok && !missionsError
         ? normalizeMissionSnapshot(missionComponents.value, { missionComponents: missionComponentIds })
@@ -478,6 +485,7 @@ export async function captureAutomationSnapshot(headers, deps = {}) {
         rouletteExtra: normalizeRouletteExtra(rouletteExtraResult),
         shop: normalizeShop(shopResult),
         majak: normalizeShop(majakResult),
+        boost: boostError ? failedSection(boostError, { unknown: true }) : boostResult.value,
         flake
     };
 }

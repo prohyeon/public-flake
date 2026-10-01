@@ -38,6 +38,21 @@ function missionSnapshot(missions) {
     ]);
 }
 
+test('boost schedules a single serial task only for a known 0/1 mission with remaining charges', () => {
+    const boost = { success: true, remainingCount: 5, mission: { current: 0, required: 1, rewarded: false } };
+    const plan = buildAutomationPlan(baseSnapshot({ boost }));
+    assert.equal(findTask(plan, 'boostMission').consumesBoost, true);
+    assert.equal(plan.groups.find(group => group.id === 'boost').concurrency, 1);
+    for (const section of [undefined, { ...boost, success: false }, { ...boost, unknown: true },
+        { ...boost, remainingCount: 0 }, { ...boost, notAvailable: true },
+        { ...boost, mission: { ...boost.mission, current: 1 } },
+        { ...boost, mission: { ...boost.mission, rewarded: true } }]) {
+        assert.equal(findTask(buildAutomationPlan(baseSnapshot({ boost: section })), 'boostMission'), undefined);
+    }
+    assert.equal(findTask(buildRepairPlan({ boostIncomplete: true }), 'boostMission'), undefined,
+        'automatic repair must never repeat an uncertain boost');
+});
+
 test('buildAutomationPlan separates safe parallel and serial flake-spending groups', () => {
     const missions = missionSnapshot([
         { mission_no: 11, title: 'Visit', status: 'INCOMPLETE', is_visit_mission: true },

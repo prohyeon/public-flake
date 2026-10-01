@@ -1,10 +1,11 @@
-export function apiRequest(url, method, headers, body = null) {
+export function apiRequest(url, method, headers, body = null, options = {}) {
     return new Promise((resolve, reject) => {
         const requestConfig = {
             method,
             url,
             headers,
             anonymous: true,
+            timeout: options.timeout ?? 0,
             data: body ? JSON.stringify(body) : null,
             onload(response) {
                 console.log(`[API Request] ${method} ${url} - Status: ${response.status}`);
@@ -20,6 +21,12 @@ export function apiRequest(url, method, headers, body = null) {
                     console.error('[API Request] Error response:', response);
                     reject(new Error(`API Error: ${response.status} ${response.statusText}`));
                 }
+            },
+            ontimeout() {
+                reject(new Error('API request timed out'));
+            },
+            onabort() {
+                reject(new Error('API request aborted'));
             },
             onerror(error) {
                 console.error('[API Request] Network error:', error);

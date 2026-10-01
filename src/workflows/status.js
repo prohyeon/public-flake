@@ -11,6 +11,7 @@ import { getMyProfile, getMyArticles, getMonthlyFlakeTotal, getTotalFlakeBalance
 import { log } from '../ui/logger.js';
 import { updateStatusUI } from '../ui/status.js';
 import { updatePointCashChargeButtonAvailability } from '../ui/pointCashCharge.js';
+import { checkBoostStatus } from './boost.js';
 
 export async function checkRouletteStatus(headers) {
     try {
@@ -213,6 +214,7 @@ export async function checkAllStatus() {
             dailyShop: { loading: true },
             majakShop: { loading: true },
             survey: { loading: true },
+            boost: { loading: true },
             totalFlake: { loading: true },
             monthlyFlake: { loading: true }
         });
@@ -222,7 +224,7 @@ export async function checkAllStatus() {
             await getMissionComponentIds(headers);
         }
 
-        const [articleWriteStatus, dailyMissionStatus, rouletteStatus, dailyShopStatus, majakShopStatus, surveyStatus, totalFlake, monthlyFlake] = await Promise.all([
+        const [articleWriteStatus, dailyMissionStatus, rouletteStatus, dailyShopStatus, majakShopStatus, surveyStatus, totalFlake, monthlyFlake, boostStatus] = await Promise.all([
             checkArticleWriteStatus(headers),
             checkDailyMissionStatus(headers),
             checkRouletteStatus(headers),
@@ -230,7 +232,8 @@ export async function checkAllStatus() {
             checkMajakShopStatus(headers),
             checkSurveyStatus(headers),
             getTotalFlakeBalance(headers),
-            getMonthlyFlakeTotal(headers)
+            getMonthlyFlakeTotal(headers),
+            checkBoostStatus(headers)
         ]);
 
         updateStatusUI({
@@ -240,6 +243,7 @@ export async function checkAllStatus() {
             dailyShop: dailyShopStatus,
             majakShop: majakShopStatus,
             survey: surveyStatus,
+            boost: boostStatus,
             totalFlake,
             monthlyFlake
         });
@@ -256,6 +260,7 @@ export async function checkAllStatus() {
             dailyShop: { success: false, error: '확인 실패' },
             majakShop: { success: false, error: '확인 실패' },
             survey: { success: false, error: '확인 실패' },
+            boost: { success: false, error: '확인 실패' },
             totalFlake: { error: true },
             monthlyFlake: { error: true }
         });

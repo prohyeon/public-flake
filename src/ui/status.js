@@ -1,4 +1,7 @@
+import { updateBoostStatus } from './boostStatus.js';
+
 export function updateStatusUI(statusData) {
+    if (statusData.boost) updateBoostStatus(statusData.boost);
     const articleWriteEl = document.getElementById('stove-status-article');
     if (articleWriteEl && statusData.articleWrite) {
         if (statusData.articleWrite.loading) {

@@ -377,6 +377,18 @@ function createUI() {
                     <span class="stove-status-value" id="stove-status-roulette">-</span>
                 </div>
                 <div class="stove-status-item">
+                    <span class="stove-status-label">🔥 부스트 미션</span>
+                    <span class="stove-status-value" id="stove-status-boost">-</span>
+                </div>
+                <div class="stove-status-item">
+                    <span class="stove-status-label">🎁 오늘의 1등 보상</span>
+                    <span class="stove-status-value" id="stove-status-boost-reward">-</span>
+                </div>
+                <div class="stove-status-item">
+                    <span class="stove-status-label">🎯 부스트 선택 글</span>
+                    <span class="stove-status-value" id="stove-status-boost-target">-</span>
+                </div>
+                <div class="stove-status-item">
                     <span class="stove-status-label">💝 데일리 보상</span>
                     <span class="stove-status-value" id="stove-status-daily">-</span>
                 </div>

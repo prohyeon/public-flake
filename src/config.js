@@ -1,6 +1,6 @@
 export const CONFIG = {
-    version: '2.9.2',
-    lastUpdated: '2026-09-29',
+    version: '2.10.0',
+    lastUpdated: '2026-10-01',
     maintenanceMode: {
         enabled: false,
         startDate: '2025-11-01',
@@ -44,6 +44,14 @@ export const CONFIG = {
         enabled: true,
         skipMissions: [],
         visitDelay: 3000
+    },
+    boostMission: {
+        enabled: true,
+        rankingQueries: 5,
+        queryDelay: 2000,
+        maxRankingAge: 10 * 60 * 1000,
+        verifyAttempts: 3,
+        verifyDelay: 1000
     },
     contentMissions: {
         enabled: true

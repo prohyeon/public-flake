@@ -30,7 +30,8 @@ export const state = {
         attendanceMissions: 0,
         surveyMissions: 0,
         prizeEntry: 0,
-        dailyAccumulated: 0
+        dailyAccumulated: 0,
+        boostMission: 0
     },
     missionComponents: {
         daily: null,

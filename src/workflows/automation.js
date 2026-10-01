@@ -12,6 +12,7 @@ import { captureAutomationSnapshot, compareSnapshots, getSnapshotSummary } from 
 import { buildAutomationPlan, buildRepairPlan } from './automationPlan.js';
 import { runTaskGroups, flattenTaskResults, waitForBackgroundTasks } from './taskRunner.js';
 import { postCommentsSerially } from './comments.js';
+import { executeBoostMission, claimBoostMissionReward } from './boost.js';
 import { runRouletteDraws, claimRouletteExtraRewards } from './roulette.js';
 import { claimDailyShopRewards, claimMajakDailyShopRewards, claimDailyAccumulatedRewards } from './shop.js';
 import {
@@ -102,6 +103,7 @@ export function createAutomationTaskHandlers({ headers, articles = [], allTabs =
         },
 
         comments: async () => postCommentsSerially({ headers, articles }),
+        boostMission: async () => executeBoostMission(headers),
 
         singleVisits: async (task) => autoParticipateVisitMissions(headers, task),
 
@@ -262,7 +264,7 @@ export async function runAutomation() {
     state.earnings = {
         roulette: 0, rouletteExtra: 0, dailyShop: 0, majak: 0,
         dailyMissions: 0, contentMissions: 0, weeklyMissions: 0, bannerMissions: 0,
-        attendanceMissions: 0, surveyMissions: 0, prizeEntry: 0, dailyAccumulated: 0
+        attendanceMissions: 0, surveyMissions: 0, prizeEntry: 0, dailyAccumulated: 0, boostMission: 0
     };
 
     try {
@@ -320,6 +322,12 @@ export async function runAutomation() {
             }
         });
         logRejectedTasks(backgroundResults);
+
+        // Comments run in the background; reward eligibility must be read after they finish.
+        if (beforeSnapshot.boost?.success && !beforeSnapshot.boost.notAvailable) {
+            const boostReward = await claimBoostMissionReward(headers);
+            if (!boostReward.success) log('오늘의 1등 보상 상태를 확인하지 못했습니다. 대시보드를 확인해 주세요', 'warning');
+        }
 
         log('', 'info');
         log('\uCD5C\uC885 \uC2A4\uB0C5\uC0F7 \uC218\uC9D1 \uC911...', 'info');
@@ -381,6 +389,7 @@ export async function runAutomation() {
             (state.earnings.attendanceMissions || 0) +
             (state.earnings.surveyMissions || 0) +
             (state.earnings.prizeEntry || 0) +
+            (state.earnings.boostMission || 0) +
             (dailyAccumulatedFlake || 0);
 
         if (isNaN(totalEarnings)) {
@@ -405,6 +414,7 @@ export async function runAutomation() {
         log(`  🎨 배너 미션: ${state.earnings.bannerMissions} FLAKE`, state.earnings.bannerMissions > 0 ? 'success' : 'info');
         log(`  📆 출석 미션: ${state.earnings.attendanceMissions} FLAKE`, state.earnings.attendanceMissions > 0 ? 'success' : 'info');
         log(`  📊 설문조사: ${state.earnings.surveyMissions} FLAKE`, state.earnings.surveyMissions > 0 ? 'success' : 'info');
+        log(`  🔥 오늘의 1등 미션: ${state.earnings.boostMission} FLAKE`, state.earnings.boostMission > 0 ? 'success' : 'info');
         const prizeEntrySign = state.earnings.prizeEntry >= 0 ? '+' : '';
         log(`  🎁 경품 응모: ${prizeEntrySign}${state.earnings.prizeEntry} FLAKE`, state.earnings.prizeEntry >= 0 ? 'success' : 'warning');
         log(`  🎰 룰렛 순수익: ${profitSign}${state.earnings.roulette} FLAKE`, state.earnings.roulette >= 0 ? 'success' : 'warning');

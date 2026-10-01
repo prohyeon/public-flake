@@ -87,6 +87,15 @@ export function buildAutomationPlan(snapshot = {}) {
             task('visits:contentMissions', 'contentMissions'),
             task('visits:bannerMissions', 'bannerMissions')
         ]),
+        group('boost', 1, [
+            CONFIG.boostMission.enabled && isSectionKnown(snapshot.boost) &&
+            !snapshot.boost.notAvailable && snapshot.boost.mission?.rewarded === false &&
+            snapshot.boost.mission.completed !== true &&
+            snapshot.boost.mission.current === 0 && snapshot.boost.mission.required === 1 &&
+            snapshot.boost.remainingCount > 0
+                ? task('boost:boostMission', 'boostMission', { consumesBoost: true })
+                : null
+        ]),
         group('missionClaims', 2, [
             task('missionClaims:weeklyMissions', 'weeklyMissions'),
             task('missionClaims:attendanceMissions', 'attendanceMissions'),
