@@ -389,6 +389,18 @@ function createUI() {
                     <span class="stove-status-value" id="stove-status-boost-target">-</span>
                 </div>
                 <div class="stove-status-item">
+                    <span class="stove-status-label">💬 게임 리뷰 이벤트</span>
+                    <span class="stove-status-value" id="stove-status-review-event">-</span>
+                </div>
+                <div class="stove-status-item">
+                    <span class="stove-status-label">📅 리뷰 이벤트 기간</span>
+                    <span class="stove-status-value" id="stove-status-review-period">-</span>
+                </div>
+                <div class="stove-status-item">
+                    <span class="stove-status-label">🎯 이벤트 대상 리뷰</span>
+                    <span class="stove-status-value" id="stove-status-review-target">-</span>
+                </div>
+                <div class="stove-status-item">
                     <span class="stove-status-label">💝 데일리 보상</span>
                     <span class="stove-status-value" id="stove-status-daily">-</span>
                 </div>

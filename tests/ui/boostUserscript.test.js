@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { boostFixture, boostCandidate } from '../helpers/boostFixture.js';
+import { reviewEventFixture } from '../helpers/reviewEventFixture.js';
 
 const userscript = readFileSync(new URL('../../stove-quest-automation.user.js', import.meta.url), 'utf8');
 
@@ -14,6 +15,11 @@ test('distributed dashboard only reads status; full automation queries five time
     const { window } = dom;
     const { document } = window;
     const now = Date.now();
+    const today = new Date(now + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const reviewEvent = { ...reviewEventFixture().event, expose_start_at: today, expose_end_at: today };
+    const reviewComments = [];
+    let reviewWrites = 0;
+    const reviewVisits = [];
     const mission = boostFixture().mission;
     mission.start_dt = now - 86400000;
     mission.end_dt = now + 86400000;
@@ -36,7 +42,10 @@ test('distributed dashboard only reads status; full automation queries five time
     window.scrollTo = () => {};
     window.alert = message => { unexpected.push(`alert: ${message}`); };
     window.console = Object.fromEntries(['log', 'warn', 'error'].map(method => [method, () => {}]));
-    window.GM_openInTab = () => ({ close() {} });
+    window.GM_openInTab = url => {
+        if (url === reviewEvent.link_url) reviewVisits.push(url);
+        return { close() {} };
+    };
     Object.defineProperty(window.navigator, 'locks', { value: { request: async (key, options, work) => work({ name: key }) } });
     document.cookie = 'SUAT=test-token; path=/';
     window.localStorage.setItem('sgs_da_uuid', 'test-uuid');
@@ -46,7 +55,24 @@ test('distributed dashboard only reads status; full automation queries five time
         const path = url.pathname;
         calls.push({ method: config.method, path });
         let value;
-        if (path === '/stadium-api/v1.0/missions') value = { missions: [mission] };
+        if (path === '/eventhub/v1.0/promotion/events/ON') value = { total_event_cnt: 1, promotion_events: [reviewEvent] };
+        else if (path === '/cwms/v3.0/article') value = { ...reviewEventFixture().article,
+            community_key: 'quarter', channel_key: 'kr', article_status_code: 'PUBLISHED', coverage_code: 'PUBLIC' };
+        else if (path === '/cwms/v1.0/user/CHANNEL/73') value = { user_info: { member_no: 100 } };
+        else if (path === '/cwms/v1.0/user/board/permission') value = [{ board_seq: 134147, user_permission_info: { comment: { write: true } } }];
+        else if (path === '/cwms/v1.1/article/14523486/comment/list') value = {
+            total: reviewComments.length, display_total: reviewComments.length, page: 1, size: 20, list: reviewComments, next_yn: 'N'
+        };
+        else if (path === '/cwms/v1.0/article/14523486/comment' && config.method === 'POST') {
+            assert.equal(comments, 5, 'review posting waits for existing background comments');
+            assert.equal(config.headers['caller-id'], 'storee-cp');
+            assert.equal(reviewVisits.length, 1, 'review visit precedes sticker posting');
+            assert.match(JSON.parse(config.data).comment, /data-sticker/);
+            reviewWrites++;
+            reviewComments.unshift({ comment_id: '901', comment_status_code: 'NORMAL', user_info: { member_no: 100 } });
+            value = { comment_id: '901' };
+        }
+        else if (path === '/stadium-api/v1.0/missions') value = { missions: [mission] };
         else if (path === '/stadium-api/v1.0/boost/balance') value = { remaining_count: remaining };
         else if (path.endsWith('/recommend/articles/realtime-ranking')) value = { articles, generated_at: now };
         else if (path.startsWith('/stadium-api/') && path.endsWith('/interaction/BOOST')) {
@@ -95,6 +121,8 @@ test('distributed dashboard only reads status; full automation queries five time
     assert.equal(timers.length, 1);
     document.getElementById('stove-btn-status-refresh').click();
     await waitUntil(() => /0\/1/.test(document.getElementById('stove-status-boost').textContent));
+    await waitUntil(() => /0\/1/.test(document.getElementById('stove-status-review-event').textContent));
+    assert.equal(reviewVisits.length, 0, 'dashboard does not visit or participate');
     assert.equal(calls.some(call => call.method !== 'GET'), false, 'dashboard refresh makes no mutation');
     assert.equal(calls.some(call => call.path.endsWith('/realtime-ranking')), false, 'status reads do not consume the five-query search');
     document.getElementById('stove-btn-start').click();
@@ -103,8 +131,19 @@ test('distributed dashboard only reads status; full automation queries five time
     assert.equal(putBeforeCommentsFinish, true, 'boost and slower comments overlap');
     assert.equal(boostWrites, 1);
     assert.equal(rewardWrites, 1);
+    assert.equal(reviewWrites, 1);
+    assert.equal(reviewVisits.length, 1);
+    assert.match(document.getElementById('stove-status-review-event').textContent, /댓글 등록 완료/);
+    assert.match(document.getElementById('stove-status-review-event').title, /지급 여부는 별도 확인/);
     assert.match(document.getElementById('stove-status-boost').textContent, /1\/1.*잔여 4회/);
     assert.match(document.getElementById('stove-status-boost-reward').textContent, /3,000 F 수령 완료/);
     assert.match(document.getElementById('stove-log-content').textContent, /오늘의 1등 미션: 3000 FLAKE/);
+    // Re-running full automation must not repeat the review comment or the already claimed boost reward.
+    document.getElementById('stove-btn-start').click();
+    await waitUntil(() => document.documentElement.dataset.stoveAutomationStatus === 'done' || /^\[SG_DONE\]/.test(document.title));
+    assert.equal(reviewWrites, 1);
+    assert.equal(reviewVisits.length, 1);
+    assert.equal(boostWrites, 1);
+    assert.equal(rewardWrites, 1);
     assert.deepEqual(unexpected, []);
 });

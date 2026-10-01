@@ -125,6 +125,11 @@ export function buildAutomationPlan(snapshot = {}) {
             isSectionKnown(majak)
                 ? task('followups:majakShop', 'majakShop')
                 : null
+        ]),
+        group('reviewEvent', 1, [
+            CONFIG.reviewEvent.enabled && isSectionKnown(snapshot.reviewEvent) && snapshot.reviewEvent.actionable === true
+                ? task('reviewEvent:comment', 'reviewEvent', { nonAuthoritativeRepair: true })
+                : null
         ])
     ]);
 

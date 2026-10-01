@@ -38,6 +38,17 @@ function missionSnapshot(missions) {
     ]);
 }
 
+test('review event is included once in full automation only when actionable and excluded from repair', () => {
+    const plan = buildAutomationPlan(baseSnapshot({ reviewEvent: { success: true, actionable: true } }));
+    assert.equal(findTask(plan, 'reviewEvent').nonAuthoritativeRepair, true);
+    assert.equal(plan.groups.find(group => group.id === 'reviewEvent').concurrency, 1);
+    for (const section of [undefined, { success: true, actionable: false },
+        { success: false, actionable: true }, { success: true, unknown: true, actionable: true }]) {
+        assert.equal(findTask(buildAutomationPlan(baseSnapshot({ reviewEvent: section })), 'reviewEvent'), undefined);
+    }
+    assert.equal(findTask(buildRepairPlan({ reviewEventIncomplete: true }), 'reviewEvent'), undefined);
+});
+
 test('boost schedules a single serial task only for a known 0/1 mission with remaining charges', () => {
     const boost = { success: true, remainingCount: 5, mission: { current: 0, required: 1, rewarded: false } };
     const plan = buildAutomationPlan(baseSnapshot({ boost }));

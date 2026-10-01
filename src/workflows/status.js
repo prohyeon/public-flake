@@ -12,6 +12,7 @@ import { log } from '../ui/logger.js';
 import { updateStatusUI } from '../ui/status.js';
 import { updatePointCashChargeButtonAvailability } from '../ui/pointCashCharge.js';
 import { checkBoostStatus } from './boost.js';
+import { checkReviewEventStatus } from './reviewEvent.js';
 
 export async function checkRouletteStatus(headers) {
     try {
@@ -215,6 +216,7 @@ export async function checkAllStatus() {
             majakShop: { loading: true },
             survey: { loading: true },
             boost: { loading: true },
+            reviewEvent: { loading: true },
             totalFlake: { loading: true },
             monthlyFlake: { loading: true }
         });
@@ -224,7 +226,7 @@ export async function checkAllStatus() {
             await getMissionComponentIds(headers);
         }
 
-        const [articleWriteStatus, dailyMissionStatus, rouletteStatus, dailyShopStatus, majakShopStatus, surveyStatus, totalFlake, monthlyFlake, boostStatus] = await Promise.all([
+        const [articleWriteStatus, dailyMissionStatus, rouletteStatus, dailyShopStatus, majakShopStatus, surveyStatus, totalFlake, monthlyFlake, boostStatus, reviewEventStatus] = await Promise.all([
             checkArticleWriteStatus(headers),
             checkDailyMissionStatus(headers),
             checkRouletteStatus(headers),
@@ -233,7 +235,8 @@ export async function checkAllStatus() {
             checkSurveyStatus(headers),
             getTotalFlakeBalance(headers),
             getMonthlyFlakeTotal(headers),
-            checkBoostStatus(headers)
+            checkBoostStatus(headers),
+            checkReviewEventStatus(headers)
         ]);
 
         updateStatusUI({
@@ -244,6 +247,7 @@ export async function checkAllStatus() {
             majakShop: majakShopStatus,
             survey: surveyStatus,
             boost: boostStatus,
+            reviewEvent: reviewEventStatus,
             totalFlake,
             monthlyFlake
         });
@@ -261,6 +265,7 @@ export async function checkAllStatus() {
             majakShop: { success: false, error: '확인 실패' },
             survey: { success: false, error: '확인 실패' },
             boost: { success: false, error: '확인 실패' },
+            reviewEvent: { success: false, error: '확인 실패' },
             totalFlake: { error: true },
             monthlyFlake: { error: true }
         });

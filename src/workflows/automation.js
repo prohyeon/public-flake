@@ -13,6 +13,7 @@ import { buildAutomationPlan, buildRepairPlan } from './automationPlan.js';
 import { runTaskGroups, flattenTaskResults, waitForBackgroundTasks } from './taskRunner.js';
 import { postCommentsSerially } from './comments.js';
 import { executeBoostMission, claimBoostMissionReward } from './boost.js';
+import { executeReviewEvent } from './reviewEvent.js';
 import { runRouletteDraws, claimRouletteExtraRewards } from './roulette.js';
 import { claimDailyShopRewards, claimMajakDailyShopRewards, claimDailyAccumulatedRewards } from './shop.js';
 import {
@@ -27,6 +28,7 @@ import { AUTOMATION_SIGNAL, setAutomationSignal } from '../utils/automationSigna
 export const REWARD_SHOP_URL = 'https://reward.onstove.com/ko';
 
 export function createAutomationTaskHandlers({ headers, articles = [], allTabs = [] }) {
+    let commentTask;
     return {
         requiredPages: async () => {
             const tabs = await visitRequiredPages();
@@ -102,8 +104,17 @@ export function createAutomationTaskHandlers({ headers, articles = [], allTabs =
             return { attempted: articlesToLike.length, liked, errors };
         },
 
-        comments: async () => postCommentsSerially({ headers, articles }),
+        comments: () => {
+            commentTask = postCommentsSerially({ headers, articles });
+            return commentTask;
+        },
         boostMission: async () => executeBoostMission(headers),
+        reviewEvent: async () => {
+            // Preserve the existing comment interval across the two community APIs.
+            const comments = await commentTask;
+            if (comments?.attempted > 0) await delay(CONFIG.delays.afterComment);
+            return executeReviewEvent(headers);
+        },
 
         singleVisits: async (task) => autoParticipateVisitMissions(headers, task),
 

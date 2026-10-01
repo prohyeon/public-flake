@@ -53,6 +53,15 @@ export const CONFIG = {
         verifyAttempts: 3,
         verifyDelay: 1000
     },
+    reviewEvent: {
+        enabled: true,
+        stickerUrl: 'https://d2x8kymwjom7h7.cloudfront.net/live/application_no/10009/partners-sns-api/sp7HsnbTri6Q.png',
+        visitDelay: 3000,
+        maxEventPages: 20,
+        maxCommentPages: 100,
+        verifyAttempts: 3,
+        verifyDelay: 1000
+    },
     contentMissions: {
         enabled: true
     },

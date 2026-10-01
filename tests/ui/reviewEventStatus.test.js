@@ -1,0 +1,35 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { JSDOM } from 'jsdom';
+import { updateStatusUI } from '../../src/ui/status.js';
+import { checkReviewEventStatus, executeReviewEvent } from '../../src/workflows/reviewEvent.js';
+import { reviewEventFixture } from '../helpers/reviewEventFixture.js';
+
+test('review dashboard shows period and comment state safely and never claims an unverified reward', async t => {
+    const dom = new JSDOM('<span id="stove-status-review-event"></span><span id="stove-status-review-period"></span><span id="stove-status-review-target"></span>');
+    const originalDocument = globalThis.document;
+    globalThis.document = dom.window.document;
+    t.after(() => { globalThis.document = originalDocument; dom.window.close(); });
+    const get = suffix => dom.window.document.getElementById(`stove-status-review-${suffix}`);
+    const f = reviewEventFixture();
+    f.article.title = '<img src=x onerror=alert(1)>';
+    updateStatusUI({ reviewEvent: { loading: true } });
+    assert.match(get('event').textContent, /확인 중/);
+    updateStatusUI({ reviewEvent: await checkReviewEventStatus({}, f.deps) });
+    assert.match(get('event').textContent, /0\/1/);
+    assert.match(get('period').textContent, /2026-10-01 ~ 2026-10-04.*한국 시간/);
+    assert.equal(get('target').querySelector('img'), null);
+    assert.match(get('target').textContent, /<img/);
+    await executeReviewEvent({}, f.deps);
+    updateStatusUI({ reviewEvent: await checkReviewEventStatus({}, f.deps) });
+    assert.match(get('event').textContent, /댓글 등록 완료/);
+    assert.match(get('event').title, /지급 여부는 별도 확인/);
+    assert.doesNotMatch(get('event').textContent, /보상.*완료/);
+    updateStatusUI({ reviewEvent: { success: true, reason: 'pending' } });
+    assert.match(get('event').textContent, /확인 대기/);
+    updateStatusUI({ reviewEvent: { success: true, reason: 'expired' } });
+    assert.match(get('event').textContent, /기간 종료/);
+    updateStatusUI({ reviewEvent: { success: false, error: 'offline' } });
+    assert.equal(get('target').querySelector('a'), null);
+    assert.match(get('event').title, /offline/);
+});

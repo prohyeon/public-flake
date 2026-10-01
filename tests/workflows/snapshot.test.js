@@ -13,7 +13,30 @@ import {
 
 // Legacy snapshot cases isolate their existing sections from the new read-only service.
 const captureAutomationSnapshot = (headers, deps) => captureSnapshot(headers, {
+    checkReviewEventStatus: async () => ({ success: true, actionable: false, reason: 'noEvent' }),
     checkBoostStatus: async () => ({ success: true, notAvailable: true }), ...deps
+});
+
+test('review event snapshot is actionable only on a known successful lookup and isolates failures', async () => {
+    const deps = {
+        getMissionComponentIds: async () => ({ daily: 100 }),
+        checkArticleWriteStatus: async () => ({ success: true, hasWrittenToday: true }),
+        getAllDailyMissions: async () => [],
+        getRouletteParticipationCount: async () => ({ value: { participation_cnt: 30 } }),
+        getRouletteExtra: async () => ({ value: { milestones: [] } }),
+        getDailyShopRewards: async () => ({ value: { daily_attendances: { rewards: [] } } }),
+        getMajakDailyShopRewards: async () => ({ value: { daily_attendances: { rewards: [] } } }),
+        getTotalFlakeBalance: async () => 100, getMonthlyFlakeTotal: async () => 50
+    };
+    const status = { success: true, actionable: true, reason: 'ready' };
+    const known = await captureAutomationSnapshot({}, { ...deps, checkReviewEventStatus: async () => status });
+    assert.equal(known.reviewEvent, status);
+    assert.equal(known.degraded, false);
+    const unknown = await captureAutomationSnapshot({}, { ...deps,
+        checkReviewEventStatus: async () => { throw new Error('offline'); } });
+    assert.equal(unknown.reviewEvent.actionable, false);
+    assert.deepEqual(Object.keys(unknown.errors), ['reviewEvent']);
+    assert.equal(unknown.roulette.success, true);
 });
 
 let originalMissionComponents;
