@@ -1,5 +1,5 @@
 export const CONFIG = {
-    version: '2.10.0',
+    version: '2.11.0',
     lastUpdated: '2026-10-01',
     maintenanceMode: {
         enabled: false,

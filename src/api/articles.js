@@ -2,9 +2,13 @@ import { CONFIG } from '../config.js';
 import { apiRequest } from './request.js';
 import { getTimestamp } from '../utils/time.js';
 
+function makeLoungeHeaders(headers) {
+    return { ...headers, 'caller-id': 'lounge', 'x-lang': 'KO' };
+}
+
 export async function getArticleList(headers, size = 30) {
-    const url = `${CONFIG.api.baseUrl}/postie/v2.0/interest/article/list?size=${size}&timestemp=${getTimestamp()}`;
-    const response = await apiRequest(url, 'GET', headers);
+    const url = `${CONFIG.api.baseUrl}/stadium-api/v1.0/today/all?size=${size}`;
+    const response = await apiRequest(url, 'GET', makeLoungeHeaders(headers));
     return response.value?.list || [];
 }
 
@@ -28,7 +32,7 @@ export async function postComment(headers, articleId, content) {
         content: `<p>${content}</p>`,
         attached: { media_ids: [] }
     };
-    const response = await apiRequest(url, 'POST', headers, body);
+    const response = await apiRequest(url, 'POST', makeLoungeHeaders(headers), body);
     return response.value?.comment_id;
 }
 

@@ -1,3 +1,4 @@
+import { collectSpecialForceRewards } from './specialForce.js';
 import { CONFIG } from '../config.js';
 import { state } from '../state.js';
 import { delay } from '../utils/time.js';
@@ -275,7 +276,7 @@ export async function runAutomation() {
     state.earnings = {
         roulette: 0, rouletteExtra: 0, dailyShop: 0, majak: 0,
         dailyMissions: 0, contentMissions: 0, weeklyMissions: 0, bannerMissions: 0,
-        attendanceMissions: 0, surveyMissions: 0, prizeEntry: 0, dailyAccumulated: 0, boostMission: 0
+        attendanceMissions: 0, surveyMissions: 0, prizeEntry: 0, dailyAccumulated: 0, boostMission: 0, specialForce: 0
     };
 
     try {
@@ -380,6 +381,7 @@ export async function runAutomation() {
             }
         }
 
+        const specialForceResult = await collectSpecialForceRewards(headers);
         const dailyAccumulatedFlake = state.earnings.dailyAccumulated || 0;
 
         // Calculate earnings summary
@@ -401,6 +403,7 @@ export async function runAutomation() {
             (state.earnings.surveyMissions || 0) +
             (state.earnings.prizeEntry || 0) +
             (state.earnings.boostMission || 0) +
+            (state.earnings.specialForce || 0) +
             (dailyAccumulatedFlake || 0);
 
         if (isNaN(totalEarnings)) {
@@ -411,7 +414,7 @@ export async function runAutomation() {
         const profitSign = totalEarnings >= 0 ? '+' : '';
 
         log('', 'info');
-        log('🎉 전체 자동화 완료!', 'success');
+        log(specialForceResult.success ? '🎉 전체 자동화 완료!' : '스페셜포스 확인이 필요합니다. 다른 작업의 결과를 표시합니다.', specialForceResult.success ? 'success' : 'warning');
         log('', 'info');
         log('═══════════════════════════════════════', 'info');
         log('💰 최종 FLAKE 수익 요약', 'success');
@@ -433,11 +436,12 @@ export async function runAutomation() {
         log(`  💝 데일리 보상: ${state.earnings.dailyShop} FLAKE`, state.earnings.dailyShop > 0 ? 'success' : 'info');
         log(`  🎁 데일리 누적 보상: ${dailyAccumulatedFlake} FLAKE`, dailyAccumulatedFlake > 0 ? 'success' : 'info');
         log(`  🀄 마작 리워드: ${state.earnings.majak} FLAKE`, state.earnings.majak > 0 ? 'success' : 'info');
+        log(`  🎮 스페셜포스: ${state.earnings.specialForce || 0} FLAKE`, 'info');
         log('───────────────────────────────────────', 'info');
         log(`  📊 총 순수익: ${profitSign}${totalEarnings} FLAKE`, totalEarnings >= 0 ? 'success' : 'warning');
         log('═══════════════════════════════════════', 'info');
 
-        playCompletionSound();
+        if (specialForceResult.success) playCompletionSound();
 
         state.completed.roulette = true;
         state.completed.dailyShop = true;
@@ -458,8 +462,13 @@ export async function runAutomation() {
         log('✅ 상태 업데이트 완료!', 'success');
 
         log('', 'info');
-        log('🎊 모든 작업이 완료되었습니다!', 'success');
-        setAutomationSignal(AUTOMATION_SIGNAL.done, '전체 자동화 완료');
+        if (!specialForceResult.success) {
+            log(`스페셜포스 확인 필요: ${specialForceResult.error}`, 'warning');
+            setAutomationSignal(AUTOMATION_SIGNAL.error, '스페셜포스 보상 확인 필요');
+        } else {
+            log('🎊 모든 작업이 완료되었습니다!', 'success');
+            setAutomationSignal(AUTOMATION_SIGNAL.done, '전체 자동화 완료');
+        }
 
     } catch (error) {
         setAutomationSignal(AUTOMATION_SIGNAL.error, error.message || '자동화 실패');

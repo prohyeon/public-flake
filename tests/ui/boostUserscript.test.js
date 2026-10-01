@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { boostFixture, boostCandidate } from '../helpers/boostFixture.js';
 import { reviewEventFixture } from '../helpers/reviewEventFixture.js';
+import { specialForceShop } from '../helpers/specialForceFixture.js';
 
 const userscript = readFileSync(new URL('../../stove-quest-automation.user.js', import.meta.url), 'utf8');
 
@@ -18,6 +19,11 @@ test('distributed dashboard only reads status; full automation queries five time
     const today = new Date(now + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const reviewEvent = { ...reviewEventFixture().event, expose_start_at: today, expose_end_at: today };
     const reviewComments = [];
+    const sfShop = specialForceShop();
+    sfShop.date_info.attend_start_dt = `${today}T00:00:00`;
+    sfShop.date_info.attend_end_dt = `${new Date(now + 13 * 86400000 + 9 * 3600000).toISOString().slice(0, 10)}T23:59:59`;
+    let sfWrites = 0;
+    let sfUnavailable = false;
     let reviewWrites = 0;
     const reviewVisits = [];
     const mission = boostFixture().mission;
@@ -93,11 +99,22 @@ test('distributed dashboard only reads status; full automation queries five time
             value = { mission_id: 1, rewards: [{ type: 'FLAKE', amount: 3000 }] };
         } else if (path.endsWith('/user/me')) value = { user_id: '100' };
         else if (path.includes('/interest/user/')) value = { list: [{ datetime: now }] };
-        else if (path === '/postie/v2.0/interest/article/list') value = { list: Array.from({ length: 5 }, (_, i) => ({ article_id: String(21 + i) })) };
+        else if (path === '/stadium-api/v1.0/today/all') {
+            assert.equal(url.searchParams.get('size'), '30');
+            assert.equal(config.headers['caller-id'], 'lounge');
+            assert.equal(config.headers['x-lang'], 'KO');
+            value = { has_next: true, token: 'test-cursor', size: 30,
+                list: Array.from({ length: 5 }, (_, i) => ({ article_id: String(21 + i) })) };
+        }
         else if (path.endsWith('/interaction/LIKE')) {
             const ids = path.split('/')[4].split(',');
             value = Object.fromEntries(ids.map(id => [id, { LIKE: false }]));
         } else if (path.endsWith('/comment') && config.method === 'POST') {
+            const articleId = path.split('/')[4];
+            assert.ok(['21', '22', '23', '24', '25'].includes(articleId), 'comment target comes from the new lounge list');
+            assert.equal(JSON.parse(config.data).article_id, articleId);
+            assert.equal(config.headers['caller-id'], 'lounge');
+            assert.equal(config.headers['x-lang'], 'KO');
             comments++;
             if (comments === 5) { mission.details[1].current_count = 1; mission.is_completed = true; }
             value = { comment_id: String(comments) };
@@ -106,6 +123,16 @@ test('distributed dashboard only reads status; full automation queries five time
         else if (path === '/emsbackapi/v3.0/participationCnt') value = { participation_cnt: 30 };
         else if (path === '/emsbackapi/v3.0/extra') value = { current_cnt: 0, milestones: [] };
         else if (path === '/emsbackapi/v3.0/events' || path === '/emsbackapi/v3.0/apply') value = {};
+        else if (path === '/dailyshop/v1.0/services/family-links') value = sfUnavailable ? [] : [{ service_id: 'specialforce', progress_month: '202610' }];
+        else if (path === '/dailyshop/v1.0/202610/services/specialforce') value = sfShop;
+        else if (path === '/dailyshop/v1.0/attendances/accumulate-play/flake' && config.method === 'POST') {
+            assert.equal(config.headers['caller-id'], 'event-hub');
+            assert.deepEqual(JSON.parse(config.data), { item_no: 25 });
+            assert.equal(sfShop.accumulated_plays.rewards[0].is_received, false);
+            sfWrites++;
+            sfShop.accumulated_plays.rewards[0].is_received = true;
+            value = { item_no: 25, category: 'ACCUMULATE_PLAY', flake_amount: 1000 };
+        }
         else if (path.startsWith('/dailyshop/')) value = { daily_attendances: { rewards: [] }, accumulated_attendances: { rewards: [] } };
         else if (path === '/mileage/v1.0/balance') value = { mileage_amount: mission.is_rewarded ? 13000 : 10000 };
         else if (path === '/mileage/v2.0/master/deposit/total') value = { total_deposit_amount: mission.is_rewarded ? 3000 : 0 };
@@ -124,6 +151,8 @@ test('distributed dashboard only reads status; full automation queries five time
     await waitUntil(() => /0\/1/.test(document.getElementById('stove-status-review-event').textContent));
     assert.equal(reviewVisits.length, 0, 'dashboard does not visit or participate');
     assert.equal(calls.some(call => call.method !== 'GET'), false, 'dashboard refresh makes no mutation');
+    assert.match(document.getElementById('stove-special-force-data').textContent, /14일 행사/);
+    assert.match(document.getElementById('stove-special-force-data').textContent, /보상 0\/7개/);
     assert.equal(calls.some(call => call.path.endsWith('/realtime-ranking')), false, 'status reads do not consume the five-query search');
     document.getElementById('stove-btn-start').click();
     await waitUntil(() => document.documentElement.dataset.stoveAutomationStatus === 'done' || /^\[SG_DONE\]/.test(document.title));
@@ -131,6 +160,9 @@ test('distributed dashboard only reads status; full automation queries five time
     assert.equal(putBeforeCommentsFinish, true, 'boost and slower comments overlap');
     assert.equal(boostWrites, 1);
     assert.equal(rewardWrites, 1);
+    assert.equal(sfWrites, 1);
+    assert.match(document.getElementById('stove-special-force-data').textContent, /보상 1\/7개/);
+    assert.match(document.getElementById('stove-log-content').textContent, /스페셜포스: 1000 FLAKE/);
     assert.equal(reviewWrites, 1);
     assert.equal(reviewVisits.length, 1);
     assert.match(document.getElementById('stove-status-review-event').textContent, /댓글 등록 완료/);
@@ -145,5 +177,9 @@ test('distributed dashboard only reads status; full automation queries five time
     assert.equal(reviewVisits.length, 1);
     assert.equal(boostWrites, 1);
     assert.equal(rewardWrites, 1);
+    assert.equal(sfWrites, 1, 'repeating full automation does not claim a received SF reward again');
+    sfUnavailable = true;
+    document.getElementById('stove-btn-special-force-refresh').click();
+    await waitUntil(() => /공개된 스페셜포스 행사가 없습니다/.test(document.getElementById('stove-special-force-data').textContent));
     assert.deepEqual(unexpected, []);
 });

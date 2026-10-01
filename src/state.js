@@ -31,7 +31,8 @@ export const state = {
         surveyMissions: 0,
         prizeEntry: 0,
         dailyAccumulated: 0,
-        boostMission: 0
+        boostMission: 0,
+        specialForce: 0
     },
     missionComponents: {
         daily: null,

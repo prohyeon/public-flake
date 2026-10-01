@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.10.0
+// @version      2.11.0
 // @author       prohyeon
 // @description  STOVE 자동화 (게시글 추천, 댓글, 글쓰기, 부스트 1회, 게임 리뷰 이벤트 댓글, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -19,7 +19,7 @@
   'use strict';
 
   const CONFIG = {
-    version: "2.10.0",
+    version: "2.11.0",
     lastUpdated: "2026-10-01",
     maintenanceMode: {
       enabled: false,
@@ -134,152 +134,6 @@
       pointMallId: "STOVE_MILEAGE"
     }
   };
-  function log(message, type = "info") {
-    const logContent = document.getElementById("stove-log-content");
-    if (!logContent) return;
-    const icons = { success: "✓", error: "✗", info: "⏳", warning: "⚠️" };
-    const colors = { success: "#10b981", error: "#ef4444", info: "#3b82f6", warning: "#f59e0b" };
-    const entry = document.createElement("div");
-    entry.style.color = colors[type];
-    entry.style.padding = "4px 0";
-    entry.textContent = `${icons[type]} ${message}`;
-    logContent.appendChild(entry);
-    const logSection = document.querySelector(".stove-log-section");
-    if (logSection) {
-      logSection.scrollTop = logSection.scrollHeight;
-    }
-  }
-  const state = {
-    isRunning: false,
-    progress: {
-      articleLikes: 0,
-      comments: 0,
-      newArticle: 0
-    },
-    completed: {
-      roulette: false,
-      dailyShop: false,
-      majak: false,
-      dailyMissions: false,
-      contentMissions: false,
-      weeklyMissions: false,
-      bannerMissions: false,
-      attendanceMissions: false,
-      surveyMissions: false,
-      prizeEntry: false
-    },
-    createdCommentIds: [],
-    earnings: {
-      roulette: 0,
-      rouletteExtra: 0,
-      dailyShop: 0,
-      majak: 0,
-      dailyMissions: 0,
-      contentMissions: 0,
-      weeklyMissions: 0,
-      bannerMissions: 0,
-      attendanceMissions: 0,
-      surveyMissions: 0,
-      prizeEntry: 0,
-      dailyAccumulated: 0,
-      boostMission: 0
-    },
-    missionComponents: {
-      daily: null,
-      dailyComponents: [],
-      content: null,
-      weekly: null,
-      survey: null,
-      banner: null,
-      attendance: null
-    },
-    rouletteEvents: {
-      draw: null,
-      extra: null,
-      apply: null,
-      checkIn: null
-    },
-    prizeInfo: {
-      eventNo: null,
-      giftNo: null,
-      giftName: null,
-      flakeCost: null
-    },
-    pointCashCharge: {
-      availableFlake: null,
-      hasRequiredFlake: false
-    }
-  };
-  function getKSTDate() {
-    const now = /* @__PURE__ */ new Date();
-    const kstTime = new Date(now.getTime() + 9 * 60 * 60 * 1e3);
-    const year = kstTime.getUTCFullYear();
-    const month = String(kstTime.getUTCMonth() + 1).padStart(2, "0");
-    const day2 = String(kstTime.getUTCDate()).padStart(2, "0");
-    return `${year}-${month}-${day2}`;
-  }
-  function delay(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-  function getTimestamp() {
-    return Date.now();
-  }
-  function getTodayString() {
-    const today = /* @__PURE__ */ new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, "0");
-    const day2 = String(today.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day2}`;
-  }
-  function getTodayKSTString() {
-    const today = /* @__PURE__ */ new Date();
-    const kstOffset = 9 * 60;
-    const kstDate = new Date(today.getTime() + kstOffset * 60 * 1e3);
-    return kstDate.toISOString().split("T")[0];
-  }
-  function getCookie(name) {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(";").shift();
-    return null;
-  }
-  function extractHeaders() {
-    const token = getCookie("SUAT");
-    const uuid = localStorage.getItem("sgs_da_uuid") || getCookie("sgs_da_uuid");
-    if (!token) throw new Error("Authorization token (SUAT) not found");
-    if (!uuid) throw new Error("UUID (sgs_da_uuid) not found");
-    return {
-      "Authorization": `Bearer ${token}`,
-      "caller-id": "storee-lounge",
-      "X-UUID": uuid,
-      "x-lang": "ko",
-      "x-nation": "KR",
-      "x-device-type": "P01",
-      "Accept": "application/json, text/plain, */*",
-      "Content-Type": "application/json",
-      "Origin": "https://lounge.onstove.com",
-      "Referer": "https://lounge.onstove.com/"
-    };
-  }
-  function playCompletionSound() {
-    try {
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime);
-      oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1);
-      oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2);
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
-    } catch (e) {
-      console.log("[사운드 재생 실패]", e);
-    }
-  }
   function apiRequest(url, method, headers, body = null, options = {}) {
     return new Promise((resolve, reject) => {
       const requestConfig = {
@@ -319,10 +173,465 @@
       GM_xmlhttpRequest(requestConfig);
     });
   }
+  const SPECIAL_FORCE_GAME_ID = "GM-2A26-6A4CAF50_IND";
+  function eventHeaders(headers) {
+    return {
+      ...headers,
+      "caller-id": "event-hub",
+      "caller-detail": headers["X-UUID"],
+      Origin: "https://event.onstove.com",
+      Referer: "https://event.onstove.com/",
+      "X-Timezone": "Asia/Seoul",
+      "X-Utc-Offset": "540"
+    };
+  }
+  function requireOK(response) {
+    if ((response == null ? void 0 : response.code) !== 0 || !response.value) {
+      throw new Error(`스페셜포스 API 확인 실패 (code=${(response == null ? void 0 : response.code) ?? "없음"})`);
+    }
+    return response.value;
+  }
+  async function getSpecialForceShop(headers) {
+    var _a;
+    const links = requireOK(await apiRequest(
+      `${CONFIG.api.baseUrl}/dailyshop/v1.0/services/family-links`,
+      "GET",
+      eventHeaders(headers),
+      null,
+      { timeout: 15e3 }
+    ));
+    if (!Array.isArray(links)) throw new Error("행사 목록 형식 확인 실패");
+    const month = (_a = links.find((link) => link.service_id === "specialforce")) == null ? void 0 : _a.progress_month;
+    if (!month) return { notAvailable: true };
+    if (!/^\d{6}$/.test(String(month))) throw new Error("행사 월 형식 확인 실패");
+    const value = requireOK(await apiRequest(
+      `${CONFIG.api.baseUrl}/dailyshop/v1.0/${month}/services/specialforce`,
+      "GET",
+      eventHeaders(headers),
+      null,
+      { timeout: 15e3 }
+    ));
+    return { ...value, month: String(month) };
+  }
+  async function claimSpecialForceReward(headers, reward) {
+    if (reward.item_type !== "FLAKE" || !Number.isSafeInteger(reward.item_no) || reward.item_no <= 0) {
+      throw new Error("지원하지 않는 스페셜포스 보상");
+    }
+    const value = requireOK(await apiRequest(
+      `${CONFIG.api.baseUrl}/dailyshop/v1.0/attendances/accumulate-play/flake?item_no=${reward.item_no}`,
+      "POST",
+      eventHeaders(headers),
+      { item_no: reward.item_no },
+      { timeout: 15e3 }
+    ));
+    if (value.item_no !== reward.item_no || value.category !== "ACCUMULATE_PLAY" || !Number.isFinite(value.flake_amount) || value.flake_amount < 0) {
+      throw new Error("보상 응답 일치 확인 실패; 상태를 새로고침해 주세요");
+    }
+    return value;
+  }
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(";").shift();
+    return null;
+  }
+  function extractHeaders() {
+    const token = getCookie("SUAT");
+    const uuid = localStorage.getItem("sgs_da_uuid") || getCookie("sgs_da_uuid");
+    if (!token) throw new Error("Authorization token (SUAT) not found");
+    if (!uuid) throw new Error("UUID (sgs_da_uuid) not found");
+    return {
+      "Authorization": `Bearer ${token}`,
+      "caller-id": "storee-lounge",
+      "X-UUID": uuid,
+      "x-lang": "ko",
+      "x-nation": "KR",
+      "x-device-type": "P01",
+      "Accept": "application/json, text/plain, */*",
+      "Content-Type": "application/json",
+      "Origin": "https://lounge.onstove.com",
+      "Referer": "https://lounge.onstove.com/"
+    };
+  }
+  const state = {
+    isRunning: false,
+    progress: {
+      articleLikes: 0,
+      comments: 0,
+      newArticle: 0
+    },
+    completed: {
+      roulette: false,
+      dailyShop: false,
+      majak: false,
+      dailyMissions: false,
+      contentMissions: false,
+      weeklyMissions: false,
+      bannerMissions: false,
+      attendanceMissions: false,
+      surveyMissions: false,
+      prizeEntry: false
+    },
+    createdCommentIds: [],
+    earnings: {
+      roulette: 0,
+      rouletteExtra: 0,
+      dailyShop: 0,
+      majak: 0,
+      dailyMissions: 0,
+      contentMissions: 0,
+      weeklyMissions: 0,
+      bannerMissions: 0,
+      attendanceMissions: 0,
+      surveyMissions: 0,
+      prizeEntry: 0,
+      dailyAccumulated: 0,
+      boostMission: 0,
+      specialForce: 0
+    },
+    missionComponents: {
+      daily: null,
+      dailyComponents: [],
+      content: null,
+      weekly: null,
+      survey: null,
+      banner: null,
+      attendance: null
+    },
+    rouletteEvents: {
+      draw: null,
+      extra: null,
+      apply: null,
+      checkIn: null
+    },
+    prizeInfo: {
+      eventNo: null,
+      giftNo: null,
+      giftName: null,
+      flakeCost: null
+    },
+    pointCashCharge: {
+      availableFlake: null,
+      hasRequiredFlake: false
+    }
+  };
+  function log(message, type = "info") {
+    const logContent = document.getElementById("stove-log-content");
+    if (!logContent) return;
+    const icons = { success: "✓", error: "✗", info: "⏳", warning: "⚠️" };
+    const colors = { success: "#10b981", error: "#ef4444", info: "#3b82f6", warning: "#f59e0b" };
+    const entry = document.createElement("div");
+    entry.style.color = colors[type];
+    entry.style.padding = "4px 0";
+    entry.textContent = `${icons[type]} ${message}`;
+    logContent.appendChild(entry);
+    const logSection = document.querySelector(".stove-log-section");
+    if (logSection) {
+      logSection.scrollTop = logSection.scrollHeight;
+    }
+  }
+  function element(tag, className, text) {
+    const node = document.createElement(tag);
+    node.className = className;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+  function emptyState(panel, tone, title, description) {
+    const box = element("div", `stove-sf-empty stove-sf-empty--${tone}`);
+    const icon = element("span", "stove-sf-empty-icon", tone === "error" ? "!" : tone === "loading" ? "↻" : "◇");
+    icon.setAttribute("aria-hidden", "true");
+    const content = element("div", "stove-sf-empty-content");
+    content.append(element("strong", "", title));
+    if (description) content.append(element("p", "", description));
+    box.append(icon, content);
+    panel.append(box);
+  }
+  function metric(label, value, accent = "") {
+    const box = element("div", `stove-sf-metric ${accent}`);
+    box.append(
+      element("span", "stove-sf-metric-label", label),
+      document.createTextNode(" "),
+      element("strong", "stove-sf-metric-value", value)
+    );
+    return box;
+  }
+  function rewardState(reward, status) {
+    if (reward.is_received) return { tone: "received", label: "수령 완료", icon: "✓" };
+    if (reward.sold_out) return { tone: "unavailable", label: "품절", icon: "—" };
+    if (status.claimable.some((item) => item.item_no === reward.item_no)) return { tone: "claimable", label: "수령 가능", icon: "↓" };
+    if (status.ended) return { tone: "unavailable", label: "행사 종료", icon: "—" };
+    if (status.notStarted) return { tone: "locked", label: "시작 전", icon: "◇" };
+    if (reward.eligible) return { tone: "unavailable", label: reward.item_type === "FLAKE" ? "교환 조건 확인" : "상점에서 확인", icon: "!" };
+    const remaining = Math.max(0, reward.rewardable_days - status.totalPlayDays);
+    return { tone: "locked", label: remaining > 0 ? `${remaining}일 더 플레이` : "플레이 반영 대기", icon: "◇" };
+  }
+  function renderSpecialForce(status) {
+    const panel = document.getElementById("stove-special-force-data");
+    const claim = document.getElementById("stove-btn-special-force-claim");
+    if (!panel) return;
+    panel.replaceChildren();
+    if (claim) claim.disabled = true;
+    panel.setAttribute("aria-busy", String(Boolean(status.loading)));
+    if (status.loading) {
+      emptyState(panel, "loading", "스페셜포스 서버 상태 확인 중…", "누적 플레이와 보상 수령 현황을 불러오고 있습니다.");
+      return;
+    }
+    if (!status.success) {
+      emptyState(panel, "error", "확인 실패", status.error || "상태를 불러오지 못했습니다. 새로고침해 주세요.");
+      return;
+    }
+    if (status.notAvailable) {
+      emptyState(panel, "idle", "현재 공개된 스페셜포스 행사가 없습니다", "새 행사가 공개되면 이곳에서 보상을 확인할 수 있습니다.");
+      return;
+    }
+    const date = (value) => new Intl.DateTimeFormat("ko-KR", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).format(new Date(value)).replace(/\.\s*/g, ".").replace(/\.$/, "");
+    const period = element("div", "stove-sf-period");
+    const dates = element("div", "stove-sf-dates");
+    dates.append(
+      element("span", "stove-sf-period-label", "행사 기간"),
+      element("span", "", `${date(status.start)} ~ ${date(status.end)}`),
+      element("span", "stove-sf-period-length", `${status.periodDays}일 행사`)
+    );
+    period.append(dates, element(
+      "span",
+      `stove-sf-period-badge${status.active ? " is-active" : ""}`,
+      status.notStarted ? "시작 전" : status.ended ? "종료" : `${status.remainingDays}일 남음`
+    ));
+    panel.append(period);
+    const summary = element("div", "stove-sf-summary");
+    const play = metric("누적 플레이", `${status.totalPlayDays}/${status.targetDays}일`);
+    const progress = element("div", "stove-sf-progress");
+    progress.setAttribute("role", "progressbar");
+    progress.setAttribute("aria-label", "누적 플레이 달성률");
+    progress.setAttribute("aria-valuemin", "0");
+    progress.setAttribute("aria-valuemax", String(status.targetDays || 1));
+    progress.setAttribute("aria-valuenow", String(Math.min(status.totalPlayDays, status.targetDays || 1)));
+    progress.setAttribute("aria-valuetext", `${status.totalPlayDays}일 플레이 / 목표 ${status.targetDays}일`);
+    const fill = element("span", "stove-sf-progress-fill");
+    fill.style.width = `${status.targetDays > 0 ? Math.min(100, status.totalPlayDays / status.targetDays * 100) : 0}%`;
+    progress.append(fill);
+    play.append(progress);
+    summary.append(
+      play,
+      metric("수령한 보상", `${status.receivedCount}/${status.rewardCount}개`),
+      metric("수령 가능", `${status.claimable.length}개`, status.claimable.length > 0 ? "is-claimable" : "")
+    );
+    panel.append(summary);
+    const grid = element("div", "stove-sf-rewards");
+    grid.setAttribute("role", "list");
+    grid.setAttribute("aria-label", "누적 플레이 일차별 보상");
+    for (const reward of status.rewards) {
+      const decoder = document.createElement("textarea");
+      decoder.innerHTML = String(reward.item_name || "보상").replace(/</g, "&lt;");
+      const display = rewardState(reward, status);
+      const card = element("div", `stove-sf-reward is-${display.tone}`);
+      card.setAttribute("role", "listitem");
+      card.title = decoder.value;
+      const heading = element("div", "stove-sf-reward-heading");
+      const icon = element("span", "stove-sf-reward-icon", display.icon);
+      icon.setAttribute("aria-hidden", "true");
+      heading.append(element("span", "stove-sf-day", `${reward.rewardable_days}일차`), icon);
+      const flake = reward.item_type === "FLAKE" && Number.isFinite(reward.flake_amount);
+      const amount = element("strong", "stove-sf-reward-amount", flake ? reward.flake_amount.toLocaleString("ko-KR") : "게임 아이템");
+      if (flake) amount.append(element("span", "stove-sf-reward-unit", " F"));
+      const bonus = flake ? decoder.value.replace(/^\s*[\d,]+\s*플레이크\s*(?:&|\+|및)\s*/, "") : decoder.value;
+      card.append(
+        heading,
+        amount,
+        element("p", "stove-sf-reward-detail", bonus),
+        element("span", "stove-sf-reward-state", display.label)
+      );
+      grid.append(card);
+    }
+    panel.append(grid);
+    const note = element("div", "stove-sf-note");
+    note.append(
+      element("span", "", "정상 게임 종료 후 기록 반영에 최대 5분이 걸릴 수 있습니다."),
+      element("span", "stove-sf-checked", `최근 확인 ${new Date(status.checkedAt).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul" })}`)
+    );
+    panel.append(note);
+    const link = document.getElementById("stove-special-force-link");
+    if (link && /^\d{6}$/.test(status.month)) link.href = `https://event.onstove.com/ko/dailyshop/specialforce/${status.month}`;
+    if (claim) claim.disabled = status.claimable.length === 0 || state.isRunning;
+  }
+  const DAY = 864e5;
+  function normalizeSpecialForce(value, now = /* @__PURE__ */ new Date()) {
+    if (value == null ? void 0 : value.notAvailable) return { success: true, notAvailable: true };
+    const dates = value == null ? void 0 : value.date_info;
+    const parse = (date) => new Date(/(?:Z|[+-]\d{2}:\d{2})$/.test(date || "") ? date : `${date}+09:00`);
+    const start = parse(dates == null ? void 0 : dates.attend_start_dt), end = parse(dates == null ? void 0 : dates.attend_end_dt);
+    const plays = value == null ? void 0 : value.accumulated_plays;
+    if ((value == null ? void 0 : value.service_id) !== SPECIAL_FORCE_GAME_ID || value.attendance_type !== "ACCUMULATED_PLAY_SYSTEM" || !Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end < start || !Number.isSafeInteger(plays == null ? void 0 : plays.total_play_days) || plays.total_play_days < 0 || !Array.isArray(plays.rewards) || ![value.event_not_started, value.event_ended, value.exchange_condition].every((flag) => typeof flag === "boolean")) {
+      throw new Error("스페셜포스 상태 형식 확인 실패");
+    }
+    const seen = /* @__PURE__ */ new Set();
+    const rewards = plays.rewards.map((reward) => {
+      if (!Number.isSafeInteger(reward.item_no) || reward.item_no <= 0 || seen.has(reward.item_no) || !Number.isSafeInteger(reward.rewardable_days) || reward.rewardable_days <= 0 || ![reward.eligible, reward.is_received, reward.sold_out].every((flag) => typeof flag === "boolean")) {
+        throw new Error("스페셜포스 보상 형식 확인 실패");
+      }
+      seen.add(reward.item_no);
+      return { ...reward };
+    }).sort((a, b) => a.rewardable_days - b.rewardable_days);
+    const active = !value.event_not_started && !value.event_ended && now >= start && now <= end;
+    const claimable = rewards.filter((r) => active && value.exchange_condition && r.eligible && !r.is_received && !r.sold_out && r.item_type === "FLAKE");
+    return {
+      success: true,
+      month: value.month,
+      start: start.toISOString(),
+      end: end.toISOString(),
+      periodDays: Math.floor((end - start) / DAY) + 1,
+      remainingDays: active ? Math.max(1, Math.ceil((end - now) / DAY)) : 0,
+      active,
+      notStarted: value.event_not_started || now < start,
+      ended: value.event_ended || now > end,
+      exchangeCondition: value.exchange_condition,
+      totalPlayDays: plays.total_play_days,
+      rewardCount: rewards.length,
+      targetDays: Math.max(0, ...rewards.map((r) => r.rewardable_days)),
+      receivedCount: rewards.filter((r) => r.is_received).length,
+      rewards,
+      claimable,
+      checkedAt: now.toISOString()
+    };
+  }
+  async function checkSpecialForce(headers, deps = {}) {
+    try {
+      return normalizeSpecialForce(await (deps.getShop || getSpecialForceShop)(headers), deps.now || /* @__PURE__ */ new Date());
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+  let busy = false;
+  async function collectSpecialForceRewards(headers, deps = {}) {
+    var _a, _b;
+    if (busy) return { success: false, error: "스페셜포스 작업이 진행 중입니다" };
+    busy = true;
+    const check = () => checkSpecialForce(headers, deps);
+    const assertSession = () => {
+      const current = (deps.getHeaders || extractHeaders)();
+      if (current.Authorization !== headers.Authorization) throw new Error("로그인 계정이 변경되어 작업을 중단했습니다");
+    };
+    let earned = 0;
+    const claimed = [];
+    try {
+      assertSession();
+      const before = await check();
+      if (!before.success) throw new Error(before.error);
+      for (const candidate of before.claimable || []) {
+        assertSession();
+        const fresh = await check();
+        if (!fresh.success) throw new Error(fresh.error);
+        const reward = (_a = fresh.claimable) == null ? void 0 : _a.find((r) => r.item_no === candidate.item_no);
+        if (!reward) continue;
+        assertSession();
+        const response = await (deps.claim || claimSpecialForceReward)(headers, reward);
+        earned += response.flake_amount;
+        claimed.push(reward.item_no);
+        state.earnings.specialForce = (state.earnings.specialForce || 0) + response.flake_amount;
+        log(`스페셜포스 ${reward.rewardable_days}일차: ${response.flake_amount.toLocaleString()} F 수령`, "success");
+      }
+      assertSession();
+      const after = await check();
+      renderSpecialForce(after);
+      if (!after.success || claimed.some((id2) => {
+        var _a2, _b2;
+        return !((_b2 = (_a2 = after.rewards) == null ? void 0 : _a2.find((r) => r.item_no === id2)) == null ? void 0 : _b2.is_received);
+      }) || (((_b = after.claimable) == null ? void 0 : _b.length) || 0) > 0) {
+        throw new Error("스페셜포스 보상 반영 확인 대기 — 새로고침 후 확인해 주세요");
+      }
+      if (!claimed.length) log("스페셜포스: 현재 수령 가능한 보상 없음 (실행 반영은 종료 후 최대 5분)", "info");
+      return { success: true, earned, claimed, before, after };
+    } catch (error) {
+      renderSpecialForce({ success: false, error: error.message });
+      log(`스페셜포스: ${error.message}`, "warning");
+      return { success: false, earned, claimed, error: error.message };
+    } finally {
+      busy = false;
+    }
+  }
+  async function refreshSpecialForce() {
+    renderSpecialForce({ loading: true });
+    try {
+      const headers = extractHeaders();
+      const result = await checkSpecialForce(headers);
+      if (extractHeaders().Authorization !== headers.Authorization) throw new Error("로그인 계정 변경 — 다시 조회해 주세요");
+      renderSpecialForce(result);
+      return result;
+    } catch (error) {
+      renderSpecialForce({ success: false, error: error.message });
+    }
+  }
+  async function receiveSpecialForce() {
+    if (state.isRunning) {
+      log("전체 자동화 완료 후 이용해 주세요", "warning");
+      return;
+    }
+    const button = document.getElementById("stove-btn-special-force-claim");
+    if (button) button.disabled = true;
+    try {
+      await collectSpecialForceRewards(extractHeaders());
+    } catch (error) {
+      renderSpecialForce({ success: false, error: error.message });
+    }
+  }
+  function getKSTDate() {
+    const now = /* @__PURE__ */ new Date();
+    const kstTime = new Date(now.getTime() + 9 * 60 * 60 * 1e3);
+    const year = kstTime.getUTCFullYear();
+    const month = String(kstTime.getUTCMonth() + 1).padStart(2, "0");
+    const day2 = String(kstTime.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day2}`;
+  }
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+  function getTimestamp() {
+    return Date.now();
+  }
+  function getTodayString() {
+    const today = /* @__PURE__ */ new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day2 = String(today.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day2}`;
+  }
+  function getTodayKSTString() {
+    const today = /* @__PURE__ */ new Date();
+    const kstOffset = 9 * 60;
+    const kstDate = new Date(today.getTime() + kstOffset * 60 * 1e3);
+    return kstDate.toISOString().split("T")[0];
+  }
+  function playCompletionSound() {
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime);
+      oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1);
+      oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2);
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+    } catch (e) {
+      console.log("[사운드 재생 실패]", e);
+    }
+  }
+  function makeLoungeHeaders(headers) {
+    return { ...headers, "caller-id": "lounge", "x-lang": "KO" };
+  }
   async function getArticleList(headers, size = 30) {
     var _a;
-    const url = `${CONFIG.api.baseUrl}/postie/v2.0/interest/article/list?size=${size}&timestemp=${getTimestamp()}`;
-    const response = await apiRequest(url, "GET", headers);
+    const url = `${CONFIG.api.baseUrl}/stadium-api/v1.0/today/all?size=${size}`;
+    const response = await apiRequest(url, "GET", makeLoungeHeaders(headers));
     return ((_a = response.value) == null ? void 0 : _a.list) || [];
   }
   async function likeArticle(headers, articleId2) {
@@ -344,7 +653,7 @@
       content: `<p>${content}</p>`,
       attached: { media_ids: [] }
     };
-    const response = await apiRequest(url, "POST", headers, body);
+    const response = await apiRequest(url, "POST", makeLoungeHeaders(headers), body);
     return (_a = response.value) == null ? void 0 : _a.comment_id;
   }
   async function createArticle(headers, title, content, tags = []) {
@@ -595,7 +904,7 @@
   }
   async function checkGameOwnership(headers, gameId) {
     const url = `${CONFIG.api.baseUrl}/ownership/v1/check_ownership_by_bgameid?game_id=${gameId}`;
-    const eventHeaders = {
+    const eventHeaders2 = {
       "Authorization": headers["Authorization"],
       "caller-id": "event-hub",
       "caller-detail": headers["X-UUID"] || headers["caller-detail"],
@@ -609,7 +918,7 @@
       "Origin": "https://event.onstove.com",
       "Referer": "https://event.onstove.com/"
     };
-    const response = await apiRequest(url, "GET", eventHeaders);
+    const response = await apiRequest(url, "GET", eventHeaders2);
     return response;
   }
   function makeRewardHeaders(headers) {
@@ -642,10 +951,10 @@
   async function getRouletteEventIds(headers) {
     var _a, _b, _c, _d;
     const url = `${CONFIG.api.baseUrl}/emsbackapi/v3.0/events?service_id1=STOVE_WEB&service_id2=FLAKE_WEB`;
-    const eventHeaders = { ...makeRewardHeaders(headers), "Accept": "application/json" };
+    const eventHeaders2 = { ...makeRewardHeaders(headers), "Accept": "application/json" };
     console.log("[룰렛 이벤트 ID 로드] URL:", url);
     try {
-      const response = await apiRequest(url, "GET", eventHeaders);
+      const response = await apiRequest(url, "GET", eventHeaders2);
       if (response && response.code === 0 && response.value) {
         const value = response.value;
         const events = { draw: null, extra: null, apply: null, checkIn: null };
@@ -804,8 +1113,8 @@
   }
   function updateProgress(task2, current, total) {
     if (task2) {
-      const element = document.getElementById(`stove-${task2}`);
-      if (element) element.textContent = `${current}/${total}`;
+      const element2 = document.getElementById(`stove-${task2}`);
+      if (element2) element2.textContent = `${current}/${total}`;
     }
     const questTotalTasks = CONFIG.targets.articleLikes + CONFIG.targets.comments + CONFIG.targets.newArticle;
     const questCompletedTasks = state.progress.articleLikes + state.progress.comments + state.progress.newArticle;
@@ -863,12 +1172,12 @@
   }
   async function claimDailyReward(headers, itemNo, rewardType) {
     const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/attendances/daily/${rewardType}?item_no=${itemNo}&reward_type=${rewardType}`;
-    const eventHeaders = {
+    const eventHeaders2 = {
       ...makeEventHeaders(headers),
       "Content-Type": "application/json"
     };
     const body = { item_no: itemNo, reward_type: rewardType };
-    const response = await apiRequest(url, "POST", eventHeaders, body);
+    const response = await apiRequest(url, "POST", eventHeaders2, body);
     return response;
   }
   async function getMajakDailyShopRewards(headers) {
@@ -889,13 +1198,13 @@
     let queryParams = `item_no=${itemNo}`;
     if (guid && characterSeq) queryParams += `&guid=${guid}&character_seq=${characterSeq}`;
     const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/attendances/accumulate/${endpointType}?${queryParams}`;
-    const eventHeaders = { ...makeEventHeaders(headers), "Content-Type": "application/json" };
+    const eventHeaders2 = { ...makeEventHeaders(headers), "Content-Type": "application/json" };
     const body = { item_no: itemNo };
     if (guid && characterSeq) {
       body.guid = guid;
       body.character_seq = characterSeq;
     }
-    const response = await apiRequest(url, "POST", eventHeaders, body);
+    const response = await apiRequest(url, "POST", eventHeaders2, body);
     return response;
   }
   async function claimMajakAccumulatedReward(headers, itemNo, itemType = "COUPON") {
@@ -905,9 +1214,9 @@
     else if (itemType === "COUPON" || itemType === "INDIE_SALE_COUPON") endpointType = "coupon";
     else endpointType = "coupon";
     const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/attendances/accumulate/${endpointType}?item_no=${itemNo}`;
-    const eventHeaders = { ...makeEventHeaders(headers), "Content-Type": "application/json" };
+    const eventHeaders2 = { ...makeEventHeaders(headers), "Content-Type": "application/json" };
     const body = { item_no: itemNo };
-    const response = await apiRequest(url, "POST", eventHeaders, body);
+    const response = await apiRequest(url, "POST", eventHeaders2, body);
     return response;
   }
   async function getMyProfile(headers) {
@@ -1024,20 +1333,20 @@
     const reward = document.getElementById("stove-status-boost-reward");
     const selected = document.getElementById("stove-status-boost-target");
     if (!progress || !reward || !selected) return;
-    for (const element of [progress, reward, selected]) {
-      element.replaceChildren();
-      element.title = "";
-      element.style.color = "#9ca3af";
+    for (const element2 of [progress, reward, selected]) {
+      element2.replaceChildren();
+      element2.title = "";
+      element2.style.color = "#9ca3af";
     }
     if (status.loading) {
-      for (const element of [progress, reward, selected]) element.textContent = "⏳ 확인 중...";
+      for (const element2 of [progress, reward, selected]) element2.textContent = "⏳ 확인 중...";
       return;
     }
     if (!status.success) {
-      for (const element of [progress, reward, selected]) {
-        element.textContent = "⚠️ 확인 실패";
-        element.style.color = "#ef4444";
-        element.title = status.error || "서버 상태 확인 실패";
+      for (const element2 of [progress, reward, selected]) {
+        element2.textContent = "⚠️ 확인 실패";
+        element2.style.color = "#ef4444";
+        element2.title = status.error || "서버 상태 확인 실패";
       }
       return;
     }
@@ -1089,10 +1398,10 @@
     const period = document.getElementById("stove-status-review-period");
     const target = document.getElementById("stove-status-review-target");
     if (!progress || !period || !target) return;
-    for (const element of [progress, period, target]) {
-      element.replaceChildren();
-      element.title = "";
-      element.style.color = "#9ca3af";
+    for (const element2 of [progress, period, target]) {
+      element2.replaceChildren();
+      element2.title = "";
+      element2.style.color = "#9ca3af";
     }
     if (status.loading) {
       progress.textContent = "⏳ 확인 중...";
@@ -2144,6 +2453,7 @@
   }
   async function checkAllStatus() {
     console.log("[상태 확인 시작]");
+    const specialForceRefresh = refreshSpecialForce();
     try {
       const headers = extractHeaders();
       updateStatusUI({
@@ -2186,6 +2496,7 @@
         monthlyFlake
       });
       updatePointCashChargeButtonAvailability(totalFlake);
+      await specialForceRefresh;
       console.log("[상태 확인] ✅ 완료");
     } catch (error) {
       console.error("[상태 확인 오류]", error);
@@ -4210,7 +4521,8 @@
       surveyMissions: 0,
       prizeEntry: 0,
       dailyAccumulated: 0,
-      boostMission: 0
+      boostMission: 0,
+      specialForce: 0
     };
     try {
       log("🚀 전체 자동화 시작", "info");
@@ -4299,19 +4611,20 @@
           }
         }
       }
+      const specialForceResult = await collectSpecialForceRewards(headers);
       const dailyAccumulatedFlake = state.earnings.dailyAccumulated || 0;
       const articleWriteFlake = state.progress.newArticle > 0 ? 200 : 0;
       const articleLikeFlake = state.progress.articleLikes * 3;
       const commentFlake = state.progress.comments * 30;
       const questActivityFlake = articleWriteFlake + articleLikeFlake + commentFlake;
-      let totalEarnings = (questActivityFlake || 0) + (state.earnings.roulette || 0) + (state.earnings.rouletteExtra || 0) + (state.earnings.dailyShop || 0) + (state.earnings.majak || 0) + (state.earnings.dailyMissions || 0) + (state.earnings.contentMissions || 0) + (state.earnings.weeklyMissions || 0) + (state.earnings.bannerMissions || 0) + (state.earnings.attendanceMissions || 0) + (state.earnings.surveyMissions || 0) + (state.earnings.prizeEntry || 0) + (state.earnings.boostMission || 0) + (dailyAccumulatedFlake || 0);
+      let totalEarnings = (questActivityFlake || 0) + (state.earnings.roulette || 0) + (state.earnings.rouletteExtra || 0) + (state.earnings.dailyShop || 0) + (state.earnings.majak || 0) + (state.earnings.dailyMissions || 0) + (state.earnings.contentMissions || 0) + (state.earnings.weeklyMissions || 0) + (state.earnings.bannerMissions || 0) + (state.earnings.attendanceMissions || 0) + (state.earnings.surveyMissions || 0) + (state.earnings.prizeEntry || 0) + (state.earnings.boostMission || 0) + (state.earnings.specialForce || 0) + (dailyAccumulatedFlake || 0);
       if (isNaN(totalEarnings)) {
         log("⚠️ 수익 계산 오류 발생 - 일부 값이 유효하지 않음", "warning");
         totalEarnings = 0;
       }
       const profitSign = totalEarnings >= 0 ? "+" : "";
       log("", "info");
-      log("🎉 전체 자동화 완료!", "success");
+      log(specialForceResult.success ? "🎉 전체 자동화 완료!" : "스페셜포스 확인이 필요합니다. 다른 작업의 결과를 표시합니다.", specialForceResult.success ? "success" : "warning");
       log("", "info");
       log("═══════════════════════════════════════", "info");
       log("💰 최종 FLAKE 수익 요약", "success");
@@ -4333,10 +4646,11 @@
       log(`  💝 데일리 보상: ${state.earnings.dailyShop} FLAKE`, state.earnings.dailyShop > 0 ? "success" : "info");
       log(`  🎁 데일리 누적 보상: ${dailyAccumulatedFlake} FLAKE`, dailyAccumulatedFlake > 0 ? "success" : "info");
       log(`  🀄 마작 리워드: ${state.earnings.majak} FLAKE`, state.earnings.majak > 0 ? "success" : "info");
+      log(`  🎮 스페셜포스: ${state.earnings.specialForce || 0} FLAKE`, "info");
       log("───────────────────────────────────────", "info");
       log(`  📊 총 순수익: ${profitSign}${totalEarnings} FLAKE`, totalEarnings >= 0 ? "success" : "warning");
       log("═══════════════════════════════════════", "info");
-      playCompletionSound();
+      if (specialForceResult.success) playCompletionSound();
       state.completed.roulette = true;
       state.completed.dailyShop = true;
       state.completed.majak = true;
@@ -4352,8 +4666,13 @@
       await checkAllStatus();
       log("✅ 상태 업데이트 완료!", "success");
       log("", "info");
-      log("🎊 모든 작업이 완료되었습니다!", "success");
-      setAutomationSignal(AUTOMATION_SIGNAL.done, "전체 자동화 완료");
+      if (!specialForceResult.success) {
+        log(`스페셜포스 확인 필요: ${specialForceResult.error}`, "warning");
+        setAutomationSignal(AUTOMATION_SIGNAL.error, "스페셜포스 보상 확인 필요");
+      } else {
+        log("🎊 모든 작업이 완료되었습니다!", "success");
+        setAutomationSignal(AUTOMATION_SIGNAL.done, "전체 자동화 완료");
+      }
     } catch (error) {
       setAutomationSignal(AUTOMATION_SIGNAL.error, error.message || "자동화 실패");
       log(`✗ 오류 발생: ${error.message}`, "error");
@@ -4887,10 +5206,10 @@
       const panel = doc.getElementById(PANEL_ID);
       return Boolean(panel && (node === panel || panel.contains(node)));
     }
-    function isVisible(element) {
+    function isVisible(element2) {
       var _a2, _b, _c, _d, _e;
-      if (!element || !((_a2 = doc.documentElement) == null ? void 0 : _a2.contains(element))) return false;
-      for (let current = element; current && current.nodeType === 1; current = current.parentElement) {
+      if (!element2 || !((_a2 = doc.documentElement) == null ? void 0 : _a2.contains(element2))) return false;
+      for (let current = element2; current && current.nodeType === 1; current = current.parentElement) {
         if (current.hidden || current.hasAttribute("hidden")) return false;
         if (((_b = current.getAttribute("aria-hidden")) == null ? void 0 : _b.trim().toLowerCase()) === "true") return false;
         const style = getComputedStyleFor(current);
@@ -4906,31 +5225,31 @@
       }
       return true;
     }
-    function getComputedStyleFor(element) {
+    function getComputedStyleFor(element2) {
       var _a2;
       try {
-        return (_a2 = timerHost.getComputedStyle) == null ? void 0 : _a2.call(timerHost, element);
+        return (_a2 = timerHost.getComputedStyle) == null ? void 0 : _a2.call(timerHost, element2);
       } catch {
         return null;
       }
     }
-    function isEnabled(element) {
+    function isEnabled(element2) {
       var _a2;
-      for (let current = element; current && current.nodeType === 1; current = current.parentElement) {
+      for (let current = element2; current && current.nodeType === 1; current = current.parentElement) {
         if (current.disabled === true) return false;
         if (((_a2 = current.getAttribute("aria-disabled")) == null ? void 0 : _a2.trim().toLowerCase()) === "true") return false;
         if (current.inert === true || current.hasAttribute("inert")) return false;
       }
       return true;
     }
-    function canClick(element) {
+    function canClick(element2) {
       var _a2, _b;
-      if (!isVisible(element) || !isEnabled(element)) return false;
-      return ((_b = (_a2 = getComputedStyleFor(element)) == null ? void 0 : _a2.pointerEvents) == null ? void 0 : _b.toLowerCase()) !== "none";
+      if (!isVisible(element2) || !isEnabled(element2)) return false;
+      return ((_b = (_a2 = getComputedStyleFor(element2)) == null ? void 0 : _a2.pointerEvents) == null ? void 0 : _b.toLowerCase()) !== "none";
     }
     function firstActionable(container, selector) {
-      for (const element of container.querySelectorAll(selector)) {
-        if (canClick(element) && typeof element.click === "function") return element;
+      for (const element2 of container.querySelectorAll(selector)) {
+        if (canClick(element2) && typeof element2.click === "function") return element2;
       }
       return null;
     }
@@ -5284,6 +5603,87 @@
             }
             .stove-status-label { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
             .stove-status-value { font-family: 'Courier New', monospace; min-width: 0; overflow-wrap: anywhere; text-align: right; }
+            #stove-quest-automation .stove-sf-section { padding: 20px; }
+            #stove-quest-automation .stove-sf-header {
+                display: flex; align-items: center; justify-content: space-between;
+                gap: 12px; margin-bottom: 18px;
+            }
+            #stove-quest-automation .stove-sf-title-group { display: flex; align-items: center; gap: 12px; min-width: 0; }
+            #stove-quest-automation .stove-sf-game-icon {
+                display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0;
+                background: #1a1a1a; border: 1px solid #353535; border-radius: 10px; font-size: 22px;
+            }
+            #stove-quest-automation .stove-sf-title { margin: 0; color: #f5f5f5; font-size: 16px; font-weight: 650; line-height: 1.4; }
+            #stove-quest-automation .stove-sf-subtitle { margin: 3px 0 0; color: #9ca3af; font-size: 12px; line-height: 1.4; }
+            #stove-quest-automation .stove-sf-refresh { padding: 8px 12px; flex-shrink: 0; border-radius: 6px; }
+            #stove-quest-automation .stove-sf-period {
+                display: flex; align-items: center; justify-content: space-between; gap: 12px;
+                flex-wrap: wrap; margin-bottom: 14px; font-size: 12px; color: #b5bbc5;
+            }
+            #stove-quest-automation .stove-sf-dates { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+            #stove-quest-automation .stove-sf-period-label { color: #9ca3af; }
+            #stove-quest-automation .stove-sf-period-length { color: #a6adba; border-left: 1px solid #414141; padding-left: 8px; }
+            #stove-quest-automation .stove-sf-period-badge { padding: 4px 8px; border-radius: 5px; background: #303030; color: #b5bbc5; white-space: nowrap; }
+            #stove-quest-automation .stove-sf-period-badge.is-active { background: #163e32; color: #a7f3d0; }
+            #stove-quest-automation .stove-sf-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+            #stove-quest-automation .stove-sf-metric { min-width: 0; padding: 14px 16px; border: 1px solid #353535; border-radius: 8px; background: #1a1a1a; }
+            #stove-quest-automation .stove-sf-metric-label { display: block; font-size: 12px; line-height: 1.4; color: #a6adba; }
+            #stove-quest-automation .stove-sf-metric-value { display: block; font-size: 24px; font-weight: 650; line-height: 1.5; color: #f5f5f5; font-variant-numeric: tabular-nums; }
+            #stove-quest-automation .stove-sf-metric.is-claimable { border-color: #705328; background: #30291c; }
+            #stove-quest-automation .stove-sf-metric.is-claimable .stove-sf-metric-value { color: #fcd34d; }
+            #stove-quest-automation .stove-sf-progress { height: 4px; margin-top: 8px; background: #343434; border-radius: 4px; overflow: hidden; }
+            #stove-quest-automation .stove-sf-progress-fill { display: block; height: 100%; background: #34d399; border-radius: inherit; }
+            #stove-quest-automation .stove-sf-rewards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 8px; }
+            #stove-quest-automation .stove-sf-reward { display: flex; flex-direction: column; min-width: 0; padding: 13px 12px; border-radius: 8px; border: 1px solid #353535; background: #1c1c1c; }
+            #stove-quest-automation .stove-sf-reward-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+            #stove-quest-automation .stove-sf-day { color: #b5bbc5; font-size: 12px; font-weight: 600; }
+            #stove-quest-automation .stove-sf-reward-icon { display: grid; place-items: center; width: 22px; height: 22px; flex-shrink: 0; color: #9ca3af; background: #303030; border-radius: 50%; font-size: 12px; }
+            #stove-quest-automation .stove-sf-reward-amount { color: #e5e7eb; font-size: 20px; font-weight: 650; line-height: 1.35; font-variant-numeric: tabular-nums; }
+            #stove-quest-automation .stove-sf-reward-unit { color: #a6adba; font-size: 12px; font-weight: 500; }
+            #stove-quest-automation .stove-sf-reward-detail { flex: 1; margin: 6px 0 16px; min-height: 36px; color: #a6adba; font-size: 12px; line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
+            #stove-quest-automation .stove-sf-reward-state { align-self: flex-start; padding: 4px 7px; border-radius: 4px; color: #b5bbc5; background: #303030; font-size: 11px; font-weight: 500; line-height: 1.4; }
+            #stove-quest-automation .stove-sf-reward.is-received { border-color: #28503f; background: #18251f; }
+            #stove-quest-automation .stove-sf-reward.is-received .stove-sf-reward-icon,
+            #stove-quest-automation .stove-sf-reward.is-received .stove-sf-reward-state { background: #1c4332; color: #a7f3d0; }
+            #stove-quest-automation .stove-sf-reward.is-claimable { border-color: #9a742f; background: #30291c; }
+            #stove-quest-automation .stove-sf-reward.is-claimable .stove-sf-reward-amount { color: #fcd34d; }
+            #stove-quest-automation .stove-sf-reward.is-claimable .stove-sf-reward-icon,
+            #stove-quest-automation .stove-sf-reward.is-claimable .stove-sf-reward-state { background: #544020; color: #fde68a; }
+            #stove-quest-automation .stove-sf-note { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; margin-top: 14px; color: #9ca3af; font-size: 11px; line-height: 1.6; }
+            #stove-quest-automation .stove-sf-checked { white-space: nowrap; }
+            #stove-quest-automation .stove-sf-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 16px; margin-top: 16px; border-top: 1px solid #353535; }
+            #stove-quest-automation .stove-sf-shop-link { display: inline-flex; align-items: center; gap: 8px; color: #b5bbc5; font-size: 12px; text-decoration: none; }
+            #stove-quest-automation .stove-sf-shop-link:hover { color: #f5f5f5; }
+            #stove-quest-automation .stove-sf-claim { background: #166044; border-color: #277357; color: #d1fae5; padding: 9px 16px; font-size: 13px; }
+            #stove-quest-automation .stove-sf-claim:hover:not(:disabled) { background: #1c7452; border-color: #34a276; }
+            #stove-quest-automation .stove-sf-empty { display: flex; align-items: center; gap: 14px; min-height: 120px; padding: 20px; background: #1a1a1a; border: 1px dashed #414141; border-radius: 8px; }
+            #stove-quest-automation .stove-sf-empty-icon { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; background: #303030; color: #a6adba; font-size: 22px; }
+            #stove-quest-automation .stove-sf-empty-content { min-width: 0; overflow-wrap: anywhere; }
+            #stove-quest-automation .stove-sf-empty-content strong { font-size: 13px; font-weight: 600; color: #d1d5db; }
+            #stove-quest-automation .stove-sf-empty-content p { margin: 6px 0 0; color: #9ca3af; font-size: 12px; line-height: 1.6; }
+            #stove-quest-automation .stove-sf-empty--error { border-color: #75453e; }
+            #stove-quest-automation .stove-sf-empty--error .stove-sf-empty-icon { background: #4c2924; color: #fca5a5; }
+            @media (max-width: 720px) {
+                #stove-quest-automation .stove-sf-section { padding: 14px; }
+                #stove-quest-automation .stove-sf-header { gap: 8px; }
+                #stove-quest-automation .stove-sf-title-group { gap: 8px; }
+                #stove-quest-automation .stove-sf-game-icon { width: 34px; height: 34px; font-size: 18px; }
+                #stove-quest-automation .stove-sf-title { font-size: 14px; }
+                #stove-quest-automation .stove-sf-refresh { padding: 7px 8px; font-size: 11px; }
+                #stove-quest-automation .stove-sf-summary { gap: 6px; }
+                #stove-quest-automation .stove-sf-metric { padding: 10px 8px; }
+                #stove-quest-automation .stove-sf-metric-value { font-size: 20px; }
+                #stove-quest-automation .stove-sf-metric-label { font-size: 11px; }
+                #stove-quest-automation .stove-sf-rewards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+                #stove-quest-automation .stove-sf-empty { padding: 16px; gap: 10px; }
+                #stove-quest-automation .stove-sf-claim { width: 100%; }
+                #stove-quest-automation .stove-sf-shop-link { margin-left: auto; }
+            }
+            @media (max-width: 420px) {
+                #stove-quest-automation .stove-sf-game-icon { display: none; }
+                #stove-quest-automation .stove-sf-metric-value { font-size: 18px; }
+                #stove-quest-automation .stove-sf-period-label { display: none; }
+            }
             .stove-mission-item { position: relative; cursor: help; }
             .stove-mission-item:hover { background: #252525; border-color: #3a3a3a; }
             .stove-mission-tooltip {
@@ -5463,6 +5863,21 @@
             </div>
         </div>
 
+        <section class="stove-status-section stove-sf-section" aria-label="스페셜포스 상태">
+            <div class="stove-sf-header">
+                <div class="stove-sf-title-group">
+                    <span class="stove-sf-game-icon" aria-hidden="true">🎮</span>
+                    <div><h3 class="stove-sf-title">스페셜포스 리마스터</h3><p class="stove-sf-subtitle">누적 플레이 보상</p></div>
+                </div>
+                <button id="stove-btn-special-force-refresh" class="stove-status-refresh stove-sf-refresh" type="button">↻ 새로고침</button>
+            </div>
+            <div id="stove-special-force-data" aria-live="polite"><div class="stove-sf-empty"><span class="stove-sf-empty-icon" aria-hidden="true">◇</span><div class="stove-sf-empty-content"><strong>플레이 현황을 확인해 보세요</strong><p>새로고침하면 누적 플레이와 일차별 보상을 확인할 수 있습니다.</p></div></div></div>
+            <div class="stove-sf-actions">
+                <a id="stove-special-force-link" class="stove-sf-shop-link" href="https://event.onstove.com/ko/dailyshop/specialforce" target="_blank" rel="noopener noreferrer">출석 교환 상점 <span aria-hidden="true">↗</span></a>
+                <button id="stove-btn-special-force-claim" class="stove-btn stove-sf-claim" type="button" disabled>수령 가능한 보상 받기</button>
+            </div>
+        </section>
+
         <div class="stove-progress-section">
             <div class="stove-progress-header">📊 커뮤니티 활동 진행 상황</div>
             <div class="stove-progress-bar">
@@ -5506,14 +5921,16 @@
       });
     }
     const attachListener = (id2, handler) => {
-      const element = document.getElementById(id2);
-      if (element) {
-        element.addEventListener("click", handler);
+      const element2 = document.getElementById(id2);
+      if (element2) {
+        element2.addEventListener("click", handler);
       } else {
         console.warn(`[이벤트 등록] ${id2} 버튼을 찾을 수 없습니다`);
       }
     };
     {
+      attachListener("stove-btn-special-force-refresh", refreshSpecialForce);
+      attachListener("stove-btn-special-force-claim", receiveSpecialForce);
       attachListener("stove-btn-start", runAutomation);
       attachListener("stove-btn-point-cash-charge", runPointExchange);
       attachListener("stove-btn-reward-shop", openRewardShop);
