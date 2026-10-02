@@ -5,7 +5,6 @@ export function apiRequest(url, method, headers, body = null, options = {}) {
             url,
             headers,
             anonymous: true,
-            timeout: options.timeout ?? 0,
             data: body ? JSON.stringify(body) : null,
             onload(response) {
                 console.log(`[API Request] ${method} ${url} - Status: ${response.status}`);
@@ -33,6 +32,12 @@ export function apiRequest(url, method, headers, body = null, options = {}) {
                 reject(new Error('Network error'));
             }
         };
+
+        // Tampermonkey's anonymous/fetch path aborts requests with a body when
+        // timeout is explicitly 0. Omit it unless a positive timeout is requested.
+        if (Number.isFinite(options.timeout) && options.timeout > 0) {
+            requestConfig.timeout = options.timeout;
+        }
 
         console.log('[API Request] Starting request:', { method, url, hasBody: !!body });
         GM_xmlhttpRequest(requestConfig);

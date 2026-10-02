@@ -198,18 +198,42 @@ export function focusRewardShopForMonthlyAttendanceIfNeeded(diff = {}, deps = {}
     return openRewardShop(REWARD_SHOP_URL, true);
 }
 
-function describeRejectedTask(result) {
-    const reason = result.reason;
+function isFailedTask(result) {
+    return Boolean(result.status === 'rejected' || result.value?.error ||
+        result.value?.success === false || result.value?.errors?.length > 0);
+}
+
+export function getAutomationOutcome({ snapshot, diff, plan, groupResults = [],
+    specialForceResult, boostRewardResult, rouletteEnabled = CONFIG.roulette.enabled }) {
+    const issues = [];
+    const failedTasks = flattenTaskResults(groupResults).filter(isFailedTask);
+    if (failedTasks.length > 0) issues.push(`작업 실패 ${failedTasks.length}개`);
+    if (snapshot?.degraded) issues.push('최종 상태 확인 불가');
+    if (hasSafeRepairableItems(diff)) issues.push('글·미션·보상 미완료');
+    if (hasMonthlyAttendanceVerificationIssue(diff)) issues.push('월간출석 확인 필요');
+    const roulettePlanned = plan?.groups?.some(group =>
+        group.tasks?.some(task => task.kind === 'rouletteDraws'));
+    if (rouletteEnabled && roulettePlanned && diff?.rouletteStillRemaining) {
+        issues.push('룰렛 미완료');
+    }
+    if (boostRewardResult?.success === false) issues.push('오늘의 1등 보상 확인 필요');
+    if (specialForceResult?.success !== true) issues.push('스페셜포스 확인 필요');
+    return { success: issues.length === 0, issues };
+}
+
+function describeFailedTask(result) {
+    const reason = result.reason || result.value?.message || result.value?.error ||
+        result.value?.errors?.[0]?.message || '작업 결과 확인 필요';
     const message = reason?.message || String(reason);
     return `${result.groupId}/${result.id}: ${message}`;
 }
 
-function logRejectedTasks(groupResults) {
+function logFailedTasks(groupResults) {
     const rejected = flattenTaskResults(groupResults)
-        .filter(result => result.status === 'rejected');
+        .filter(isFailedTask);
 
     for (const result of rejected) {
-        log(`\uC791\uC5C5 \uC2E4\uD328: ${describeRejectedTask(result)}`, 'error');
+        log(`\uC791\uC5C5 \uC2E4\uD328: ${describeFailedTask(result)}`, 'error');
     }
 }
 
@@ -317,28 +341,30 @@ export async function runAutomation() {
         const groupResults = await runTaskGroups(executablePlan.groups, {
             onGroupStart: (group) => log(`\uADF8\uB8F9 \uC2DC\uC791: ${group.id}`, 'info'),
             onGroupDone: (group, results) => {
-                const rejectedCount = results.filter(result => result.status === 'rejected').length;
+                const rejectedCount = results.filter(isFailedTask).length;
                 const backgroundCount = results.filter(result => result.status === 'background').length;
                 const foregroundCount = results.length - backgroundCount;
                 const suffix = backgroundCount > 0 ? `, \uBC31\uADF8\uB77C\uC6B4\uB4DC ${backgroundCount}\uAC1C` : '';
                 log(`\uADF8\uB8F9 \uC644\uB8CC: ${group.id} (${foregroundCount - rejectedCount}/${foregroundCount}${suffix})`, rejectedCount > 0 ? 'warning' : 'success');
             }
         });
-        logRejectedTasks(groupResults);
+        logFailedTasks(groupResults);
 
         const backgroundResults = await waitForBackgroundTasks(groupResults, {
             onGroupStart: (groupResult, results) => log(`\uBC31\uADF8\uB77C\uC6B4\uB4DC \uC791\uC5C5 \uB300\uAE30: ${groupResult.groupId} (${results.length}\uAC1C)`, 'info'),
             onGroupDone: (groupResult, results) => {
-                const rejectedCount = results.filter(result => result.status === 'rejected').length;
+                const rejectedCount = results.filter(isFailedTask).length;
                 log(`\uBC31\uADF8\uB77C\uC6B4\uB4DC \uC791\uC5C5 \uC644\uB8CC: ${groupResult.groupId} (${results.length - rejectedCount}/${results.length})`, rejectedCount > 0 ? 'warning' : 'success');
             }
         });
-        logRejectedTasks(backgroundResults);
+        logFailedTasks(backgroundResults);
+        const allGroupResults = [...groupResults, ...backgroundResults];
 
         // Comments run in the background; reward eligibility must be read after they finish.
+        let boostRewardResult;
         if (beforeSnapshot.boost?.success && !beforeSnapshot.boost.notAvailable) {
-            const boostReward = await claimBoostMissionReward(headers);
-            if (!boostReward.success) log('오늘의 1등 보상 상태를 확인하지 못했습니다. 대시보드를 확인해 주세요', 'warning');
+            boostRewardResult = await claimBoostMissionReward(headers);
+            if (!boostRewardResult.success) log('오늘의 1등 보상 상태를 확인하지 못했습니다. 대시보드를 확인해 주세요', 'warning');
         }
 
         log('', 'info');
@@ -366,22 +392,25 @@ export async function runAutomation() {
                     const repairResults = await runTaskGroups(executableRepairPlan.groups, {
                         onGroupStart: (group) => log(`\uBCF5\uAD6C \uC2DC\uC791: ${group.id}`, 'info'),
                         onGroupDone: (group, results) => {
-                            const rejectedCount = results.filter(result => result.status === 'rejected').length;
+                            const rejectedCount = results.filter(isFailedTask).length;
                             log(`\uBCF5\uAD6C \uC644\uB8CC: ${group.id} (${results.length - rejectedCount}/${results.length})`, rejectedCount > 0 ? 'warning' : 'success');
                         }
                     });
-                    logRejectedTasks(repairResults);
+                    logFailedTasks(repairResults);
+                    allGroupResults.push(...repairResults);
 
-                    const repairedSnapshot = await captureAutomationSnapshot(headers);
-                    logSnapshotSummary('\uBCF5\uAD6C \uD6C4 \uC2A4\uB0C5\uC0F7', repairedSnapshot);
-                    const repairedDiff = compareSnapshots(beforeSnapshot, repairedSnapshot, plan);
-                    logSnapshotDiff('\uBCF5\uAD6C \uD6C4 \uBE44\uAD50', repairedDiff);
-                    focusRewardShopAfterDiff(repairedDiff);
+                    afterSnapshot = await captureAutomationSnapshot(headers);
+                    logSnapshotSummary('\uBCF5\uAD6C \uD6C4 \uC2A4\uB0C5\uC0F7', afterSnapshot);
+                    diff = compareSnapshots(beforeSnapshot, afterSnapshot, plan);
+                    logSnapshotDiff('\uBCF5\uAD6C \uD6C4 \uBE44\uAD50', diff);
+                    focusRewardShopAfterDiff(diff);
                 }
             }
         }
 
         const specialForceResult = await collectSpecialForceRewards(headers);
+        const outcome = getAutomationOutcome({ snapshot: afterSnapshot, diff, plan,
+            groupResults: allGroupResults, specialForceResult, boostRewardResult });
         const dailyAccumulatedFlake = state.earnings.dailyAccumulated || 0;
 
         // Calculate earnings summary
@@ -414,7 +443,7 @@ export async function runAutomation() {
         const profitSign = totalEarnings >= 0 ? '+' : '';
 
         log('', 'info');
-        log(specialForceResult.success ? '🎉 전체 자동화 완료!' : '스페셜포스 확인이 필요합니다. 다른 작업의 결과를 표시합니다.', specialForceResult.success ? 'success' : 'warning');
+        log(outcome.success ? '🎉 전체 자동화 완료!' : `전체 자동화 종료 · 확인 필요: ${outcome.issues.join(', ')}`, outcome.success ? 'success' : 'warning');
         log('', 'info');
         log('═══════════════════════════════════════', 'info');
         log('💰 최종 FLAKE 수익 요약', 'success');
@@ -441,19 +470,22 @@ export async function runAutomation() {
         log(`  📊 총 순수익: ${profitSign}${totalEarnings} FLAKE`, totalEarnings >= 0 ? 'success' : 'warning');
         log('═══════════════════════════════════════', 'info');
 
-        if (specialForceResult.success) playCompletionSound();
+        if (outcome.success) playCompletionSound();
 
-        state.completed.roulette = true;
-        state.completed.dailyShop = true;
-        state.completed.majak = true;
+        state.completed.roulette = afterSnapshot.roulette?.success === true &&
+            (!CONFIG.roulette.enabled || !diff.rouletteStillRemaining);
+        state.completed.dailyShop = afterSnapshot.shop?.success === true && diff.unclaimedDailyShop === 0;
+        state.completed.majak = afterSnapshot.majak?.success === true && diff.unclaimedMajakShop === 0;
+        updateProgress();
 
         const progressFill = document.querySelector('.stove-progress-fill');
-        if (progressFill) progressFill.style.width = '100%';
+        if (progressFill && outcome.success) progressFill.style.width = '100%';
 
         const progressText = document.getElementById('stove-progress-text');
         if (progressText) {
             progressText.style.display = 'block';
-            progressText.textContent = '100%';
+            progressText.style.opacity = '1';
+            progressText.textContent = outcome.success ? '100%' : '확인 필요';
         }
 
         log('', 'info');
@@ -464,10 +496,13 @@ export async function runAutomation() {
         log('', 'info');
         if (!specialForceResult.success) {
             log(`스페셜포스 확인 필요: ${specialForceResult.error}`, 'warning');
-            setAutomationSignal(AUTOMATION_SIGNAL.error, '스페셜포스 보상 확인 필요');
-        } else {
+        }
+        if (outcome.success) {
             log('🎊 모든 작업이 완료되었습니다!', 'success');
             setAutomationSignal(AUTOMATION_SIGNAL.done, '전체 자동화 완료');
+        } else {
+            log(`일부 작업이 실패했거나 확인이 필요합니다: ${outcome.issues.join(', ')}`, 'warning');
+            setAutomationSignal(AUTOMATION_SIGNAL.error, outcome.issues.join(', '));
         }
 
     } catch (error) {

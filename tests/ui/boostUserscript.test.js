@@ -35,6 +35,7 @@ test('distributed dashboard only reads status; full automation queries five time
     const calls = [];
     const unexpected = [];
     let comments = 0;
+    let failComments = false;
     let putBeforeCommentsFinish = false;
     let remaining = 5;
     let boostWrites = 0;
@@ -57,6 +58,10 @@ test('distributed dashboard only reads status; full automation queries five time
     window.localStorage.setItem('sgs_da_uuid', 'test-uuid');
     Object.defineProperty(document, 'readyState', { get: () => 'complete' });
     window.GM_xmlhttpRequest = config => {
+        if (config.data !== null) {
+            assert.ok(config.timeout === undefined || config.timeout > 0,
+                'distributed body requests never pass a zero timeout to Tampermonkey');
+        }
         const url = new URL(config.url);
         const path = url.pathname;
         calls.push({ method: config.method, path });
@@ -110,6 +115,10 @@ test('distributed dashboard only reads status; full automation queries five time
             const ids = path.split('/')[4].split(',');
             value = Object.fromEntries(ids.map(id => [id, { LIKE: false }]));
         } else if (path.endsWith('/comment') && config.method === 'POST') {
+            if (failComments) {
+                config.ontimeout();
+                return;
+            }
             const articleId = path.split('/')[4];
             assert.ok(['21', '22', '23', '24', '25'].includes(articleId), 'comment target comes from the new lounge list');
             assert.equal(JSON.parse(config.data).article_id, articleId);
@@ -118,7 +127,9 @@ test('distributed dashboard only reads status; full automation queries five time
             comments++;
             if (comments === 5) { mission.details[1].current_count = 1; mission.is_completed = true; }
             value = { comment_id: String(comments) };
-        } else if (path === '/flake-shop/v1/page') value = { component_list: [{ component_no: 271, component_type: 'SINGLE' }] };
+        } else if (path === '/flake-shop/v1/page') value = { component_list: [{
+            component_no: 271, type: 'SINGLE', start_dt: now - 86400000, end_dt: now + 86400000
+        }] };
         else if (path === '/flake-shop/v1/mission/component') value = { component_info: { component_type: 'SINGLE' }, missions: [] };
         else if (path === '/emsbackapi/v3.0/participationCnt') value = { participation_cnt: 30 };
         else if (path === '/emsbackapi/v3.0/extra') value = { current_cnt: 0, milestones: [] };
@@ -178,6 +189,21 @@ test('distributed dashboard only reads status; full automation queries five time
     assert.equal(boostWrites, 1);
     assert.equal(rewardWrites, 1);
     assert.equal(sfWrites, 1, 'repeating full automation does not claim a received SF reward again');
+
+    // Successful event lookups must not conceal failed background comment writes.
+    failComments = true;
+    const logBeforeFailure = document.getElementById('stove-log-content').textContent.length;
+    document.getElementById('stove-btn-start').click();
+    await waitUntil(() => /^\[SG_ERROR\]/.test(document.title));
+    const failedRunLog = document.getElementById('stove-log-content').textContent.slice(logBeforeFailure);
+    assert.match(failedRunLog, /댓글 작성 실패/);
+    assert.match(failedRunLog, /작업 실패 1개/);
+    assert.doesNotMatch(failedRunLog, /전체 자동화 완료!|모든 작업이 완료되었습니다/);
+    assert.equal(document.getElementById('stove-progress-text').textContent, '확인 필요');
+    assert.equal(rewardWrites, 1);
+    assert.equal(reviewWrites, 1);
+    assert.equal(sfWrites, 1);
+
     sfUnavailable = true;
     document.getElementById('stove-btn-special-force-refresh').click();
     await waitUntil(() => /공개된 스페셜포스 행사가 없습니다/.test(document.getElementById('stove-special-force-data').textContent));

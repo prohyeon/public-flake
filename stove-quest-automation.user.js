@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.11.0
+// @version      2.11.1
 // @author       prohyeon
 // @description  STOVE 자동화 (게시글 추천, 댓글, 글쓰기, 부스트 1회, 게임 리뷰 이벤트 댓글, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -19,8 +19,8 @@
   'use strict';
 
   const CONFIG = {
-    version: "2.11.0",
-    lastUpdated: "2026-10-01",
+    version: "2.11.1",
+    lastUpdated: "2026-10-02",
     maintenanceMode: {
       enabled: false,
       startDate: "2025-11-01",
@@ -141,7 +141,6 @@
         url,
         headers,
         anonymous: true,
-        timeout: options.timeout ?? 0,
         data: body ? JSON.stringify(body) : null,
         onload(response) {
           console.log(`[API Request] ${method} ${url} - Status: ${response.status}`);
@@ -169,6 +168,9 @@
           reject(new Error("Network error"));
         }
       };
+      if (Number.isFinite(options.timeout) && options.timeout > 0) {
+        requestConfig.timeout = options.timeout;
+      }
       console.log("[API Request] Starting request:", { method, url, hasBody: !!body });
       GM_xmlhttpRequest(requestConfig);
     });
@@ -4445,15 +4447,47 @@
     writeLog("월간출석 +1 확인이 안 되어 리워드샵으로 포커스를 이동합니다", "warning");
     return openRewardShop2(REWARD_SHOP_URL, true);
   }
-  function describeRejectedTask(result) {
-    const reason = result.reason;
+  function isFailedTask(result) {
+    var _a, _b, _c, _d;
+    return Boolean(result.status === "rejected" || ((_a = result.value) == null ? void 0 : _a.error) || ((_b = result.value) == null ? void 0 : _b.success) === false || ((_d = (_c = result.value) == null ? void 0 : _c.errors) == null ? void 0 : _d.length) > 0);
+  }
+  function getAutomationOutcome({
+    snapshot,
+    diff,
+    plan,
+    groupResults = [],
+    specialForceResult,
+    boostRewardResult,
+    rouletteEnabled = CONFIG.roulette.enabled
+  }) {
+    var _a;
+    const issues = [];
+    const failedTasks = flattenTaskResults(groupResults).filter(isFailedTask);
+    if (failedTasks.length > 0) issues.push(`작업 실패 ${failedTasks.length}개`);
+    if (snapshot == null ? void 0 : snapshot.degraded) issues.push("최종 상태 확인 불가");
+    if (hasSafeRepairableItems(diff)) issues.push("글·미션·보상 미완료");
+    if (hasMonthlyAttendanceVerificationIssue(diff)) issues.push("월간출석 확인 필요");
+    const roulettePlanned = (_a = plan == null ? void 0 : plan.groups) == null ? void 0 : _a.some((group2) => {
+      var _a2;
+      return (_a2 = group2.tasks) == null ? void 0 : _a2.some((task2) => task2.kind === "rouletteDraws");
+    });
+    if (rouletteEnabled && roulettePlanned && (diff == null ? void 0 : diff.rouletteStillRemaining)) {
+      issues.push("룰렛 미완료");
+    }
+    if ((boostRewardResult == null ? void 0 : boostRewardResult.success) === false) issues.push("오늘의 1등 보상 확인 필요");
+    if ((specialForceResult == null ? void 0 : specialForceResult.success) !== true) issues.push("스페셜포스 확인 필요");
+    return { success: issues.length === 0, issues };
+  }
+  function describeFailedTask(result) {
+    var _a, _b, _c, _d, _e;
+    const reason = result.reason || ((_a = result.value) == null ? void 0 : _a.message) || ((_b = result.value) == null ? void 0 : _b.error) || ((_e = (_d = (_c = result.value) == null ? void 0 : _c.errors) == null ? void 0 : _d[0]) == null ? void 0 : _e.message) || "작업 결과 확인 필요";
     const message = (reason == null ? void 0 : reason.message) || String(reason);
     return `${result.groupId}/${result.id}: ${message}`;
   }
-  function logRejectedTasks(groupResults) {
-    const rejected = flattenTaskResults(groupResults).filter((result) => result.status === "rejected");
+  function logFailedTasks(groupResults) {
+    const rejected = flattenTaskResults(groupResults).filter(isFailedTask);
     for (const result of rejected) {
-      log(`작업 실패: ${describeRejectedTask(result)}`, "error");
+      log(`작업 실패: ${describeFailedTask(result)}`, "error");
     }
   }
   function logSnapshotSummary(label, snapshot) {
@@ -4479,7 +4513,7 @@
     );
   }
   async function runAutomation() {
-    var _a;
+    var _a, _b, _c, _d;
     if (state.isRunning) {
       log("이미 자동화가 실행 중입니다", "warning");
       return;
@@ -4556,25 +4590,27 @@
       const groupResults = await runTaskGroups(executablePlan.groups, {
         onGroupStart: (group2) => log(`그룹 시작: ${group2.id}`, "info"),
         onGroupDone: (group2, results) => {
-          const rejectedCount = results.filter((result) => result.status === "rejected").length;
+          const rejectedCount = results.filter(isFailedTask).length;
           const backgroundCount = results.filter((result) => result.status === "background").length;
           const foregroundCount = results.length - backgroundCount;
           const suffix = backgroundCount > 0 ? `, 백그라운드 ${backgroundCount}개` : "";
           log(`그룹 완료: ${group2.id} (${foregroundCount - rejectedCount}/${foregroundCount}${suffix})`, rejectedCount > 0 ? "warning" : "success");
         }
       });
-      logRejectedTasks(groupResults);
+      logFailedTasks(groupResults);
       const backgroundResults = await waitForBackgroundTasks(groupResults, {
         onGroupStart: (groupResult, results) => log(`백그라운드 작업 대기: ${groupResult.groupId} (${results.length}개)`, "info"),
         onGroupDone: (groupResult, results) => {
-          const rejectedCount = results.filter((result) => result.status === "rejected").length;
+          const rejectedCount = results.filter(isFailedTask).length;
           log(`백그라운드 작업 완료: ${groupResult.groupId} (${results.length - rejectedCount}/${results.length})`, rejectedCount > 0 ? "warning" : "success");
         }
       });
-      logRejectedTasks(backgroundResults);
+      logFailedTasks(backgroundResults);
+      const allGroupResults = [...groupResults, ...backgroundResults];
+      let boostRewardResult;
       if (((_a = beforeSnapshot.boost) == null ? void 0 : _a.success) && !beforeSnapshot.boost.notAvailable) {
-        const boostReward = await claimBoostMissionReward(headers);
-        if (!boostReward.success) log("오늘의 1등 보상 상태를 확인하지 못했습니다. 대시보드를 확인해 주세요", "warning");
+        boostRewardResult = await claimBoostMissionReward(headers);
+        if (!boostRewardResult.success) log("오늘의 1등 보상 상태를 확인하지 못했습니다. 대시보드를 확인해 주세요", "warning");
       }
       log("", "info");
       log("최종 스냅샷 수집 중...", "info");
@@ -4598,20 +4634,29 @@
             const repairResults = await runTaskGroups(executableRepairPlan.groups, {
               onGroupStart: (group2) => log(`복구 시작: ${group2.id}`, "info"),
               onGroupDone: (group2, results) => {
-                const rejectedCount = results.filter((result) => result.status === "rejected").length;
+                const rejectedCount = results.filter(isFailedTask).length;
                 log(`복구 완료: ${group2.id} (${results.length - rejectedCount}/${results.length})`, rejectedCount > 0 ? "warning" : "success");
               }
             });
-            logRejectedTasks(repairResults);
-            const repairedSnapshot = await captureAutomationSnapshot(headers);
-            logSnapshotSummary("복구 후 스냅샷", repairedSnapshot);
-            const repairedDiff = compareSnapshots(beforeSnapshot, repairedSnapshot, plan);
-            logSnapshotDiff("복구 후 비교", repairedDiff);
-            focusRewardShopAfterDiff(repairedDiff);
+            logFailedTasks(repairResults);
+            allGroupResults.push(...repairResults);
+            afterSnapshot = await captureAutomationSnapshot(headers);
+            logSnapshotSummary("복구 후 스냅샷", afterSnapshot);
+            diff = compareSnapshots(beforeSnapshot, afterSnapshot, plan);
+            logSnapshotDiff("복구 후 비교", diff);
+            focusRewardShopAfterDiff(diff);
           }
         }
       }
       const specialForceResult = await collectSpecialForceRewards(headers);
+      const outcome = getAutomationOutcome({
+        snapshot: afterSnapshot,
+        diff,
+        plan,
+        groupResults: allGroupResults,
+        specialForceResult,
+        boostRewardResult
+      });
       const dailyAccumulatedFlake = state.earnings.dailyAccumulated || 0;
       const articleWriteFlake = state.progress.newArticle > 0 ? 200 : 0;
       const articleLikeFlake = state.progress.articleLikes * 3;
@@ -4624,7 +4669,7 @@
       }
       const profitSign = totalEarnings >= 0 ? "+" : "";
       log("", "info");
-      log(specialForceResult.success ? "🎉 전체 자동화 완료!" : "스페셜포스 확인이 필요합니다. 다른 작업의 결과를 표시합니다.", specialForceResult.success ? "success" : "warning");
+      log(outcome.success ? "🎉 전체 자동화 완료!" : `전체 자동화 종료 · 확인 필요: ${outcome.issues.join(", ")}`, outcome.success ? "success" : "warning");
       log("", "info");
       log("═══════════════════════════════════════", "info");
       log("💰 최종 FLAKE 수익 요약", "success");
@@ -4650,16 +4695,18 @@
       log("───────────────────────────────────────", "info");
       log(`  📊 총 순수익: ${profitSign}${totalEarnings} FLAKE`, totalEarnings >= 0 ? "success" : "warning");
       log("═══════════════════════════════════════", "info");
-      if (specialForceResult.success) playCompletionSound();
-      state.completed.roulette = true;
-      state.completed.dailyShop = true;
-      state.completed.majak = true;
+      if (outcome.success) playCompletionSound();
+      state.completed.roulette = ((_b = afterSnapshot.roulette) == null ? void 0 : _b.success) === true && (!CONFIG.roulette.enabled || !diff.rouletteStillRemaining);
+      state.completed.dailyShop = ((_c = afterSnapshot.shop) == null ? void 0 : _c.success) === true && diff.unclaimedDailyShop === 0;
+      state.completed.majak = ((_d = afterSnapshot.majak) == null ? void 0 : _d.success) === true && diff.unclaimedMajakShop === 0;
+      updateProgress();
       const progressFill = document.querySelector(".stove-progress-fill");
-      if (progressFill) progressFill.style.width = "100%";
+      if (progressFill && outcome.success) progressFill.style.width = "100%";
       const progressText = document.getElementById("stove-progress-text");
       if (progressText) {
         progressText.style.display = "block";
-        progressText.textContent = "100%";
+        progressText.style.opacity = "1";
+        progressText.textContent = outcome.success ? "100%" : "확인 필요";
       }
       log("", "info");
       log("📊 상태 업데이트 중...", "info");
@@ -4668,10 +4715,13 @@
       log("", "info");
       if (!specialForceResult.success) {
         log(`스페셜포스 확인 필요: ${specialForceResult.error}`, "warning");
-        setAutomationSignal(AUTOMATION_SIGNAL.error, "스페셜포스 보상 확인 필요");
-      } else {
+      }
+      if (outcome.success) {
         log("🎊 모든 작업이 완료되었습니다!", "success");
         setAutomationSignal(AUTOMATION_SIGNAL.done, "전체 자동화 완료");
+      } else {
+        log(`일부 작업이 실패했거나 확인이 필요합니다: ${outcome.issues.join(", ")}`, "warning");
+        setAutomationSignal(AUTOMATION_SIGNAL.error, outcome.issues.join(", "));
       }
     } catch (error) {
       setAutomationSignal(AUTOMATION_SIGNAL.error, error.message || "자동화 실패");
