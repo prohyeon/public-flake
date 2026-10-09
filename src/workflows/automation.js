@@ -25,6 +25,10 @@ import {
 import { visitRequiredPages, checkAllStatus, checkArticleWriteStatus } from './status.js';
 import { closeTab, openTabInBackground } from '../utils/tabs.js';
 import { AUTOMATION_SIGNAL, setAutomationSignal } from '../utils/automationSignal.js';
+import {
+    MONTHLY_ATTENDANCE_RECHECK_ATTEMPTS, MONTHLY_ATTENDANCE_RECHECK_DELAY_MS,
+    loadMonthlyAttendanceContext, applyMonthlyAttendanceRecord, saveMonthlyAttendanceRecord
+} from './monthlyAttendance.js';
 
 export const REWARD_SHOP_URL = 'https://reward.onstove.com/ko';
 
@@ -198,6 +202,28 @@ export function focusRewardShopForMonthlyAttendanceIfNeeded(diff = {}, deps = {}
     return openRewardShop(REWARD_SHOP_URL, true);
 }
 
+// 리워드샵을 연 뒤 출석 반영까지 시간이 걸리므로, 최종 판정 전에 스냅샷을 다시 읽는다.
+export async function recheckMonthlyAttendance({ afterSnapshot, diff, capture, compare, deps = {} }) {
+    const wait = deps.delay || delay;
+    const writeLog = deps.writeLog || log;
+    const attempts = deps.attempts ?? MONTHLY_ATTENDANCE_RECHECK_ATTEMPTS;
+    const delayMs = deps.delayMs ?? MONTHLY_ATTENDANCE_RECHECK_DELAY_MS;
+    let currentSnapshot = afterSnapshot;
+    let currentDiff = diff;
+
+    for (let attempt = 1; attempt <= attempts && hasMonthlyAttendanceVerificationIssue(currentDiff); attempt++) {
+        await wait(delayMs);
+        const snapshot = await capture();
+        if (snapshot?.missions?.success === false) continue;
+        currentSnapshot = snapshot;
+        currentDiff = compare(snapshot);
+        writeLog(`월간출석 재확인 ${attempt}/${attempts}: ${formatMonthlyAttendanceProgress(currentDiff.monthlyAttendanceProgress)}`,
+            hasMonthlyAttendanceVerificationIssue(currentDiff) ? 'warning' : 'success');
+    }
+
+    return { afterSnapshot: currentSnapshot, diff: currentDiff };
+}
+
 function isFailedTask(result) {
     return Boolean(result.status === 'rejected' || result.value?.error ||
         result.value?.success === false || result.value?.errors?.length > 0);
@@ -251,9 +277,10 @@ function formatMonthlyAttendanceProgress(progress = {}) {
 
     const notIncreased = progress.notIncreasedMissionNos?.length || 0;
     const unknown = progress.unknownMissionNos?.length || 0;
-    const suffix = notIncreased > 0 || unknown > 0
+    const alreadyCounted = progress.alreadyCountedMissionNos?.length || 0;
+    const suffix = (notIncreased > 0 || unknown > 0
         ? ` (\uBBF8\uC99D\uAC00 ${notIncreased}\uAC1C, \uD655\uC778\uBD88\uAC00 ${unknown}\uAC1C)`
-        : '';
+        : '') + (alreadyCounted > 0 ? ` (오늘 이미 반영 ${alreadyCounted}개)` : '');
 
     return `\uC6D4\uAC04\uCD9C\uC11D +1 ${progress.increased || 0}/${checked}${suffix}`;
 }
@@ -320,6 +347,9 @@ export async function runAutomation() {
         log('\uCD08\uAE30 \uC2A4\uB0C5\uC0F7 \uC218\uC9D1 \uC911...', 'info');
         const beforeSnapshot = await captureAutomationSnapshot(headers);
         logSnapshotSummary('\uCD08\uAE30 \uC2A4\uB0C5\uC0F7', beforeSnapshot);
+        const monthlyAttendanceContext = await loadMonthlyAttendanceContext(headers);
+        const compareWithAttendanceRecord = snapshot => applyMonthlyAttendanceRecord(
+            compareSnapshots(beforeSnapshot, snapshot, plan), snapshot, monthlyAttendanceContext);
 
         log('', 'info');
         log('\uAC8C\uC2DC\uAE00 \uBAA9\uB85D \uAC00\uC838\uC624\uB294 \uC911...', 'info');
@@ -371,7 +401,7 @@ export async function runAutomation() {
         log('\uCD5C\uC885 \uC2A4\uB0C5\uC0F7 \uC218\uC9D1 \uC911...', 'info');
         let afterSnapshot = await captureAutomationSnapshot(headers);
         logSnapshotSummary('\uCD5C\uC885 \uC2A4\uB0C5\uC0F7', afterSnapshot);
-        let diff = compareSnapshots(beforeSnapshot, afterSnapshot, plan);
+        let diff = compareWithAttendanceRecord(afterSnapshot);
         logSnapshotDiff('\uC2A4\uB0C5\uC0F7 \uBE44\uAD50', diff);
         focusRewardShopAfterDiff(diff);
 
@@ -379,7 +409,7 @@ export async function runAutomation() {
             log('\uC548\uC804 \uBCF5\uAD6C \uB300\uC0C1 \uD655\uC778 \uC911...', 'warning');
             await delay(CONFIG.delays.betweenActions);
             afterSnapshot = await captureAutomationSnapshot(headers);
-            diff = compareSnapshots(beforeSnapshot, afterSnapshot, plan);
+            diff = compareWithAttendanceRecord(afterSnapshot);
             logSnapshotDiff('\uC7AC\uD655\uC778 \uACB0\uACFC', diff);
             focusRewardShopAfterDiff(diff);
 
@@ -401,12 +431,21 @@ export async function runAutomation() {
 
                     afterSnapshot = await captureAutomationSnapshot(headers);
                     logSnapshotSummary('\uBCF5\uAD6C \uD6C4 \uC2A4\uB0C5\uC0F7', afterSnapshot);
-                    diff = compareSnapshots(beforeSnapshot, afterSnapshot, plan);
+                    diff = compareWithAttendanceRecord(afterSnapshot);
                     logSnapshotDiff('\uBCF5\uAD6C \uD6C4 \uBE44\uAD50', diff);
                     focusRewardShopAfterDiff(diff);
                 }
             }
         }
+
+        if (rewardShopFocusedForMonthlyAttendance && hasMonthlyAttendanceVerificationIssue(diff)) {
+            ({ afterSnapshot, diff } = await recheckMonthlyAttendance({
+                afterSnapshot, diff,
+                capture: () => captureAutomationSnapshot(headers),
+                compare: compareWithAttendanceRecord
+            }));
+        }
+        saveMonthlyAttendanceRecord(monthlyAttendanceContext, beforeSnapshot, afterSnapshot, diff);
 
         const specialForceResult = await collectSpecialForceRewards(headers);
         const outcome = getAutomationOutcome({ snapshot: afterSnapshot, diff, plan,

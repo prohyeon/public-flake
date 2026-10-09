@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.11.1
+// @version      2.11.2
 // @author       prohyeon
 // @description  STOVE 자동화 (게시글 추천, 댓글, 글쓰기, 부스트 1회, 게임 리뷰 이벤트 댓글, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -19,7 +19,7 @@
   'use strict';
 
   const CONFIG = {
-    version: "2.11.1",
+    version: "2.11.2",
     lastUpdated: "2026-10-02",
     maintenanceMode: {
       enabled: false,
@@ -4309,6 +4309,91 @@
     doc.title = buildAutomationSignalTitle(signal, message, doc.title);
     return doc.title;
   }
+  const MONTHLY_ATTENDANCE_RECHECK_ATTEMPTS = 3;
+  const MONTHLY_ATTENDANCE_RECHECK_DELAY_MS = 3e3;
+  const monthlyAttendanceRecordKey = (userId) => `stove-monthly-attendance-v1:${userId}`;
+  function attendanceCount(snapshot, missionNo) {
+    var _a, _b, _c;
+    const count = (_c = (_b = (_a = snapshot == null ? void 0 : snapshot.missions) == null ? void 0 : _a.byMissionNo) == null ? void 0 : _b[missionNo]) == null ? void 0 : _c.userCompleteCount;
+    return Number.isFinite(count) ? count : null;
+  }
+  function readMonthlyAttendanceRecord(storage, key, today) {
+    try {
+      const text = storage == null ? void 0 : storage.getItem(key);
+      if (!text) return null;
+      const record = JSON.parse(text);
+      if (!record || record.date !== today || typeof record.counts !== "object" || record.counts === null || Array.isArray(record.counts)) {
+        return null;
+      }
+      return record;
+    } catch {
+      return null;
+    }
+  }
+  async function loadMonthlyAttendanceContext(headers, deps = {}) {
+    var _a;
+    const fetchProfile = deps.getMyProfile || getMyProfile;
+    const storage = deps.storage === void 0 ? globalThis.localStorage : deps.storage;
+    const today = deps.today || getTodayKSTString();
+    try {
+      const profile = await fetchProfile(headers);
+      const userId = (_a = profile == null ? void 0 : profile.value) == null ? void 0 : _a.user_id;
+      if ((profile == null ? void 0 : profile.code) !== 0 || !/^\d+$/.test(String(userId ?? "")) || !storage) return null;
+      const key = monthlyAttendanceRecordKey(userId);
+      return { storage, key, today, record: readMonthlyAttendanceRecord(storage, key, today) };
+    } catch {
+      return null;
+    }
+  }
+  function applyMonthlyAttendanceRecord(diff, afterSnapshot, context) {
+    var _a;
+    const progress = diff == null ? void 0 : diff.monthlyAttendanceProgress;
+    const counts = (_a = context == null ? void 0 : context.record) == null ? void 0 : _a.counts;
+    if (!progress || !counts) return diff;
+    const notIncreasedMissionNos = [];
+    const alreadyCountedMissionNos = [...progress.alreadyCountedMissionNos || []];
+    for (const missionNo of progress.notIncreasedMissionNos || []) {
+      const confirmed = counts[missionNo];
+      const current = attendanceCount(afterSnapshot, missionNo);
+      if (Number.isFinite(confirmed) && current !== null && current >= confirmed) {
+        alreadyCountedMissionNos.push(missionNo);
+      } else {
+        notIncreasedMissionNos.push(missionNo);
+      }
+    }
+    return {
+      ...diff,
+      monthlyAttendanceProgress: { ...progress, notIncreasedMissionNos, alreadyCountedMissionNos }
+    };
+  }
+  function saveMonthlyAttendanceRecord(context, beforeSnapshot, afterSnapshot, diff) {
+    var _a, _b;
+    const progress = diff == null ? void 0 : diff.monthlyAttendanceProgress;
+    if (!(context == null ? void 0 : context.storage) || !progress) return null;
+    const pending = /* @__PURE__ */ new Set([
+      ...progress.notIncreasedMissionNos || [],
+      ...progress.unknownMissionNos || []
+    ]);
+    const counts = { ...((_a = context.record) == null ? void 0 : _a.counts) || {} };
+    for (const mission of Object.values(((_b = beforeSnapshot == null ? void 0 : beforeSnapshot.missions) == null ? void 0 : _b.byMissionNo) || {})) {
+      if (mission.category !== "attendance" || pending.has(mission.missionNo)) continue;
+      const before = mission.userCompleteCount;
+      const after = attendanceCount(afterSnapshot, mission.missionNo);
+      const alreadyCounted = (progress.alreadyCountedMissionNos || []).includes(mission.missionNo);
+      if (after !== null && (alreadyCounted || Number.isFinite(before) && after - before >= 1)) {
+        counts[mission.missionNo] = Math.max(after, counts[mission.missionNo] ?? after);
+      }
+    }
+    if (Object.keys(counts).length === 0) return null;
+    const record = { date: context.today, counts };
+    try {
+      context.storage.setItem(context.key, JSON.stringify(record));
+      context.record = record;
+      return record;
+    } catch {
+      return null;
+    }
+  }
   const REWARD_SHOP_URL = "https://reward.onstove.com/ko";
   function createAutomationTaskHandlers({ headers, articles = [], allTabs = [] }) {
     let commentTask;
@@ -4447,6 +4532,27 @@
     writeLog("월간출석 +1 확인이 안 되어 리워드샵으로 포커스를 이동합니다", "warning");
     return openRewardShop2(REWARD_SHOP_URL, true);
   }
+  async function recheckMonthlyAttendance({ afterSnapshot, diff, capture, compare, deps = {} }) {
+    var _a;
+    const wait = deps.delay || delay;
+    const writeLog = deps.writeLog || log;
+    const attempts = deps.attempts ?? MONTHLY_ATTENDANCE_RECHECK_ATTEMPTS;
+    const delayMs = deps.delayMs ?? MONTHLY_ATTENDANCE_RECHECK_DELAY_MS;
+    let currentSnapshot = afterSnapshot;
+    let currentDiff = diff;
+    for (let attempt = 1; attempt <= attempts && hasMonthlyAttendanceVerificationIssue(currentDiff); attempt++) {
+      await wait(delayMs);
+      const snapshot = await capture();
+      if (((_a = snapshot == null ? void 0 : snapshot.missions) == null ? void 0 : _a.success) === false) continue;
+      currentSnapshot = snapshot;
+      currentDiff = compare(snapshot);
+      writeLog(
+        `월간출석 재확인 ${attempt}/${attempts}: ${formatMonthlyAttendanceProgress(currentDiff.monthlyAttendanceProgress)}`,
+        hasMonthlyAttendanceVerificationIssue(currentDiff) ? "warning" : "success"
+      );
+    }
+    return { afterSnapshot: currentSnapshot, diff: currentDiff };
+  }
   function isFailedTask(result) {
     var _a, _b, _c, _d;
     return Boolean(result.status === "rejected" || ((_a = result.value) == null ? void 0 : _a.error) || ((_b = result.value) == null ? void 0 : _b.success) === false || ((_d = (_c = result.value) == null ? void 0 : _c.errors) == null ? void 0 : _d.length) > 0);
@@ -4498,12 +4604,13 @@
     );
   }
   function formatMonthlyAttendanceProgress(progress = {}) {
-    var _a, _b;
+    var _a, _b, _c;
     const checked = progress.checked || 0;
     if (checked === 0) return "월간출석 +1 대상없음";
     const notIncreased = ((_a = progress.notIncreasedMissionNos) == null ? void 0 : _a.length) || 0;
     const unknown = ((_b = progress.unknownMissionNos) == null ? void 0 : _b.length) || 0;
-    const suffix = notIncreased > 0 || unknown > 0 ? ` (미증가 ${notIncreased}개, 확인불가 ${unknown}개)` : "";
+    const alreadyCounted = ((_c = progress.alreadyCountedMissionNos) == null ? void 0 : _c.length) || 0;
+    const suffix = (notIncreased > 0 || unknown > 0 ? ` (미증가 ${notIncreased}개, 확인불가 ${unknown}개)` : "") + (alreadyCounted > 0 ? ` (오늘 이미 반영 ${alreadyCounted}개)` : "");
     return `월간출석 +1 ${progress.increased || 0}/${checked}${suffix}`;
   }
   function logSnapshotDiff(label, diff) {
@@ -4573,6 +4680,12 @@
       log("초기 스냅샷 수집 중...", "info");
       const beforeSnapshot = await captureAutomationSnapshot(headers);
       logSnapshotSummary("초기 스냅샷", beforeSnapshot);
+      const monthlyAttendanceContext = await loadMonthlyAttendanceContext(headers);
+      const compareWithAttendanceRecord = (snapshot) => applyMonthlyAttendanceRecord(
+        compareSnapshots(beforeSnapshot, snapshot, plan),
+        snapshot,
+        monthlyAttendanceContext
+      );
       log("", "info");
       log("게시글 목록 가져오는 중...", "info");
       const articles = await getArticleList(headers, 30);
@@ -4616,14 +4729,14 @@
       log("최종 스냅샷 수집 중...", "info");
       let afterSnapshot = await captureAutomationSnapshot(headers);
       logSnapshotSummary("최종 스냅샷", afterSnapshot);
-      let diff = compareSnapshots(beforeSnapshot, afterSnapshot, plan);
+      let diff = compareWithAttendanceRecord(afterSnapshot);
       logSnapshotDiff("스냅샷 비교", diff);
       focusRewardShopAfterDiff(diff);
       if (hasSafeRepairableItems(diff)) {
         log("안전 복구 대상 확인 중...", "warning");
         await delay(CONFIG.delays.betweenActions);
         afterSnapshot = await captureAutomationSnapshot(headers);
-        diff = compareSnapshots(beforeSnapshot, afterSnapshot, plan);
+        diff = compareWithAttendanceRecord(afterSnapshot);
         logSnapshotDiff("재확인 결과", diff);
         focusRewardShopAfterDiff(diff);
         if (hasSafeRepairableItems(diff)) {
@@ -4642,12 +4755,21 @@
             allGroupResults.push(...repairResults);
             afterSnapshot = await captureAutomationSnapshot(headers);
             logSnapshotSummary("복구 후 스냅샷", afterSnapshot);
-            diff = compareSnapshots(beforeSnapshot, afterSnapshot, plan);
+            diff = compareWithAttendanceRecord(afterSnapshot);
             logSnapshotDiff("복구 후 비교", diff);
             focusRewardShopAfterDiff(diff);
           }
         }
       }
+      if (rewardShopFocusedForMonthlyAttendance && hasMonthlyAttendanceVerificationIssue(diff)) {
+        ({ afterSnapshot, diff } = await recheckMonthlyAttendance({
+          afterSnapshot,
+          diff,
+          capture: () => captureAutomationSnapshot(headers),
+          compare: compareWithAttendanceRecord
+        }));
+      }
+      saveMonthlyAttendanceRecord(monthlyAttendanceContext, beforeSnapshot, afterSnapshot, diff);
       const specialForceResult = await collectSpecialForceRewards(headers);
       const outcome = getAutomationOutcome({
         snapshot: afterSnapshot,
