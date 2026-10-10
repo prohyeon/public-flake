@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.11.2
+// @version      2.12.0
 // @author       prohyeon
 // @description  STOVE 자동화 (게시글 추천, 댓글, 글쓰기, 부스트 1회, 게임 리뷰 이벤트 댓글, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -19,8 +19,8 @@
   'use strict';
 
   const CONFIG = {
-    version: "2.11.2",
-    lastUpdated: "2026-10-02",
+    version: "2.12.0",
+    lastUpdated: "2026-10-10",
     maintenanceMode: {
       enabled: false,
       startDate: "2025-11-01",
@@ -110,9 +110,9 @@
     },
     preRegistration: {
       enabled: true,
-      // month(KST YYYYMM)가 지난 캠페인은 요청하지 않는다. 새 사전등록은 여기에 추가한다.
+      // month(KST YYYYMM)에만, endDate(KST, 당일부터 중지) 전까지만 요청한다. 새 사전등록은 여기에 추가한다.
       campaigns: [
-        { month: "202610", key: "luvplace", title: "luvplace 사전등록", shopItemId: 14203 }
+        { month: "202610", key: "luvplace", title: "luvplace 사전등록", shopItemId: 14203, endDate: "2026-10-15" }
       ]
     },
     pointExchange: {
@@ -660,18 +660,21 @@
     const kstDate = new Date(today.getTime() + kstOffset * 60 * 1e3);
     return kstDate.toISOString().split("T")[0];
   }
-  const currentKSTMonth = () => getTodayKSTString().slice(0, 7).replace("-", "");
+  function isPreRegistrationActive(campaign, today = getTodayKSTString()) {
+    if (today.slice(0, 7).replace("-", "") !== String(campaign == null ? void 0 : campaign.month)) return false;
+    return !campaign.endDate || today < campaign.endDate;
+  }
   async function runPreRegistrations(headers, deps = {}) {
     const settings = deps.config || CONFIG.preRegistration;
     const register = deps.register || registerPreRegistration;
     const addWishlist = deps.addWishlist || addIndieWishlist;
     const writeLog = deps.writeLog || log;
-    const month = deps.month || currentKSTMonth();
+    const today = deps.today || getTodayKSTString();
     const results = [];
     if (!(settings == null ? void 0 : settings.enabled)) return { success: true, results };
     for (const campaign of settings.campaigns || []) {
       const name = campaign.title || campaign.key;
-      if (String(campaign.month) !== month) {
+      if (!isPreRegistrationActive(campaign, today)) {
         results.push({ key: campaign.key, skipped: true });
         continue;
       }

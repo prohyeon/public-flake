@@ -2,11 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { addIndieWishlist, registerPreRegistration } from '../../src/api/preRegistration.js';
-import { runPreRegistrations } from '../../src/workflows/preRegistration.js';
+import { isPreRegistrationActive, runPreRegistrations } from '../../src/workflows/preRegistration.js';
+import { CONFIG } from '../../src/config.js';
 import { getAutomationOutcome } from '../../src/workflows/automation.js';
 
 const headers = { Authorization: 'Bearer fake', 'X-UUID': 'fake-device' };
-const campaign = { month: '202610', key: 'luvplace', title: 'luvplace', shopItemId: 14203 };
+const campaign = { month: '202610', key: 'luvplace', title: 'luvplace', shopItemId: 14203, endDate: '2026-10-15' };
 
 function mockGM(t, respond) {
     const original = globalThis.GM_xmlhttpRequest;
@@ -54,7 +55,7 @@ test('new registration adds the wishlist item; already joined skips it', async (
     const wishlisted = [];
     const deps = {
         config: { enabled: true, campaigns: [campaign] },
-        month: '202610',
+        today: '2026-10-10',
         writeLog: () => {},
         addWishlist: async (_headers, id) => wishlisted.push(id)
     };
@@ -77,7 +78,7 @@ test('past campaigns are skipped and failures surface in the automation outcome'
     let calls = 0;
     const skipped = await runPreRegistrations(headers, {
         config: { enabled: true, campaigns: [campaign] },
-        month: '202611',
+        today: '2026-11-01',
         writeLog: () => {},
         register: async () => { calls += 1; }
     });
@@ -86,7 +87,7 @@ test('past campaigns are skipped and failures surface in the automation outcome'
 
     const failed = await runPreRegistrations(headers, {
         config: { enabled: true, campaigns: [campaign] },
-        month: '202610',
+        today: '2026-10-10',
         writeLog: () => {},
         register: async () => { throw new Error('network'); }
     });
@@ -104,7 +105,7 @@ test('wishlist failure is a warning and keeps the registration successful', asyn
     const logs = [];
     const result = await runPreRegistrations(headers, {
         config: { enabled: true, campaigns: [campaign] },
-        month: '202610',
+        today: '2026-10-10',
         writeLog: (message, type) => logs.push({ message, type }),
         register: async () => ({ registered: true, registrationNo: 7 }),
         addWishlist: async () => { throw new Error('wishlist down'); }
@@ -112,4 +113,28 @@ test('wishlist failure is a warning and keeps the registration successful', asyn
     assert.equal(result.success, true);
     assert.equal(result.results[0].wishlistError, 'wishlist down');
     assert.equal(logs.at(-1).type, 'warning');
+});
+
+test('campaign stops on its end date without requests or log output', async () => {
+    assert.equal(isPreRegistrationActive(campaign, '2026-10-14'), true);
+    assert.equal(isPreRegistrationActive(campaign, '2026-10-15'), false);
+    assert.equal(isPreRegistrationActive(campaign, '2026-09-30'), false);
+
+    const logs = [];
+    let calls = 0;
+    const result = await runPreRegistrations(headers, {
+        config: { enabled: true, campaigns: [campaign] },
+        today: '2026-10-15',
+        writeLog: message => logs.push(message),
+        register: async () => { calls += 1; }
+    });
+    assert.equal(calls, 0);
+    assert.deepEqual(logs, []);
+    assert.deepEqual(result, { success: true, results: [{ key: 'luvplace', skipped: true }], error: undefined });
+});
+
+test('configured luvplace campaign ends on 2026-10-15', () => {
+    const luvplace = CONFIG.preRegistration.campaigns.find(item => item.key === 'luvplace');
+    assert.equal(luvplace.endDate, '2026-10-15');
+    assert.equal(isPreRegistrationActive(luvplace, '2026-10-15'), false);
 });

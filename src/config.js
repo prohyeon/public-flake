@@ -1,6 +1,6 @@
 export const CONFIG = {
-    version: '2.11.2',
-    lastUpdated: '2026-10-02',
+    version: '2.12.0',
+    lastUpdated: '2026-10-10',
     maintenanceMode: {
         enabled: false,
         startDate: '2025-11-01',
@@ -90,9 +90,9 @@ export const CONFIG = {
     },
     preRegistration: {
         enabled: true,
-        // month(KST YYYYMM)가 지난 캠페인은 요청하지 않는다. 새 사전등록은 여기에 추가한다.
+        // month(KST YYYYMM)에만, endDate(KST, 당일부터 중지) 전까지만 요청한다. 새 사전등록은 여기에 추가한다.
         campaigns: [
-            { month: '202610', key: 'luvplace', title: 'luvplace 사전등록', shopItemId: 14203 }
+            { month: '202610', key: 'luvplace', title: 'luvplace 사전등록', shopItemId: 14203, endDate: '2026-10-15' }
         ]
     },
     pointExchange: {

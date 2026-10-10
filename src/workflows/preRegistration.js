@@ -3,22 +3,26 @@ import { addIndieWishlist, registerPreRegistration } from '../api/preRegistratio
 import { log } from '../ui/logger.js';
 import { getTodayKSTString } from '../utils/time.js';
 
-const currentKSTMonth = () => getTodayKSTString().slice(0, 7).replace('-', '');
+// 캠페인 월(KST)에만, endDate(KST YYYY-MM-DD, 당일 포함 안 함) 전까지만 동작한다.
+export function isPreRegistrationActive(campaign, today = getTodayKSTString()) {
+    if (today.slice(0, 7).replace('-', '') !== String(campaign?.month)) return false;
+    return !campaign.endDate || today < campaign.endDate;
+}
 
-// 캠페인 월이 지나면 요청하지 않는다. 사이트처럼 신규 등록에 성공했을 때만 찜하기를 함께 보낸다.
+// 기간이 끝난 캠페인은 요청도 로그도 남기지 않는다. 사이트처럼 신규 등록에 성공했을 때만 찜하기를 함께 보낸다.
 export async function runPreRegistrations(headers, deps = {}) {
     const settings = deps.config || CONFIG.preRegistration;
     const register = deps.register || registerPreRegistration;
     const addWishlist = deps.addWishlist || addIndieWishlist;
     const writeLog = deps.writeLog || log;
-    const month = deps.month || currentKSTMonth();
+    const today = deps.today || getTodayKSTString();
     const results = [];
 
     if (!settings?.enabled) return { success: true, results };
 
     for (const campaign of settings.campaigns || []) {
         const name = campaign.title || campaign.key;
-        if (String(campaign.month) !== month) {
+        if (!isPreRegistrationActive(campaign, today)) {
             results.push({ key: campaign.key, skipped: true });
             continue;
         }
