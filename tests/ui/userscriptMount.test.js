@@ -102,6 +102,12 @@ test('deployed userscript mounts once into MY홈 and survives route replacement 
     badge.innerHTML = '<button aria-label="닫기">Close badge</button>';
     badge.querySelector('button').addEventListener('click', () => { badgeClicks += 1; });
     document.body.append(badge);
+    // 전체 테스트를 병렬로 돌리면 타이머가 늦게 돌 수 있어, 고정 대기 대신 두 번째 클릭까지 기다린다.
+    const deadline = Date.now() + 2000;
+    while (badgeClicks < 2 && Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    // 재시도 상한(2회)을 넘는 클릭이 없는지 확인할 여유를 둔다.
     await new Promise(resolve => setTimeout(resolve, 80));
 
     assert.equal(badgeClicks, 2, 'bundle reevaluation keeps one watcher with the two-click retry bound');
