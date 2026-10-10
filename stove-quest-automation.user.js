@@ -108,6 +108,13 @@
       targetGiftName: "스토브 5,000 포인트",
       flakeCost: 500
     },
+    preRegistration: {
+      enabled: true,
+      // month(KST YYYYMM)가 지난 캠페인은 요청하지 않는다. 새 사전등록은 여기에 추가한다.
+      campaigns: [
+        { month: "202610", key: "luvplace", title: "luvplace 사전등록", shopItemId: 14203 }
+      ]
+    },
     pointExchange: {
       enabled: true,
       clientId: "M_STOVE_COMMUNITY",
@@ -176,7 +183,7 @@
     });
   }
   const SPECIAL_FORCE_GAME_ID = "GM-2A26-6A4CAF50_IND";
-  function eventHeaders(headers) {
+  function eventHeaders$1(headers) {
     return {
       ...headers,
       "caller-id": "event-hub",
@@ -198,7 +205,7 @@
     const links = requireOK(await apiRequest(
       `${CONFIG.api.baseUrl}/dailyshop/v1.0/services/family-links`,
       "GET",
-      eventHeaders(headers),
+      eventHeaders$1(headers),
       null,
       { timeout: 15e3 }
     ));
@@ -209,7 +216,7 @@
     const value = requireOK(await apiRequest(
       `${CONFIG.api.baseUrl}/dailyshop/v1.0/${month}/services/specialforce`,
       "GET",
-      eventHeaders(headers),
+      eventHeaders$1(headers),
       null,
       { timeout: 15e3 }
     ));
@@ -222,7 +229,7 @@
     const value = requireOK(await apiRequest(
       `${CONFIG.api.baseUrl}/dailyshop/v1.0/attendances/accumulate-play/flake?item_no=${reward.item_no}`,
       "POST",
-      eventHeaders(headers),
+      eventHeaders$1(headers),
       { item_no: reward.item_no },
       { timeout: 15e3 }
     ));
@@ -581,6 +588,51 @@
       renderSpecialForce({ success: false, error: error.message });
     }
   }
+  const PRE_REGISTRATION_ALREADY_JOINED = 90605;
+  function eventHeaders(headers) {
+    return {
+      ...headers,
+      "caller-id": "event-hub",
+      "caller-detail": headers["X-UUID"],
+      Origin: "https://event.onstove.com",
+      Referer: "https://event.onstove.com/",
+      "X-Timezone": "Asia/Seoul",
+      "X-Utc-Offset": "540"
+    };
+  }
+  async function registerPreRegistration(headers, campaign) {
+    var _a;
+    if (!/^\d{6}$/.test(String(campaign == null ? void 0 : campaign.month)) || !/^[a-z0-9-]+$/i.test(String(campaign == null ? void 0 : campaign.key))) {
+      throw new Error("사전등록 캠페인 설정 확인 실패");
+    }
+    const response = await apiRequest(
+      `${CONFIG.api.baseUrl}/dailyshop/v1.0/campaigns/${campaign.month}/${campaign.key}/register`,
+      "POST",
+      eventHeaders(headers),
+      null,
+      { timeout: 15e3 }
+    );
+    if ((response == null ? void 0 : response.code) === 0 && Number.isSafeInteger((_a = response.value) == null ? void 0 : _a.registration_no)) {
+      return { registered: true, registrationNo: response.value.registration_no };
+    }
+    if ((response == null ? void 0 : response.code) === PRE_REGISTRATION_ALREADY_JOINED) return { alreadyJoined: true };
+    throw new Error(`사전등록 응답 확인 실패 (code=${(response == null ? void 0 : response.code) ?? "없음"})`);
+  }
+  async function addIndieWishlist(headers, shopItemId) {
+    if (!Number.isSafeInteger(shopItemId) || shopItemId <= 0) throw new Error("찜하기 상품 번호 확인 실패");
+    const ids = [{ shop_item_id: shopItemId }];
+    const response = await apiRequest(
+      `${CONFIG.api.baseUrl}/shop/v2.0/indie/wishlist/add`,
+      "POST",
+      { ...eventHeaders(headers), "Content-Type": "application/json" },
+      { shop_key: "indie", shop_item_ids: ids, shop_item_ids_str: JSON.stringify(ids) },
+      { timeout: 15e3 }
+    );
+    if ((response == null ? void 0 : response.response_code) !== 0) {
+      throw new Error(`찜하기 응답 확인 실패 (code=${(response == null ? void 0 : response.response_code) ?? "없음"})`);
+    }
+    return true;
+  }
   function getKSTDate() {
     const now = /* @__PURE__ */ new Date();
     const kstTime = new Date(now.getTime() + 9 * 60 * 60 * 1e3);
@@ -607,6 +659,52 @@
     const kstOffset = 9 * 60;
     const kstDate = new Date(today.getTime() + kstOffset * 60 * 1e3);
     return kstDate.toISOString().split("T")[0];
+  }
+  const currentKSTMonth = () => getTodayKSTString().slice(0, 7).replace("-", "");
+  async function runPreRegistrations(headers, deps = {}) {
+    const settings = deps.config || CONFIG.preRegistration;
+    const register = deps.register || registerPreRegistration;
+    const addWishlist = deps.addWishlist || addIndieWishlist;
+    const writeLog = deps.writeLog || log;
+    const month = deps.month || currentKSTMonth();
+    const results = [];
+    if (!(settings == null ? void 0 : settings.enabled)) return { success: true, results };
+    for (const campaign of settings.campaigns || []) {
+      const name = campaign.title || campaign.key;
+      if (String(campaign.month) !== month) {
+        results.push({ key: campaign.key, skipped: true });
+        continue;
+      }
+      try {
+        const result = await register(headers, campaign);
+        if (result.alreadyJoined) {
+          writeLog(`사전등록 이미 완료: ${name}`, "info");
+          results.push({ key: campaign.key, alreadyJoined: true });
+          continue;
+        }
+        writeLog(`✓ 사전등록 완료: ${name} (등록번호 ${result.registrationNo})`, "success");
+        const entry = { key: campaign.key, registered: true, registrationNo: result.registrationNo };
+        if (campaign.shopItemId) {
+          try {
+            await addWishlist(headers, campaign.shopItemId);
+            entry.wishlisted = true;
+          } catch (error) {
+            writeLog(`사전등록 찜하기 실패: ${name} - ${error.message}`, "warning");
+            entry.wishlistError = error.message;
+          }
+        }
+        results.push(entry);
+      } catch (error) {
+        writeLog(`✗ 사전등록 실패: ${name} - ${error.message}`, "error");
+        results.push({ key: campaign.key, error: error.message });
+      }
+    }
+    const failed = results.filter((result) => result.error);
+    return {
+      success: failed.length === 0,
+      results,
+      error: failed.map((result) => `${result.key}: ${result.error}`).join(", ") || void 0
+    };
   }
   function playCompletionSound() {
     try {
@@ -4587,6 +4685,7 @@
     groupResults = [],
     specialForceResult,
     boostRewardResult,
+    preRegistrationResult,
     rouletteEnabled = CONFIG.roulette.enabled
   }) {
     var _a;
@@ -4605,6 +4704,7 @@
     }
     if ((boostRewardResult == null ? void 0 : boostRewardResult.success) === false) issues.push("오늘의 1등 보상 확인 필요");
     if ((specialForceResult == null ? void 0 : specialForceResult.success) !== true) issues.push("스페셜포스 확인 필요");
+    if ((preRegistrationResult == null ? void 0 : preRegistrationResult.success) === false) issues.push("사전등록 확인 필요");
     return { success: issues.length === 0, issues };
   }
   function describeFailedTask(result) {
@@ -4795,13 +4895,15 @@
       }
       saveMonthlyAttendanceRecord(monthlyAttendanceContext, beforeSnapshot, afterSnapshot, diff);
       const specialForceResult = await collectSpecialForceRewards(headers);
+      const preRegistrationResult = await runPreRegistrations(headers);
       const outcome = getAutomationOutcome({
         snapshot: afterSnapshot,
         diff,
         plan,
         groupResults: allGroupResults,
         specialForceResult,
-        boostRewardResult
+        boostRewardResult,
+        preRegistrationResult
       });
       const dailyAccumulatedFlake = state.earnings.dailyAccumulated || 0;
       const articleWriteFlake = state.progress.newArticle > 0 ? 200 : 0;
@@ -4861,6 +4963,9 @@
       log("", "info");
       if (!specialForceResult.success) {
         log(`스페셜포스 확인 필요: ${specialForceResult.error}`, "warning");
+      }
+      if (!preRegistrationResult.success) {
+        log(`사전등록 확인 필요: ${preRegistrationResult.error}`, "warning");
       }
       if (outcome.success) {
         log("🎊 모든 작업이 완료되었습니다!", "success");

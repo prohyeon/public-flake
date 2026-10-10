@@ -88,6 +88,13 @@ export const CONFIG = {
         targetGiftName: '스토브 5,000 포인트',
         flakeCost: 500
     },
+    preRegistration: {
+        enabled: true,
+        // month(KST YYYYMM)가 지난 캠페인은 요청하지 않는다. 새 사전등록은 여기에 추가한다.
+        campaigns: [
+            { month: '202610', key: 'luvplace', title: 'luvplace 사전등록', shopItemId: 14203 }
+        ]
+    },
     pointExchange: {
         enabled: true,
         clientId: 'M_STOVE_COMMUNITY',

@@ -24,6 +24,8 @@ test('distributed dashboard only reads status; full automation queries five time
     sfShop.date_info.attend_end_dt = `${new Date(now + 13 * 86400000 + 9 * 3600000).toISOString().slice(0, 10)}T23:59:59`;
     let sfWrites = 0;
     let sfUnavailable = false;
+    let preRegistrationCalls = 0;
+    let wishlistAdds = 0;
     let reviewWrites = 0;
     const reviewVisits = [];
     const mission = boostFixture().mission;
@@ -144,6 +146,21 @@ test('distributed dashboard only reads status; full automation queries five time
             sfShop.accumulated_plays.rewards[0].is_received = true;
             value = { item_no: 25, category: 'ACCUMULATE_PLAY', flake_amount: 1000 };
         }
+        else if (path === '/dailyshop/v1.0/campaigns/202610/luvplace/register' && config.method === 'POST') {
+            assert.equal(config.headers['caller-id'], 'event-hub');
+            preRegistrationCalls++;
+            // 첫 실행만 신규 등록되고, 이후 실행은 사이트와 같은 '이미 참여' 응답을 받는다.
+            config.onload({ status: 200, responseText: JSON.stringify(preRegistrationCalls === 1
+                ? { code: 0, message: 'OK', value: { registration_no: 29231 } }
+                : { code: 90605, message: '사용자가 이미 참여함.' }) });
+            return;
+        }
+        else if (path === '/shop/v2.0/indie/wishlist/add' && config.method === 'POST') {
+            assert.deepEqual(JSON.parse(config.data).shop_item_ids, [{ shop_item_id: 14203 }]);
+            wishlistAdds++;
+            config.onload({ status: 200, responseText: JSON.stringify({ value: { cart_id: '0' }, response_code: 0 }) });
+            return;
+        }
         else if (path.startsWith('/dailyshop/')) value = { daily_attendances: { rewards: [] }, accumulated_attendances: { rewards: [] } };
         else if (path === '/mileage/v1.0/balance') value = { mileage_amount: mission.is_rewarded ? 13000 : 10000 };
         else if (path === '/mileage/v2.0/master/deposit/total') value = { total_deposit_amount: mission.is_rewarded ? 3000 : 0 };
@@ -189,6 +206,11 @@ test('distributed dashboard only reads status; full automation queries five time
     assert.equal(boostWrites, 1);
     assert.equal(rewardWrites, 1);
     assert.equal(sfWrites, 1, 'repeating full automation does not claim a received SF reward again');
+    // 사전등록 캠페인 월(202610)에만 요청되며, 재실행은 '이미 참여'로 끝나 찜하기를 반복하지 않는다.
+    if (preRegistrationCalls > 0) {
+        assert.equal(preRegistrationCalls, 2);
+        assert.equal(wishlistAdds, 1);
+    }
 
     // Successful event lookups must not conceal failed background comment writes.
     failComments = true;

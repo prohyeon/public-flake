@@ -1,4 +1,5 @@
 import { collectSpecialForceRewards } from './specialForce.js';
+import { runPreRegistrations } from './preRegistration.js';
 import { CONFIG } from '../config.js';
 import { state } from '../state.js';
 import { delay } from '../utils/time.js';
@@ -239,7 +240,8 @@ function isFailedTask(result) {
 }
 
 export function getAutomationOutcome({ snapshot, diff, plan, groupResults = [],
-    specialForceResult, boostRewardResult, rouletteEnabled = CONFIG.roulette.enabled }) {
+    specialForceResult, boostRewardResult, preRegistrationResult,
+    rouletteEnabled = CONFIG.roulette.enabled }) {
     const issues = [];
     const failedTasks = flattenTaskResults(groupResults).filter(isFailedTask);
     if (failedTasks.length > 0) issues.push(`작업 실패 ${failedTasks.length}개`);
@@ -253,6 +255,7 @@ export function getAutomationOutcome({ snapshot, diff, plan, groupResults = [],
     }
     if (boostRewardResult?.success === false) issues.push('오늘의 1등 보상 확인 필요');
     if (specialForceResult?.success !== true) issues.push('스페셜포스 확인 필요');
+    if (preRegistrationResult?.success === false) issues.push('사전등록 확인 필요');
     return { success: issues.length === 0, issues };
 }
 
@@ -459,8 +462,9 @@ export async function runAutomation() {
         saveMonthlyAttendanceRecord(monthlyAttendanceContext, beforeSnapshot, afterSnapshot, diff);
 
         const specialForceResult = await collectSpecialForceRewards(headers);
+        const preRegistrationResult = await runPreRegistrations(headers);
         const outcome = getAutomationOutcome({ snapshot: afterSnapshot, diff, plan,
-            groupResults: allGroupResults, specialForceResult, boostRewardResult });
+            groupResults: allGroupResults, specialForceResult, boostRewardResult, preRegistrationResult });
         const dailyAccumulatedFlake = state.earnings.dailyAccumulated || 0;
 
         // Calculate earnings summary
@@ -546,6 +550,9 @@ export async function runAutomation() {
         log('', 'info');
         if (!specialForceResult.success) {
             log(`스페셜포스 확인 필요: ${specialForceResult.error}`, 'warning');
+        }
+        if (!preRegistrationResult.success) {
+            log(`사전등록 확인 필요: ${preRegistrationResult.error}`, 'warning');
         }
         if (outcome.success) {
             log('🎊 모든 작업이 완료되었습니다!', 'success');
