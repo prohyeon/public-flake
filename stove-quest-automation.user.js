@@ -4366,6 +4366,21 @@
       monthlyAttendanceProgress: { ...progress, notIncreasedMissionNos, alreadyCountedMissionNos }
     };
   }
+  function markMonthlyAttendanceUnverified(diff) {
+    const progress = diff == null ? void 0 : diff.monthlyAttendanceProgress;
+    if (!progress || !(progress.notIncreasedMissionNos || []).length) return diff;
+    return {
+      ...diff,
+      monthlyAttendanceProgress: {
+        ...progress,
+        notIncreasedMissionNos: [],
+        unverifiedMissionNos: [
+          ...progress.unverifiedMissionNos || [],
+          ...progress.notIncreasedMissionNos
+        ]
+      }
+    };
+  }
   function saveMonthlyAttendanceRecord(context, beforeSnapshot, afterSnapshot, diff) {
     var _a, _b;
     const progress = diff == null ? void 0 : diff.monthlyAttendanceProgress;
@@ -4379,7 +4394,10 @@
       if (mission.category !== "attendance" || pending.has(mission.missionNo)) continue;
       const before = mission.userCompleteCount;
       const after = attendanceCount(afterSnapshot, mission.missionNo);
-      const alreadyCounted = (progress.alreadyCountedMissionNos || []).includes(mission.missionNo);
+      const alreadyCounted = [
+        ...progress.alreadyCountedMissionNos || [],
+        ...progress.unverifiedMissionNos || []
+      ].includes(mission.missionNo);
       if (after !== null && (alreadyCounted || Number.isFinite(before) && after - before >= 1)) {
         counts[mission.missionNo] = Math.max(after, counts[mission.missionNo] ?? after);
       }
@@ -4533,7 +4551,7 @@
     return openRewardShop2(REWARD_SHOP_URL, true);
   }
   async function recheckMonthlyAttendance({ afterSnapshot, diff, capture, compare, deps = {} }) {
-    var _a;
+    var _a, _b;
     const wait = deps.delay || delay;
     const writeLog = deps.writeLog || log;
     const attempts = deps.attempts ?? MONTHLY_ATTENDANCE_RECHECK_ATTEMPTS;
@@ -4550,6 +4568,11 @@
         `월간출석 재확인 ${attempt}/${attempts}: ${formatMonthlyAttendanceProgress(currentDiff.monthlyAttendanceProgress)}`,
         hasMonthlyAttendanceVerificationIssue(currentDiff) ? "warning" : "success"
       );
+    }
+    const unverified = ((_b = currentDiff.monthlyAttendanceProgress) == null ? void 0 : _b.notIncreasedMissionNos) || [];
+    if (unverified.length > 0) {
+      currentDiff = markMonthlyAttendanceUnverified(currentDiff);
+      writeLog(`월간출석 +1을 확인하지 못했습니다. 오늘 이미 출석했을 수 있어 실패로 처리하지 않습니다 (미션 ${unverified.join(", ")})`, "warning");
     }
     return { afterSnapshot: currentSnapshot, diff: currentDiff };
   }
@@ -4604,13 +4627,14 @@
     );
   }
   function formatMonthlyAttendanceProgress(progress = {}) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     const checked = progress.checked || 0;
     if (checked === 0) return "월간출석 +1 대상없음";
     const notIncreased = ((_a = progress.notIncreasedMissionNos) == null ? void 0 : _a.length) || 0;
     const unknown = ((_b = progress.unknownMissionNos) == null ? void 0 : _b.length) || 0;
     const alreadyCounted = ((_c = progress.alreadyCountedMissionNos) == null ? void 0 : _c.length) || 0;
-    const suffix = (notIncreased > 0 || unknown > 0 ? ` (미증가 ${notIncreased}개, 확인불가 ${unknown}개)` : "") + (alreadyCounted > 0 ? ` (오늘 이미 반영 ${alreadyCounted}개)` : "");
+    const unverified = ((_d = progress.unverifiedMissionNos) == null ? void 0 : _d.length) || 0;
+    const suffix = (notIncreased > 0 || unknown > 0 ? ` (미증가 ${notIncreased}개, 확인불가 ${unknown}개)` : "") + (alreadyCounted > 0 ? ` (오늘 이미 반영 ${alreadyCounted}개)` : "") + (unverified > 0 ? ` (리워드샵 확인 후에도 미증가 ${unverified}개: 오늘 이미 출석했을 수 있음)` : "");
     return `월간출석 +1 ${progress.increased || 0}/${checked}${suffix}`;
   }
   function logSnapshotDiff(label, diff) {

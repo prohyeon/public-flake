@@ -67,6 +67,22 @@ export function applyMonthlyAttendanceRecord(diff, afterSnapshot, context) {
     };
 }
 
+export function markMonthlyAttendanceUnverified(diff) {
+    const progress = diff?.monthlyAttendanceProgress;
+    if (!progress || !(progress.notIncreasedMissionNos || []).length) return diff;
+    return {
+        ...diff,
+        monthlyAttendanceProgress: {
+            ...progress,
+            notIncreasedMissionNos: [],
+            unverifiedMissionNos: [
+                ...(progress.unverifiedMissionNos || []),
+                ...progress.notIncreasedMissionNos
+            ]
+        }
+    };
+}
+
 export function saveMonthlyAttendanceRecord(context, beforeSnapshot, afterSnapshot, diff) {
     const progress = diff?.monthlyAttendanceProgress;
     if (!context?.storage || !progress) return null;
@@ -80,7 +96,11 @@ export function saveMonthlyAttendanceRecord(context, beforeSnapshot, afterSnapsh
         if (mission.category !== 'attendance' || pending.has(mission.missionNo)) continue;
         const before = mission.userCompleteCount;
         const after = attendanceCount(afterSnapshot, mission.missionNo);
-        const alreadyCounted = (progress.alreadyCountedMissionNos || []).includes(mission.missionNo);
+        // 경고로 넘긴 미션도 같은 날 다시 실행할 때 리워드샵 재확인을 반복하지 않도록 기록한다.
+        const alreadyCounted = [
+            ...(progress.alreadyCountedMissionNos || []),
+            ...(progress.unverifiedMissionNos || [])
+        ].includes(mission.missionNo);
         if (after !== null && (alreadyCounted || (Number.isFinite(before) && after - before >= 1))) {
             counts[mission.missionNo] = Math.max(after, counts[mission.missionNo] ?? after);
         }

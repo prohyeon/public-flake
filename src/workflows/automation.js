@@ -27,7 +27,8 @@ import { closeTab, openTabInBackground } from '../utils/tabs.js';
 import { AUTOMATION_SIGNAL, setAutomationSignal } from '../utils/automationSignal.js';
 import {
     MONTHLY_ATTENDANCE_RECHECK_ATTEMPTS, MONTHLY_ATTENDANCE_RECHECK_DELAY_MS,
-    loadMonthlyAttendanceContext, applyMonthlyAttendanceRecord, saveMonthlyAttendanceRecord
+    loadMonthlyAttendanceContext, applyMonthlyAttendanceRecord, saveMonthlyAttendanceRecord,
+    markMonthlyAttendanceUnverified
 } from './monthlyAttendance.js';
 
 export const REWARD_SHOP_URL = 'https://reward.onstove.com/ko';
@@ -221,6 +222,14 @@ export async function recheckMonthlyAttendance({ afterSnapshot, diff, capture, c
             hasMonthlyAttendanceVerificationIssue(currentDiff) ? 'warning' : 'success');
     }
 
+    // 리워드샵을 열고 재확인해도 그대로면 오늘 이미 출석이 반영됐을 가능성이 높으므로
+    // 실패 대신 경고로 남긴다. 값을 읽지 못한 미션(확인불가)은 그대로 실패로 둔다.
+    const unverified = currentDiff.monthlyAttendanceProgress?.notIncreasedMissionNos || [];
+    if (unverified.length > 0) {
+        currentDiff = markMonthlyAttendanceUnverified(currentDiff);
+        writeLog(`월간출석 +1을 확인하지 못했습니다. 오늘 이미 출석했을 수 있어 실패로 처리하지 않습니다 (미션 ${unverified.join(', ')})`, 'warning');
+    }
+
     return { afterSnapshot: currentSnapshot, diff: currentDiff };
 }
 
@@ -278,9 +287,11 @@ function formatMonthlyAttendanceProgress(progress = {}) {
     const notIncreased = progress.notIncreasedMissionNos?.length || 0;
     const unknown = progress.unknownMissionNos?.length || 0;
     const alreadyCounted = progress.alreadyCountedMissionNos?.length || 0;
+    const unverified = progress.unverifiedMissionNos?.length || 0;
     const suffix = (notIncreased > 0 || unknown > 0
         ? ` (\uBBF8\uC99D\uAC00 ${notIncreased}\uAC1C, \uD655\uC778\uBD88\uAC00 ${unknown}\uAC1C)`
-        : '') + (alreadyCounted > 0 ? ` (오늘 이미 반영 ${alreadyCounted}개)` : '');
+        : '') + (alreadyCounted > 0 ? ` (오늘 이미 반영 ${alreadyCounted}개)` : '') +
+        (unverified > 0 ? ` (리워드샵 확인 후에도 미증가 ${unverified}개: 오늘 이미 출석했을 수 있음)` : '');
 
     return `\uC6D4\uAC04\uCD9C\uC11D +1 ${progress.increased || 0}/${checked}${suffix}`;
 }

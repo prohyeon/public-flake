@@ -136,16 +136,52 @@ test('recheck after opening the reward shop uses the refreshed snapshot', async 
     assert.equal(logs.at(-1).type, 'success');
 });
 
-test('recheck keeps the issue after all attempts and skips failed snapshots', async () => {
+test('recheck downgrades a still-unchanged count to a warning without a same-day record', async () => {
     const failed = { missions: { success: false } };
+    const logs = [];
     const result = await recheckMonthlyAttendance({
         afterSnapshot: snapshotWithCount(8),
         diff: diffWith({ notIncreasedMissionNos: [399] }),
         capture: async () => failed,
         compare: () => { throw new Error('must not compare failed snapshot'); },
-        deps: { delay: async () => {}, writeLog: () => {}, attempts: 2, delayMs: 0 }
+        deps: {
+            delay: async () => {},
+            writeLog: (message, type) => logs.push({ message, type }),
+            attempts: 2,
+            delayMs: 0
+        }
     });
 
-    assert.deepEqual(result.diff.monthlyAttendanceProgress.notIncreasedMissionNos, [399]);
+    assert.deepEqual(result.diff.monthlyAttendanceProgress.notIncreasedMissionNos, []);
+    assert.deepEqual(result.diff.monthlyAttendanceProgress.unverifiedMissionNos, [399]);
+    assert.equal(getAutomationOutcome(completedRun(result.diff)).success, true);
+    assert.equal(logs.at(-1).type, 'warning');
+    assert.match(logs.at(-1).message, /이미 출석했을 수 있어/);
+});
+
+test('recheck keeps unreadable monthly attendance as a failure', async () => {
+    const result = await recheckMonthlyAttendance({
+        afterSnapshot: snapshotWithCount(8),
+        diff: diffWith({ unknownMissionNos: [399] }),
+        capture: async () => ({ missions: { success: false } }),
+        compare: () => { throw new Error('must not compare failed snapshot'); },
+        deps: { delay: async () => {}, writeLog: () => {}, attempts: 1, delayMs: 0 }
+    });
+
+    assert.deepEqual(result.diff.monthlyAttendanceProgress.unknownMissionNos, [399]);
     assert.equal(getAutomationOutcome(completedRun(result.diff)).success, false);
+});
+
+test('unverified monthly attendance is remembered so later same-day runs skip the recheck', () => {
+    const storage = memoryStorage();
+    const context = { storage, key: monthlyAttendanceRecordKey('12345'), today: TODAY, record: null };
+
+    const saved = saveMonthlyAttendanceRecord(
+        context, snapshotWithCount(9), snapshotWithCount(9),
+        diffWith({ unverifiedMissionNos: [399] }));
+    assert.deepEqual(saved, { date: TODAY, counts: { 399: 9 } });
+
+    const nextRun = applyMonthlyAttendanceRecord(
+        diffWith({ notIncreasedMissionNos: [399] }), snapshotWithCount(9), context);
+    assert.deepEqual(nextRun.monthlyAttendanceProgress.alreadyCountedMissionNos, [399]);
 });
