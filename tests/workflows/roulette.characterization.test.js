@@ -220,23 +220,41 @@ test('runRouletteDraws stops after a round that did not raise the participation 
     assertGolden('roulette/draws-persistent-error-code-stops', h.snapshot());
 });
 
-test('runRouletteDraws re-POSTs a code-0 draw without value and does not count it as a retry', async t => {
-    // Current behavior: such a response neither succeeds nor increments retryCount, so the same
-    // draw is re-sent until a value arrives (unbounded in src; bounded here by the fixture).
+test('runRouletteDraws never re-sends a code-0 draw without value; the next round re-reads the count', async t => {
+    // The server counted the unclear draw (27 -> 29 after one win and one unclear draw), so the run
+    // continues with the single remaining draw.
     const h = useHarness(t);
-    h.on('GET', participationUrl(), participationSequence(29, 30));
+    h.on('GET', participationUrl(), participationSequence(27, 29, 30));
     h.on('POST', drawUrl(), [
+        drawWon('100 플레이크', 100),
         { code: 0, message: 'OK', value: null },
-        { code: 0, message: 'OK', value: null },
-        drawWon('100 플레이크', 100)
+        drawWon('200 플레이크', 200)
     ]);
 
-    assert.equal(await runRouletteDraws(TEST_HEADERS), 0);
+    const net = await runRouletteDraws(TEST_HEADERS);
 
     assert.equal(drawPosts(h).length, 3);
-    assert.deepEqual(h.delays, [200, 200, 200, 200]);
+    assert.equal(participationGets(h).length, 3);
+    assert.equal(net, 300 - 2 * CONFIG.roulette.drawCost);
+    assert.ok(h.logs().includes('[warning] ⚠️ 룰렛 2/3 결과를 확인할 수 없어 참여 횟수를 다시 확인합니다'));
     assert.ok(!h.logs().some(line => line.includes('재시도')));
-    assertGolden('roulette/draws-code0-without-value-reposts', h.snapshot());
+    assertGolden('roulette/draws-code0-without-value-rechecks-count', h.snapshot());
+});
+
+test('runRouletteDraws stops when an unclear draw (code 0 or empty body) did not move the count', async t => {
+    for (const unclear of [{ code: 0, message: 'OK', value: null }, rawText('null')]) {
+        await t.test(JSON.stringify(unclear.text ?? unclear), async st => {
+            const h = useHarness(st);
+            h.on('GET', participationUrl(), participation(28));
+            h.on('POST', drawUrl(), unclear);
+
+            assert.equal(await runRouletteDraws(TEST_HEADERS), 0);
+
+            assert.equal(drawPosts(h).length, 1, 'an unclear draw is sent exactly once');
+            assert.equal(participationGets(h).length, 2);
+            assert.equal(state.completed.roulette, true);
+        });
+    }
 });
 
 test('runRouletteDraws stops at the first 7019 (event not active) without retrying', async t => {

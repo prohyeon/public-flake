@@ -6,8 +6,9 @@
 
 | 위치 | 현상 |
 |---|---|
-| `src/workflows/roulette.js:63-95` | 룰렛 POST가 `{code:0}`인데 `value`가 없으면(또는 `null` 본문이면) 성공도 재시도도 아닌 상태가 된다. 같은 뽑기를 무제한 재전송하며, 서버가 실제로 뽑았다면 매번 FLAKE가 소비된다. |
-| `src/workflows/roulette.js:28, 72-82, 113-117` | 7019가 아닌 오류 코드(예: FLAKE 부족)가 오면 재시도만 소진하고 바깥 `while(true)`는 멈추지 않는다. 참여 횟수가 maxDraws 미만인 동안 끝없이 반복한다. |
+| ~~`src/workflows/roulette.js:63-95`~~ | **수정됨.** 룰렛 POST가 `{code:0}`인데 `value`가 없으면(또는 `null` 본문이면) 같은 뽑기를 무제한 재전송했다. 이제는 재전송하지 않고 라운드를 끝낸 뒤 서버 참여 횟수를 다시 읽는다. |
+| ~~`src/workflows/roulette.js:28, 72-82, 113-117`~~ | **수정됨.** 7019가 아닌 오류 코드가 계속 오면 바깥 `while(true)`가 끝없이 반복됐다. 이제는 직전 라운드 뒤 참여 횟수가 늘지 않으면 멈춘다(최대 maxDraws 라운드). |
+| `src/workflows/roulette.js` 순수익 계산 | 결과를 확인하지 못한 뽑기를 서버가 횟수에 반영했어도 비용은 성공한 뽑기 수로만 계산한다. 요약의 순수익이 실제보다 많게 나올 수 있다(서버 횟수 증가분으로 비용을 계산하면 해결). |
 | `src/workflows/roulette.js:39-41` | 매 라운드 서버 참여 횟수로 남은 횟수를 다시 계산한다. 서버 반영이 늦으면 30회를 넘겨 뽑는다. |
 | `src/workflows/pointExchange.js:73` | 잔액을 알 수 없을 때(오류 코드, HTML 응답)에도 교환 POST를 보낸다. |
 | `src/workflows/pointExchange.js:148` | 교환에 성공한 뒤 포인트 잔액 조회가 실패하면 FLAKE는 이미 소비됐는데 이를 복구할 수단이 없다. |

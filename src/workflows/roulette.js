@@ -78,6 +78,7 @@ export async function runRouletteDraws(headers, deps = {}) {
 
             let roundSuccessCount = 0;
             let shouldStopRoulette = false;
+            let outcomeUnknown = false;
 
             for (let i = 1; i <= remaining; i++) {
                 let drawSuccess = false;
@@ -113,6 +114,13 @@ export async function runRouletteDraws(headers, deps = {}) {
                             totalSuccessCount++;
                             io.log(`✓ 룰렛 ${i}/${remaining} 완료: ${giftName} (${giftPrice} FLAKE)`, 'success');
                             drawSuccess = true;
+                        } else {
+                            // code 0 (or an empty body) without a result: the server may already have drawn
+                            // and charged FLAKE, so never re-send it. End the round; the next one re-reads
+                            // the server count and stops if it did not move.
+                            io.log(`⚠️ 룰렛 ${i}/${remaining} 결과를 확인할 수 없어 참여 횟수를 다시 확인합니다`, 'warning');
+                            outcomeUnknown = true;
+                            break;
                         }
 
                         await io.delay(CONFIG.delays.betweenActions);
@@ -131,6 +139,7 @@ export async function runRouletteDraws(headers, deps = {}) {
                     io.log('🛑 룰렛 프로세스를 중단합니다', 'warning');
                     break;
                 }
+                if (outcomeUnknown) break;
             }
 
             io.log(`[${roundCount}차] ${roundSuccessCount}/${remaining} 성공`, 'info');
