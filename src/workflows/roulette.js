@@ -38,6 +38,7 @@ export async function runRouletteDraws(headers, deps = {}) {
         let totalRewards = 0;
         let totalSuccessCount = 0;
         let roundCount = 0;
+        let previousCount = null;
 
         while (true) {
             roundCount++;
@@ -64,6 +65,14 @@ export async function runRouletteDraws(headers, deps = {}) {
                 io.log(roundCount === 1 ? '오늘의 룰렛 참여 횟수를 모두 사용했습니다' : '모든 룰렛 횟수를 소진했습니다', 'info');
                 break;
             }
+
+            // Failed draws (e.g. an error code for missing FLAKE) leave the server count unchanged, so a
+            // round without progress would only repeat them. This bounds the run by maxDraws rounds.
+            if (previousCount !== null && current <= previousCount) {
+                io.log(`⚠️ 직전 라운드 후 참여 횟수가 늘지 않아 룰렛을 중단합니다 (현재: ${current})`, 'warning');
+                break;
+            }
+            previousCount = current;
 
             io.log(`룰렛 ${remaining}회 실행 시작...`, 'info');
 

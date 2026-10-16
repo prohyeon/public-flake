@@ -204,20 +204,20 @@ test('runRouletteDraws gives up on a draw after maxRetries error codes but conti
     assertGolden('roulette/draws-error-code-exhausts-retries-then-next-draw', h.snapshot());
 });
 
-test('runRouletteDraws keeps re-polling and re-drawing while draws return an error code (bounded only by the server)', async t => {
-    // Current behavior: an error code (other than 7019) never stops the run, so the outer loop
-    // re-reads the unchanged count and starts over. Here the third participation read ends it.
+test('runRouletteDraws stops after a round that did not raise the participation count', async t => {
+    // Error codes (other than 7019) leave the server count unchanged; the run must not start over.
     const h = useHarness(t);
-    h.on('GET', participationUrl(), participationSequence(29, 29, NO_PARTICIPATION_INFO));
+    h.on('GET', participationUrl(), participation(29));
     h.on('POST', drawUrl(), drawError(9999, '플레이크가 부족합니다'));
 
     assert.equal(await runRouletteDraws(TEST_HEADERS), 0);
 
-    assert.equal(participationGets(h).length, 3);
-    assert.equal(drawPosts(h).length, 2 * (CONFIG.roulette.maxRetries + 1));
+    assert.equal(participationGets(h).length, 2);
+    assert.equal(drawPosts(h).length, CONFIG.roulette.maxRetries + 1);
+    assert.ok(h.logs().includes('[warning] ⚠️ 직전 라운드 후 참여 횟수가 늘지 않아 룰렛을 중단합니다 (현재: 29)'));
     assert.equal(state.earnings.roulette, 0);
     assert.equal(state.completed.roulette, true);
-    assertGolden('roulette/draws-persistent-error-code-rerounds', h.snapshot());
+    assertGolden('roulette/draws-persistent-error-code-stops', h.snapshot());
 });
 
 test('runRouletteDraws re-POSTs a code-0 draw without value and does not count it as a retry', async t => {

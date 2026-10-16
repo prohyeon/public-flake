@@ -101,101 +101,10 @@
         "Referer": "https://reward.onstove.com/"
       },
       "body": null
-    },
-    {
-      "method": "POST",
-      "url": "https://api.onstove.com/emsbackapi/v3.0/draw/1000000353",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "flake-fe",
-        "caller-detail": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "Accept": "application/json",
-        "Origin": "https://reward.onstove.com",
-        "Referer": "https://reward.onstove.com/",
-        "Content-Type": "application/json"
-      },
-      "body": {
-        "type_no": 1
-      }
-    },
-    {
-      "method": "POST",
-      "url": "https://api.onstove.com/emsbackapi/v3.0/draw/1000000353",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "flake-fe",
-        "caller-detail": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "Accept": "application/json",
-        "Origin": "https://reward.onstove.com",
-        "Referer": "https://reward.onstove.com/",
-        "Content-Type": "application/json"
-      },
-      "body": {
-        "type_no": 1
-      }
-    },
-    {
-      "method": "POST",
-      "url": "https://api.onstove.com/emsbackapi/v3.0/draw/1000000353",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "flake-fe",
-        "caller-detail": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "Accept": "application/json",
-        "Origin": "https://reward.onstove.com",
-        "Referer": "https://reward.onstove.com/",
-        "Content-Type": "application/json"
-      },
-      "body": {
-        "type_no": 1
-      }
-    },
-    {
-      "method": "POST",
-      "url": "https://api.onstove.com/emsbackapi/v3.0/draw/1000000353",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "flake-fe",
-        "caller-detail": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "Accept": "application/json",
-        "Origin": "https://reward.onstove.com",
-        "Referer": "https://reward.onstove.com/",
-        "Content-Type": "application/json"
-      },
-      "body": {
-        "type_no": 1
-      }
-    },
-    {
-      "method": "GET",
-      "url": "https://api.onstove.com/emsbackapi/v3.0/participationCnt?sub_event_no=1000000353",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "flake-fe",
-        "caller-detail": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "Accept": "*/*",
-        "Origin": "https://reward.onstove.com",
-        "Referer": "https://reward.onstove.com/"
-      },
-      "body": null
     }
   ],
   "tabs": [],
   "delays": [
-    1000,
-    1000,
-    1000,
-    200,
     1000,
     1000,
     1000,
@@ -214,16 +123,7 @@
     "[error] ✗ 룰렛 1/1 API 오류 (코드: 9999)",
     "[info] [1차] 0/1 성공",
     "[info] ✓ [2차] 남은 횟수 재확인: 1/30",
-    "[info] 룰렛 1회 실행 시작...",
-    "[error] ✗ 룰렛 1/1 API 오류 (코드: 9999)",
-    "[warning] 🔄 룰렛 1/1 재시도 (1/3)...",
-    "[error] ✗ 룰렛 1/1 API 오류 (코드: 9999)",
-    "[warning] 🔄 룰렛 1/1 재시도 (2/3)...",
-    "[error] ✗ 룰렛 1/1 API 오류 (코드: 9999)",
-    "[warning] 🔄 룰렛 1/1 재시도 (3/3)...",
-    "[error] ✗ 룰렛 1/1 API 오류 (코드: 9999)",
-    "[info] [2차] 0/1 성공",
-    "[warning] ⚠️ 룰렛 정보를 가져올 수 없습니다",
+    "[warning] ⚠️ 직전 라운드 후 참여 횟수가 늘지 않아 룰렛을 중단합니다 (현재: 29)",
     "[success] ✅ 룰렛 실행 완료!"
   ],
   "titles": [],
