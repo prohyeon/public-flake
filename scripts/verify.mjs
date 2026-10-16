@@ -1,38 +1,33 @@
-// Full pre-merge check: syntax, unit/characterization tests, then a fresh build whose bundle is
-// run through the bundle-level tests. src/main.js is only exercised through the bundle, so this
-// catches regressions there before the committed (auto-updating) bundle is touched.
+// Full pre-merge check: syntax, then every test. Bundle-level tests build the userscript from the
+// current src (tests/helpers/bundle.js), so src/main.js and the panel are checked before any release.
+// Finally report whether the committed, auto-updating bundle still matches src; it is expected to lag
+// behind until the next release rebuilds it.
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const BUNDLE_TESTS = [
-  'tests/releaseMetadata.test.js',
-  'tests/userscriptMetadata.test.js',
-  'tests/ui/userscriptMount.test.js',
-  'tests/ui/boostUserscript.test.js',
-  'tests/ui/panel.characterization.test.js'
-];
-
-function run(label, args, env = process.env) {
+function run(label, args) {
   console.log(`\n▶ ${label}`);
-  const result = spawnSync(process.execPath, args, { stdio: 'inherit', env });
+  const result = spawnSync(process.execPath, args, { stdio: 'inherit' });
   if (result.status !== 0) {
     console.error(`\n✗ ${label} failed`);
     process.exit(result.status ?? 1);
   }
 }
 
+run('syntax check', ['scripts/check-syntax.mjs']);
+run('tests (bundle tests use a fresh build of src)', ['--test', 'tests/**/*.test.js']);
+
 const outDir = mkdtempSync(join(tmpdir(), 'stove-verify-'));
 try {
-  run('syntax check', ['scripts/check-syntax.mjs']);
-  run('tests (committed bundle)', ['--test', 'tests/**/*.test.js']);
-  run('fresh build', ['node_modules/vite/bin/vite.js', 'build', '--outDir', outDir, '--emptyOutDir', '--logLevel', 'warn']);
-  run('bundle tests (fresh build)', ['--test', ...BUNDLE_TESTS], {
-    ...process.env,
-    BUNDLE_PATH: join(outDir, 'stove-quest-automation.user.js')
-  });
-  console.log('\n✓ verify passed');
+  run('release bundle comparison build', ['node_modules/vite/bin/vite.js', 'build', '--outDir', outDir, '--emptyOutDir', '--logLevel', 'warn']);
+  const fresh = readFileSync(join(outDir, 'stove-quest-automation.user.js'), 'utf8');
+  const committed = readFileSync('stove-quest-automation.user.js', 'utf8');
+  console.log(fresh === committed
+    ? '\nℹ committed bundle matches src'
+    : '\nℹ committed bundle differs from src (expected until the next release rebuilds it)');
 } finally {
   rmSync(outDir, { recursive: true, force: true });
 }
+console.log('\n✓ verify passed');
