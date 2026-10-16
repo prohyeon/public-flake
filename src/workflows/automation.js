@@ -34,43 +34,78 @@ import {
 
 export const REWARD_SHOP_URL = 'https://reward.onstove.com/ko';
 
-export function createAutomationTaskHandlers({ headers, articles = [], allTabs = [] }) {
-    let commentTask;
+function taskServices(deps = {}) {
     return {
-        requiredPages: async () => {
-            const tabs = await visitRequiredPages();
-            if (tabs?.length) allTabs.push(...tabs);
-            return { tabCount: tabs?.length || 0 };
-        },
+        visitRequiredPages,
+        getMissionComponentIds,
+        getRouletteEventIds,
+        getPrizeInfo,
+        checkArticleWriteStatus,
+        createArticle,
+        checkArticleLikeStatus,
+        likeArticle,
+        postCommentsSerially,
+        executeBoostMission,
+        executeReviewEvent,
+        autoParticipateVisitMissions,
+        executeDailyMissions,
+        executeContentMissions,
+        executeBannerMissions,
+        executeWeeklyMissions,
+        executeAttendanceMissions,
+        executeSurveyMissions,
+        runRouletteDraws,
+        executePrizeEntry,
+        claimRouletteExtraRewards,
+        claimDailyShopRewards,
+        claimDailyAccumulatedRewards,
+        claimMajakDailyShopRewards,
+        delay,
+        log,
+        updateProgress,
+        ...deps
+    };
+}
 
-        componentRefresh: async () => getMissionComponentIds(headers),
+export function createAutomationTaskHandlers({ headers, articles = [], allTabs = [], deps = {} }) {
+    const io = taskServices(deps);
+    let commentTask;
+    // Tabs opened by a task stay open until the whole run ends, then runAutomation closes them.
+    const collectTabs = tabs => {
+        if (tabs?.length) allTabs.push(...tabs);
+        return { tabCount: tabs?.length || 0 };
+    };
+    return {
+        requiredPages: async () => collectTabs(await io.visitRequiredPages()),
+
+        componentRefresh: async () => io.getMissionComponentIds(headers),
 
         eventRefresh: async () => {
-            const events = await getRouletteEventIds(headers);
+            const events = await io.getRouletteEventIds(headers);
             if (CONFIG.prizeEntry.enabled) {
-                await getPrizeInfo(headers);
+                await io.getPrizeInfo(headers);
             }
             return events;
         },
 
         articleWrite: async () => {
-            const writeStatus = await checkArticleWriteStatus(headers);
+            const writeStatus = await io.checkArticleWriteStatus(headers);
 
             if (writeStatus.success && writeStatus.hasWrittenToday) {
                 return { skipped: true, reason: 'alreadyWritten', writeStatus };
             }
 
             try {
-                const articleId = await createArticle(headers, '출석', '출석');
+                const articleId = await io.createArticle(headers, '출석', '출석');
                 if (articleId) {
                     state.progress.newArticle++;
-                    updateProgress('new-article', state.progress.newArticle, CONFIG.targets.newArticle);
+                    io.updateProgress('new-article', state.progress.newArticle, CONFIG.targets.newArticle);
                     return { articleId };
                 }
                 return { error: true, message: 'Article creation returned no article id' };
             } catch (e) {
-                log(`새글 작성 실패: ${e.message}`, 'error');
-                log('새글 작성 실패했지만 자동화를 계속 진행합니다', 'warning');
+                io.log(`새글 작성 실패: ${e.message}`, 'error');
+                io.log('새글 작성 실패했지만 자동화를 계속 진행합니다', 'warning');
                 return { error: true, message: e.message };
             }
         },
@@ -85,7 +120,7 @@ export function createAutomationTaskHandlers({ headers, articles = [], allTabs =
                 return { attempted: 0, liked: 0, errors: [] };
             }
 
-            const articleLikeStatuses = await checkArticleLikeStatus(headers, candidateArticleIds);
+            const articleLikeStatuses = await io.checkArticleLikeStatus(headers, candidateArticleIds);
             const unlikedArticles = candidateArticles.filter(article =>
                 articleLikeStatuses[article.article_id]?.LIKE !== true
             );
@@ -96,62 +131,50 @@ export function createAutomationTaskHandlers({ headers, articles = [], allTabs =
             for (let i = 0; i < articlesToLike.length; i++) {
                 const articleId = articlesToLike[i].article_id;
                 try {
-                    await likeArticle(headers, articleId);
+                    await io.likeArticle(headers, articleId);
                     state.progress.articleLikes++;
                     liked++;
-                    updateProgress('article-likes', state.progress.articleLikes, CONFIG.targets.articleLikes);
-                    log(`게시글 ${articleId} 좋아요 완료 (${state.progress.articleLikes}/${targetArticleLikes})`, 'success');
+                    io.updateProgress('article-likes', state.progress.articleLikes, CONFIG.targets.articleLikes);
+                    io.log(`게시글 ${articleId} 좋아요 완료 (${state.progress.articleLikes}/${targetArticleLikes})`, 'success');
                 } catch (e) {
                     errors.push({ articleId, message: e.message });
-                    log(`게시글 ${articleId} 좋아요 실패: ${e.message}`, 'error');
+                    io.log(`게시글 ${articleId} 좋아요 실패: ${e.message}`, 'error');
                 }
-                if (i < articlesToLike.length - 1) await delay(CONFIG.delays.betweenActions);
+                if (i < articlesToLike.length - 1) await io.delay(CONFIG.delays.betweenActions);
             }
 
             return { attempted: articlesToLike.length, liked, errors };
         },
 
         comments: () => {
-            commentTask = postCommentsSerially({ headers, articles });
+            commentTask = io.postCommentsSerially({ headers, articles });
             return commentTask;
         },
-        boostMission: async () => executeBoostMission(headers),
+        boostMission: async () => io.executeBoostMission(headers),
         reviewEvent: async () => {
             // Preserve the existing comment interval across the two community APIs.
             const comments = await commentTask;
-            if (comments?.attempted > 0) await delay(CONFIG.delays.afterComment);
-            return executeReviewEvent(headers);
+            if (comments?.attempted > 0) await io.delay(CONFIG.delays.afterComment);
+            return io.executeReviewEvent(headers);
         },
 
-        singleVisits: async (task) => autoParticipateVisitMissions(headers, task),
+        singleVisits: async (task) => io.autoParticipateVisitMissions(headers, task),
 
-        dailyMissions: async () => {
-            const tabs = await executeDailyMissions(headers);
-            if (tabs?.length) allTabs.push(...tabs);
-            return { tabCount: tabs?.length || 0 };
-        },
+        dailyMissions: async () => collectTabs(await io.executeDailyMissions(headers)),
 
-        contentMissions: async () => {
-            const tabs = await executeContentMissions(headers);
-            if (tabs?.length) allTabs.push(...tabs);
-            return { tabCount: tabs?.length || 0 };
-        },
+        contentMissions: async () => collectTabs(await io.executeContentMissions(headers)),
 
-        bannerMissions: async () => {
-            const tabs = await executeBannerMissions(headers);
-            if (tabs?.length) allTabs.push(...tabs);
-            return { tabCount: tabs?.length || 0 };
-        },
+        bannerMissions: async () => collectTabs(await io.executeBannerMissions(headers)),
 
-        weeklyMissions: async () => executeWeeklyMissions(headers),
-        attendanceMissions: async () => executeAttendanceMissions(headers),
-        surveyMissions: async () => executeSurveyMissions(headers),
-        rouletteDraws: async () => runRouletteDraws(headers),
-        prizeEntry: async () => executePrizeEntry(headers),
-        rouletteExtra: async () => claimRouletteExtraRewards(headers),
-        dailyShop: async () => claimDailyShopRewards(headers),
-        dailyAccumulatedShop: async () => claimDailyAccumulatedRewards(headers),
-        majakShop: async () => claimMajakDailyShopRewards(headers)
+        weeklyMissions: async () => io.executeWeeklyMissions(headers),
+        attendanceMissions: async () => io.executeAttendanceMissions(headers),
+        surveyMissions: async () => io.executeSurveyMissions(headers),
+        rouletteDraws: async () => io.runRouletteDraws(headers),
+        prizeEntry: async () => io.executePrizeEntry(headers),
+        rouletteExtra: async () => io.claimRouletteExtraRewards(headers),
+        dailyShop: async () => io.claimDailyShopRewards(headers),
+        dailyAccumulatedShop: async () => io.claimDailyAccumulatedRewards(headers),
+        majakShop: async () => io.claimMajakDailyShopRewards(headers)
     };
 }
 

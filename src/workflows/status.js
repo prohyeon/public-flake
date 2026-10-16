@@ -15,9 +15,49 @@ import { updatePointCashChargeButtonAvailability } from '../ui/pointCashCharge.j
 import { checkBoostStatus } from './boost.js';
 import { checkReviewEventStatus } from './reviewEvent.js';
 
-export async function checkRouletteStatus(headers) {
+const STATUS_KEYS = ['articleWrite', 'dailyMission', 'roulette', 'dailyShop', 'majakShop', 'survey', 'boost', 'reviewEvent'];
+const BALANCE_KEYS = ['totalFlake', 'monthlyFlake'];
+
+function services(deps = {}) {
+    return {
+        getRouletteParticipationCount,
+        getDailyShopRewards,
+        getMajakDailyShopRewards,
+        apiRequest,
+        getAllDailyMissions,
+        getMyProfile,
+        getMyArticles,
+        getTodayString,
+        ...deps
+    };
+}
+
+// Daily shop and majak report today's attendance reward the same way.
+async function checkTodayAttendanceStatus(io, readShop) {
     try {
-        const participationInfo = await getRouletteParticipationCount(headers, getRouletteSubEventNo());
+        const shopData = await readShop();
+
+        if (shopData?.value?.daily_attendances) {
+            const rewards = shopData.value.daily_attendances.rewards || [];
+            const todayString = io.getTodayString();
+
+            const todayReward = rewards.find(reward => reward.attendance_date === todayString);
+
+            if (todayReward) {
+                return { success: true, received: todayReward.is_received, notReceived: !todayReward.is_received };
+            }
+            return { success: true, received: false, notReceived: false, noRewardToday: true };
+        }
+        return { success: false, error: '데이터 없음' };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+export async function checkRouletteStatus(headers, deps = {}) {
+    const io = services(deps);
+    try {
+        const participationInfo = await io.getRouletteParticipationCount(headers, getRouletteSubEventNo());
         if (participationInfo?.value) {
             const maxDraws = CONFIG.roulette.maxDraws;
             const current = participationInfo.value.participation_cnt || 0;
@@ -30,51 +70,18 @@ export async function checkRouletteStatus(headers) {
     }
 }
 
-export async function checkDailyShopStatus(headers) {
-    try {
-        const dailyShopData = await getDailyShopRewards(headers);
-
-        if (dailyShopData?.value?.daily_attendances) {
-            const rewards = dailyShopData.value.daily_attendances.rewards || [];
-            const todayString = getTodayString();
-
-            const todayReward = rewards.find(reward => reward.attendance_date === todayString);
-
-            if (todayReward) {
-                return { success: true, received: todayReward.is_received, notReceived: !todayReward.is_received };
-            } else {
-                return { success: true, received: false, notReceived: false, noRewardToday: true };
-            }
-        }
-        return { success: false, error: '데이터 없음' };
-    } catch (e) {
-        return { success: false, error: e.message };
-    }
+export async function checkDailyShopStatus(headers, deps = {}) {
+    const io = services(deps);
+    return checkTodayAttendanceStatus(io, () => io.getDailyShopRewards(headers));
 }
 
-export async function checkMajakShopStatus(headers) {
-    try {
-        const majakShopData = await getMajakDailyShopRewards(headers);
-
-        if (majakShopData?.value?.daily_attendances) {
-            const rewards = majakShopData.value.daily_attendances.rewards || [];
-            const todayString = getTodayString();
-
-            const todayReward = rewards.find(reward => reward.attendance_date === todayString);
-
-            if (todayReward) {
-                return { success: true, received: todayReward.is_received, notReceived: !todayReward.is_received };
-            } else {
-                return { success: true, received: false, notReceived: false, noRewardToday: true };
-            }
-        }
-        return { success: false, error: '데이터 없음' };
-    } catch (e) {
-        return { success: false, error: e.message };
-    }
+export async function checkMajakShopStatus(headers, deps = {}) {
+    const io = services(deps);
+    return checkTodayAttendanceStatus(io, () => io.getMajakDailyShopRewards(headers));
 }
 
-export async function checkSurveyStatus(headers) {
+export async function checkSurveyStatus(headers, deps = {}) {
+    const io = services(deps);
     try {
         if (!CONFIG.surveyMissions.enabled) return { success: true, notAvailable: true };
 
@@ -82,7 +89,7 @@ export async function checkSurveyStatus(headers) {
         if (!componentNo) return { success: true, notAvailable: true };
 
         const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
-        const response = await apiRequest(url, 'GET', headers);
+        const response = await io.apiRequest(url, 'GET', headers);
 
         if (response?.code === 0 && response.value?.missions) {
             const missions = response.value.missions;
@@ -106,9 +113,10 @@ export async function checkSurveyStatus(headers) {
     }
 }
 
-export async function checkDailyMissionStatus(headers) {
+export async function checkDailyMissionStatus(headers, deps = {}) {
+    const io = services(deps);
     try {
-        const allMissions = await getAllDailyMissions(headers);
+        const allMissions = await io.getAllDailyMissions(headers);
         if (!allMissions || allMissions.length === 0) {
             return { success: false, error: '데이터 없음' };
         }
@@ -160,15 +168,16 @@ export async function checkDailyMissionStatus(headers) {
     }
 }
 
-export async function checkArticleWriteStatus(headers) {
+export async function checkArticleWriteStatus(headers, deps = {}) {
+    const io = services(deps);
     try {
-        const profileData = await getMyProfile(headers);
+        const profileData = await io.getMyProfile(headers);
         if (!profileData?.value?.user_id) {
             return { success: false, error: '프로필 정보 없음' };
         }
 
         const userId = profileData.value.user_id;
-        const articlesData = await getMyArticles(headers, userId, 10);
+        const articlesData = await io.getMyArticles(headers, userId, 10);
         if (!articlesData?.value?.list) {
             return { success: false, error: '게시글 목록 없음' };
         }
@@ -211,18 +220,7 @@ export async function checkAllStatus() {
     try {
         const headers = extractHeaders();
 
-        updateStatusUI({
-            articleWrite: { loading: true },
-            dailyMission: { loading: true },
-            roulette: { loading: true },
-            dailyShop: { loading: true },
-            majakShop: { loading: true },
-            survey: { loading: true },
-            boost: { loading: true },
-            reviewEvent: { loading: true },
-            totalFlake: { loading: true },
-            monthlyFlake: { loading: true }
-        });
+        updateStatusUI(Object.fromEntries([...STATUS_KEYS, ...BALANCE_KEYS].map(key => [key, { loading: true }])));
 
         // Load mission component IDs if not loaded
         if (getMissionComponentNos().length === 0) {
@@ -261,18 +259,10 @@ export async function checkAllStatus() {
     } catch (error) {
         console.error('[상태 확인 오류]', error);
         alert(`상태 확인 실패: ${error.message}`);
-        updateStatusUI({
-            articleWrite: { success: false, error: '확인 실패' },
-            dailyMission: { success: false, error: '확인 실패' },
-            roulette: { success: false, error: '확인 실패' },
-            dailyShop: { success: false, error: '확인 실패' },
-            majakShop: { success: false, error: '확인 실패' },
-            survey: { success: false, error: '확인 실패' },
-            boost: { success: false, error: '확인 실패' },
-            reviewEvent: { success: false, error: '확인 실패' },
-            totalFlake: { error: true },
-            monthlyFlake: { error: true }
-        });
+        updateStatusUI(Object.fromEntries([
+            ...STATUS_KEYS.map(key => [key, { success: false, error: '확인 실패' }]),
+            ...BALANCE_KEYS.map(key => [key, { error: true }])
+        ]));
         updatePointCashChargeButtonAvailability(null);
     }
 }
