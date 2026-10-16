@@ -1,13 +1,8 @@
 import { CONFIG } from '../config.js';
 import { apiRequest } from './request.js';
+import { withEventHubOrigin as eventHeaders } from './headers.js';
 
 export const SPECIAL_FORCE_GAME_ID = 'GM-2A26-6A4CAF50_IND';
-
-function eventHeaders(headers) {
-    return { ...headers, 'caller-id': 'event-hub', 'caller-detail': headers['X-UUID'],
-        Origin: 'https://event.onstove.com', Referer: 'https://event.onstove.com/',
-        'X-Timezone': 'Asia/Seoul', 'X-Utc-Offset': '540' };
-}
 
 function requireOK(response) {
     if (response?.code !== 0 || !response.value) {

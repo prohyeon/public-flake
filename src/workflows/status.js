@@ -7,7 +7,7 @@ import { openTabInBackground } from '../utils/tabs.js';
 import { getRouletteParticipationCount, getRouletteSubEventNo } from '../api/roulette.js';
 import { getDailyShopRewards, getMajakDailyShopRewards } from '../api/shop.js';
 import { apiRequest } from '../api/request.js';
-import { getAllDailyMissions, getMissionComponentIds, getMissionComponentNos } from '../api/missions.js';
+import { getAllDailyMissions, getMissionComponentIds, getMissionComponentNos, missionComponentUrl } from '../api/missions.js';
 import { getMyProfile, getMyArticles, getMonthlyFlakeTotal, getTotalFlakeBalance } from '../api/profile.js';
 import { log } from '../ui/logger.js';
 import { updateStatusUI } from '../ui/status.js';
@@ -88,8 +88,8 @@ export async function checkSurveyStatus(headers, deps = {}) {
         const componentNo = state.missionComponents.survey;
         if (!componentNo) return { success: true, notAvailable: true };
 
-        const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
-        const response = await io.apiRequest(url, 'GET', headers);
+        // Unlike the mission steps this read sends the lounge headers as-is (see bug-candidates doc).
+        const response = await io.apiRequest(missionComponentUrl(componentNo), 'GET', headers);
 
         if (response?.code === 0 && response.value?.missions) {
             const missions = response.value.missions;

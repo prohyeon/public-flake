@@ -9,6 +9,7 @@ import {
 import { extractHeaders } from '../utils/auth.js';
 import { log } from '../ui/logger.js';
 import { updateProgress, setButtonState } from '../ui/progress.js';
+import { debugLog } from '../utils/debug.js';
 
 function services(deps = {}) {
     return {
@@ -41,7 +42,7 @@ export async function runRouletteDraws(headers, deps = {}) {
 
         while (true) {
             roundCount++;
-            console.log(`\n[룰렛 실행 루프] ===== Round ${roundCount} 시작 =====`);
+            debugLog(`\n[룰렛 실행 루프] ===== Round ${roundCount} 시작 =====`);
 
             const participationInfo = await io.getRouletteParticipationCount(headers, getRouletteSubEventNo());
 
@@ -165,7 +166,7 @@ export async function claimRouletteExtraRewards(headers, deps = {}) {
 
     try {
         const extraData = await io.getRouletteExtra(headers, getRouletteExtraSubEventNo());
-        console.log('[룰렛 EXTRA] API Response:', extraData);
+        debugLog('[룰렛 EXTRA] API Response:', extraData);
 
         if (!extraData) {
             io.log('⚠️ 룰렛 EXTRA API 응답이 없습니다', 'warning');

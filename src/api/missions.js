@@ -1,28 +1,12 @@
 import { CONFIG } from '../config.js';
 import { state } from '../state.js';
 import { apiRequest } from './request.js';
+import { makeRewardPageHeaders, makeRewardPageJsonHeaders, makeEventHubHeaders } from './headers.js';
+import { debugLog } from '../utils/debug.js';
 
-export function makeMissionHeaders(headers) {
-    return {
-        'Authorization': headers['Authorization'],
-        'caller-id': 'flake-fe',
-        'caller-detail': headers['X-UUID'] || headers['caller-detail'],
-        'x-lang': 'ko',
-        'x-nation': 'KR',
-        'Accept': '*/*',
-        'Origin': 'https://reward.onstove.com',
-        'Referer': 'https://reward.onstove.com/'
-    };
-}
-
-// Mission writes (participate, vote, prize apply) send JSON with the reward-page headers.
-export function makeMissionJsonHeaders(headers) {
-    return {
-        ...makeMissionHeaders(headers),
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-    };
-}
+// Missions are served by the reward page; writes (participate, vote, prize apply) send JSON.
+export const makeMissionHeaders = makeRewardPageHeaders;
+export const makeMissionJsonHeaders = makeRewardPageJsonHeaders;
 
 export function missionComponentUrl(componentNo) {
     return `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
@@ -122,7 +106,7 @@ export async function getMissionComponentIds(headers) {
     const url = `${CONFIG.api.baseUrl}/flake-shop/v1/page?page_type=MISSION`;
     const missionHeaders = makeMissionHeaders(headers);
 
-    console.log('[미션 컴포넌트 로드] URL:', url);
+    debugLog('[미션 컴포넌트 로드] URL:', url);
 
     try {
         const response = await apiRequest(url, 'GET', missionHeaders);
@@ -131,7 +115,7 @@ export async function getMissionComponentIds(headers) {
             const components = mapMissionComponentIds(response.value.component_list);
 
             state.missionComponents = components;
-            console.log('[미션 컴포넌트 로드] ✓ 완료:', components);
+            debugLog('[미션 컴포넌트 로드] ✓ 완료:', components);
             return components;
         } else {
             console.error('[미션 컴포넌트 로드] ✗ API 오류:', response);
@@ -152,7 +136,7 @@ export async function getDailyMissions(headers) {
 
     const missionHeaders = makeMissionHeaders(headers);
 
-    console.log(`[데일리 미션 조회] componentNos: ${componentNos.join(', ')}`);
+    debugLog(`[데일리 미션 조회] componentNos: ${componentNos.join(', ')}`);
 
     try {
         const values = [];
@@ -179,7 +163,7 @@ export async function getDailyMissions(headers) {
         }
 
         const missions = values.flatMap(value => value.missions || []);
-        console.log(`[데일리 미션 조회] ✓ 미션 ${missions.length}개 조회 완료`);
+        debugLog(`[데일리 미션 조회] ✓ 미션 ${missions.length}개 조회 완료`);
 
         return values.length === 1
             ? values[0]
@@ -201,13 +185,13 @@ export async function getDailyMissions(headers) {
 export async function receiveMissionReward(headers, missionNo, componentNo) {
     const body = { mission_no: missionNo, component_no: componentNo };
 
-    console.log(`[미션 보상 수령] mission_no: ${missionNo}`);
+    debugLog(`[미션 보상 수령] mission_no: ${missionNo}`);
 
     try {
         const response = await apiRequest(missionParticipateUrl(), 'POST', makeMissionJsonHeaders(headers), body);
         if (response && response.code === 0 && response.value) {
             const reward = response.value.reward_amount || 0;
-            console.log(`[미션 보상 수령] ✓ ${response.value.title}: ${reward} FLAKE`);
+            debugLog(`[미션 보상 수령] ✓ ${response.value.title}: ${reward} FLAKE`);
             return response.value;
         } else {
             console.error('[미션 보상 수령] ✗ API 오류:', response);
@@ -227,7 +211,7 @@ export async function getAllDailyMissions(headers) {
     const componentNos = getMissionComponentNos();
 
     if (componentNos.length === 0) {
-        console.log('[전체 미션 조회] 동적 ID 없음, 로드 시도...');
+        debugLog('[전체 미션 조회] 동적 ID 없음, 로드 시도...');
         await getMissionComponentIds(headers);
         const reloaded = getMissionComponentNos();
         if (reloaded.length === 0) {
@@ -237,7 +221,7 @@ export async function getAllDailyMissions(headers) {
         componentNos.push(...reloaded);
     }
 
-    console.log(`[전체 미션 조회] ${componentNos.length}개 component 조회 시작:`, componentNos);
+    debugLog(`[전체 미션 조회] ${componentNos.length}개 component 조회 시작:`, componentNos);
 
     try {
         const results = await Promise.all(
@@ -264,11 +248,11 @@ export async function getAllDailyMissions(headers) {
 export async function participateMission(headers, missionNo, componentNo) {
     const body = { mission_no: missionNo, component_no: componentNo };
 
-    console.log(`[미션 참여] mission_no: ${missionNo}, component_no: ${componentNo}`);
+    debugLog(`[미션 참여] mission_no: ${missionNo}, component_no: ${componentNo}`);
     const response = await apiRequest(missionParticipateUrl(), 'POST', makeMissionJsonHeaders(headers), body);
 
     if (response && response.value) {
-        console.log(`[미션 참여] ${response.value.title} - 상태: ${response.value.status}`);
+        debugLog(`[미션 참여] ${response.value.title} - 상태: ${response.value.status}`);
     }
 
     return response;
@@ -276,21 +260,5 @@ export async function participateMission(headers, missionNo, componentNo) {
 
 export async function checkGameOwnership(headers, gameId) {
     const url = `${CONFIG.api.baseUrl}/ownership/v1/check_ownership_by_bgameid?game_id=${gameId}`;
-    const eventHeaders = {
-        'Authorization': headers['Authorization'],
-        'caller-id': 'event-hub',
-        'caller-detail': headers['X-UUID'] || headers['caller-detail'],
-        'X-Client-Lang': 'ko',
-        'X-Timezone': 'Asia/Seoul',
-        'X-Utc-Offset': '540',
-        'X-Nation': 'KR',
-        'X-Lang': 'ko',
-        'X-Device-Type': 'pc',
-        'Accept': 'application/json, text/plain, */*',
-        'Origin': 'https://event.onstove.com',
-        'Referer': 'https://event.onstove.com/'
-    };
-
-    const response = await apiRequest(url, 'GET', eventHeaders);
-    return response;
+    return apiRequest(url, 'GET', makeEventHubHeaders(headers));
 }

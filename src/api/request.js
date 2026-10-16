@@ -1,3 +1,5 @@
+import { debugLog } from '../utils/debug.js';
+
 export function apiRequest(url, method, headers, body = null, options = {}) {
     return new Promise((resolve, reject) => {
         const requestConfig = {
@@ -7,7 +9,7 @@ export function apiRequest(url, method, headers, body = null, options = {}) {
             anonymous: true,
             data: body ? JSON.stringify(body) : null,
             onload(response) {
-                console.log(`[API Request] ${method} ${url} - Status: ${response.status}`);
+                debugLog(`[API Request] ${method} ${url} - Status: ${response.status}`);
                 if (response.status >= 200 && response.status < 300) {
                     try {
                         const data = JSON.parse(response.responseText);
@@ -39,7 +41,7 @@ export function apiRequest(url, method, headers, body = null, options = {}) {
             requestConfig.timeout = options.timeout;
         }
 
-        console.log('[API Request] Starting request:', { method, url, hasBody: !!body });
+        debugLog('[API Request] Starting request:', { method, url, hasBody: !!body });
         GM_xmlhttpRequest(requestConfig);
     });
 }

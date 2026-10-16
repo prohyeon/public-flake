@@ -1,28 +1,13 @@
 import { CONFIG } from '../config.js';
 import { apiRequest } from './request.js';
-
-function makeEventHeaders(headers) {
-    return {
-        'Authorization': headers['Authorization'],
-        'caller-id': 'event-hub',
-        'caller-detail': headers['X-UUID'] || headers['caller-detail'],
-        'X-Client-Lang': 'ko',
-        'X-Timezone': 'Asia/Seoul',
-        'X-Utc-Offset': '540',
-        'X-Nation': 'KR',
-        'X-Lang': 'ko',
-        'X-Device-Type': 'pc',
-        'Accept': 'application/json, text/plain, */*',
-        'Origin': 'https://event.onstove.com',
-        'Referer': 'https://event.onstove.com/'
-    };
-}
+import { makeEventHubHeaders as makeEventHeaders } from './headers.js';
+import { debugLog } from '../utils/debug.js';
 
 export async function getDailyShopRewards(headers) {
     const now = new Date();
     const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
     const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/${yearMonth}/services/STOVEINDIE`;
-    console.log('[데일리 보상 목록 조회] URL:', url);
+    debugLog('[데일리 보상 목록 조회] URL:', url);
 
     const response = await apiRequest(url, 'GET', makeEventHeaders(headers));
     return response;
@@ -44,7 +29,7 @@ export async function getMajakDailyShopRewards(headers) {
     const now = new Date();
     const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
     const url = `${CONFIG.api.baseUrl}/dailyshop/v1.0/${yearMonth}/services/RIICHICITY_IND`;
-    console.log('[마작 리워드 목록 조회] URL:', url);
+    debugLog('[마작 리워드 목록 조회] URL:', url);
 
     const response = await apiRequest(url, 'GET', makeEventHeaders(headers));
     return response;

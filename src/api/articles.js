@@ -1,6 +1,7 @@
 import { CONFIG } from '../config.js';
 import { apiRequest } from './request.js';
 import { getTimestamp } from '../utils/time.js';
+import { debugLog } from '../utils/debug.js';
 
 function makeLoungeHeaders(headers) {
     return { ...headers, 'caller-id': 'lounge', 'x-lang': 'KO' };
@@ -49,7 +50,7 @@ export async function createArticle(headers, title, content, tags = []) {
         reservation: null,
         tags: tags.length > 0 ? tags : ['자유주제', '출석체크']
     };
-    console.log('[게시글 작성] URL:', url);
+    debugLog('[게시글 작성] URL:', url);
     const response = await apiRequest(url, 'POST', headers, body);
     return response.value?.article_id;
 }

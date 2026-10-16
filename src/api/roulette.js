@@ -1,19 +1,8 @@
 import { CONFIG } from '../config.js';
 import { state } from '../state.js';
 import { apiRequest } from './request.js';
-
-function makeRewardHeaders(headers) {
-    return {
-        'Authorization': headers['Authorization'],
-        'caller-id': 'flake-fe',
-        'caller-detail': headers['X-UUID'] || headers['caller-detail'],
-        'x-lang': 'ko',
-        'x-nation': 'KR',
-        'Accept': '*/*',
-        'Origin': 'https://reward.onstove.com',
-        'Referer': 'https://reward.onstove.com/'
-    };
-}
+import { makeRewardPageHeaders as makeRewardHeaders, makeRewardPageJsonHeaders } from './headers.js';
+import { debugLog } from '../utils/debug.js';
 
 export function getRouletteSubEventNo() {
     return state.rouletteEvents.draw || CONFIG.roulette.subEventNo;
@@ -39,7 +28,7 @@ export async function getRouletteEventIds(headers) {
     const url = `${CONFIG.api.baseUrl}/emsbackapi/v3.0/events?service_id1=STOVE_WEB&service_id2=FLAKE_WEB`;
     const eventHeaders = { ...makeRewardHeaders(headers), 'Accept': 'application/json' };
 
-    console.log('[룰렛 이벤트 ID 로드] URL:', url);
+    debugLog('[룰렛 이벤트 ID 로드] URL:', url);
 
     try {
         const response = await apiRequest(url, 'GET', eventHeaders);
@@ -62,7 +51,7 @@ export async function getRouletteEventIds(headers) {
             }
 
             state.rouletteEvents = events;
-            console.log('[룰렛 이벤트 ID 로드] ✓ 완료:', events);
+            debugLog('[룰렛 이벤트 ID 로드] ✓ 완료:', events);
             return events;
         } else {
             console.error('[룰렛 이벤트 ID 로드] ✗ API 오류:', response);
@@ -79,7 +68,7 @@ export async function getPrizeInfo(headers) {
     const url = `${CONFIG.api.baseUrl}/emsbackapi/v3.0/apply?sub_event_no=${eventNo}`;
     const prizeHeaders = makeRewardHeaders(headers);
 
-    console.log('[경품 정보 로드] URL:', url);
+    debugLog('[경품 정보 로드] URL:', url);
 
     try {
         const response = await apiRequest(url, 'GET', prizeHeaders);
@@ -99,11 +88,11 @@ export async function getPrizeInfo(headers) {
                 if (targetGift) {
                     state.prizeInfo.giftNo = targetGift.gift_no;
                     state.prizeInfo.giftName = targetGift.gift_name;
-                    console.log(`[경품 정보] ✓ 타겟 경품 발견: ${targetGift.gift_name}`);
+                    debugLog(`[경품 정보] ✓ 타겟 경품 발견: ${targetGift.gift_name}`);
                 }
             }
 
-            console.log('[경품 정보 로드] ✓ 완료:', state.prizeInfo);
+            debugLog('[경품 정보 로드] ✓ 완료:', state.prizeInfo);
             return state.prizeInfo;
         } else {
             console.error('[경품 정보 로드] ✗ API 오류:', response);
@@ -119,11 +108,11 @@ export async function getRouletteParticipationCount(headers, subEventNo) {
     const url = `${CONFIG.api.baseUrl}/emsbackapi/v3.0/participationCnt?sub_event_no=${subEventNo}`;
     const rewardHeaders = makeRewardHeaders(headers);
 
-    console.log(`[룰렛 참여 횟수 조회] sub_event_no: ${subEventNo}`);
+    debugLog(`[룰렛 참여 횟수 조회] sub_event_no: ${subEventNo}`);
 
     try {
         const response = await apiRequest(url, 'GET', rewardHeaders);
-        console.log('[룰렛 참여 횟수 조회] ✅ Response received:', response);
+        debugLog('[룰렛 참여 횟수 조회] ✅ Response received:', response);
         return response;
     } catch (error) {
         console.error('[룰렛 참여 횟수 조회] ❌ API 호출 실패:', error.message);
@@ -133,18 +122,14 @@ export async function getRouletteParticipationCount(headers, subEventNo) {
 
 export async function executeRouletteDraw(headers, subEventNo) {
     const url = `${CONFIG.api.baseUrl}/emsbackapi/v3.0/draw/${subEventNo}`;
-    const rewardHeaders = {
-        ...makeRewardHeaders(headers),
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-    };
+    const rewardHeaders = makeRewardPageJsonHeaders(headers);
     const body = { type_no: 1 };
 
-    console.log(`[룰렛 뽑기 실행] sub_event_no: ${subEventNo}`);
+    debugLog(`[룰렛 뽑기 실행] sub_event_no: ${subEventNo}`);
 
     try {
         const response = await apiRequest(url, 'POST', rewardHeaders, body);
-        console.log('[룰렛 뽑기 실행] ✅ Response received:', response);
+        debugLog('[룰렛 뽑기 실행] ✅ Response received:', response);
 
         if (response && response.code !== 0) {
             const errorCode = response.code;
@@ -167,9 +152,9 @@ export async function getRouletteExtra(headers, subEventNo) {
     const url = `${CONFIG.api.baseUrl}/emsbackapi/v3.0/extra?sub_event_no=${subEventNo}`;
     const rewardHeaders = makeRewardHeaders(headers);
 
-    console.log(`[룰렛 EXTRA 조회] sub_event_no: ${subEventNo}`);
+    debugLog(`[룰렛 EXTRA 조회] sub_event_no: ${subEventNo}`);
     const response = await apiRequest(url, 'GET', rewardHeaders);
-    console.log('[룰렛 EXTRA 조회] Response:', response);
+    debugLog('[룰렛 EXTRA 조회] Response:', response);
     return response;
 }
 
@@ -182,6 +167,6 @@ export async function claimRouletteExtra(headers, subEventNo, giftNo, currentCyc
     const body = { gift_no: giftNo, current_cycle: currentCycle };
 
     const response = await apiRequest(url, 'POST', rewardHeaders, body);
-    console.log('[룰렛 EXTRA 수령] Response:', response);
+    debugLog('[룰렛 EXTRA 수령] Response:', response);
     return response;
 }

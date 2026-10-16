@@ -1,14 +1,9 @@
 import { CONFIG } from '../config.js';
 import { apiRequest } from './request.js';
+import { withEventHubOrigin as eventHeaders } from './headers.js';
 
 // 2026-10-10 사전등록 캡처 기준: 등록 성공 code 0, 이미 참여 code 90605.
 export const PRE_REGISTRATION_ALREADY_JOINED = 90605;
-
-function eventHeaders(headers) {
-    return { ...headers, 'caller-id': 'event-hub', 'caller-detail': headers['X-UUID'],
-        Origin: 'https://event.onstove.com', Referer: 'https://event.onstove.com/',
-        'X-Timezone': 'Asia/Seoul', 'X-Utc-Offset': '540' };
-}
 
 export async function registerPreRegistration(headers, campaign) {
     if (!/^\d{6}$/.test(String(campaign?.month)) || !/^[a-z0-9-]+$/i.test(String(campaign?.key))) {

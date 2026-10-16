@@ -1,6 +1,7 @@
 import { CONFIG } from '../config.js';
 import { apiRequest } from './request.js';
 import { getTimestamp } from '../utils/time.js';
+import { makeMileageHeaders } from './headers.js';
 
 export async function getMyProfile(headers) {
     const url = `${CONFIG.api.baseUrl}/postie/v1.0/user/me?timestemp=${getTimestamp()}`;
@@ -40,17 +41,7 @@ export async function getMonthlyFlakeTotal(headers) {
         const tzOffset = now.getTimezoneOffset() * -1;
         const url = `${CONFIG.api.baseUrl}/mileage/v2.0/master/deposit/total?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&tz_offset=${tzOffset}&yyyyMM=${yyyyMM}`;
 
-        const mileageHeaders = {
-            'Authorization': headers['Authorization'],
-            'caller-id': 'flake-fe',
-            'caller-detail': headers['X-UUID'] || headers['caller-detail'],
-            'Content-Type': 'application/json;charset=utf-8',
-            'Accept': '*/*',
-            'Origin': 'https://reward.onstove.com',
-            'Referer': 'https://reward.onstove.com/'
-        };
-
-        const response = await apiRequest(url, 'GET', mileageHeaders);
+        const response = await apiRequest(url, 'GET', makeMileageHeaders(headers));
         if (response && response.code === 0 && response.value) {
             return response.value.total_deposit_amount || 0;
         }
@@ -65,17 +56,7 @@ export async function getTotalFlakeBalance(headers) {
     try {
         const url = `${CONFIG.api.baseUrl}/mileage/v1.0/balance?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY`;
 
-        const mileageHeaders = {
-            'Authorization': headers['Authorization'],
-            'caller-id': 'flake-fe',
-            'caller-detail': headers['X-UUID'] || headers['caller-detail'],
-            'Content-Type': 'application/json;charset=utf-8',
-            'Accept': '*/*',
-            'Origin': 'https://reward.onstove.com',
-            'Referer': 'https://reward.onstove.com/'
-        };
-
-        const response = await apiRequest(url, 'GET', mileageHeaders);
+        const response = await apiRequest(url, 'GET', makeMileageHeaders(headers));
         if (response && response.code === 0 && response.value) {
             return response.value.mileage_amount || 0;
         }
