@@ -1,0 +1,93 @@
+{
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/emsbackapi/v3.0/participationCnt?sub_event_no=1000000353",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    }
+  ],
+  "tabs": [],
+  "delays": [],
+  "logs": [
+    "[info] 룰렛 확인 중...",
+    "[warning] ⚠️ 룰렛 정보를 가져올 수 없습니다",
+    "[success] ✅ 룰렛 실행 완료!"
+  ],
+  "titles": [],
+  "sounds": 0,
+  "alerts": [],
+  "localStorage": {},
+  "sessionStorage": {},
+  "state": {
+    "isRunning": false,
+    "progress": {
+      "articleLikes": 0,
+      "comments": 0,
+      "newArticle": 0
+    },
+    "completed": {
+      "roulette": true,
+      "dailyShop": false,
+      "majak": false,
+      "dailyMissions": false,
+      "contentMissions": false,
+      "weeklyMissions": false,
+      "bannerMissions": false,
+      "attendanceMissions": false,
+      "surveyMissions": false,
+      "prizeEntry": false
+    },
+    "createdCommentIds": [],
+    "earnings": {
+      "roulette": 0,
+      "rouletteExtra": 0,
+      "dailyShop": 0,
+      "majak": 0,
+      "dailyMissions": 0,
+      "contentMissions": 0,
+      "weeklyMissions": 0,
+      "bannerMissions": 0,
+      "attendanceMissions": 0,
+      "surveyMissions": 0,
+      "prizeEntry": 0,
+      "dailyAccumulated": 0,
+      "boostMission": 0,
+      "specialForce": 0
+    },
+    "missionComponents": {
+      "daily": null,
+      "dailyComponents": [],
+      "content": null,
+      "weekly": null,
+      "survey": null,
+      "banner": null,
+      "attendance": null
+    },
+    "rouletteEvents": {
+      "draw": null,
+      "extra": null,
+      "apply": null,
+      "checkIn": null
+    },
+    "prizeInfo": {
+      "eventNo": null,
+      "giftNo": null,
+      "giftName": null,
+      "flakeCost": null
+    },
+    "pointCashCharge": {
+      "availableFlake": null,
+      "hasRequiredFlake": false
+    }
+  }
+}

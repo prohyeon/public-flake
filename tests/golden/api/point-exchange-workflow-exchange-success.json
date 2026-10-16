@@ -1,0 +1,118 @@
+{
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/mileage/v1.0/balance?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "billuser",
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/mileage/v1.0/exchange?from_use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&to_deposit_rule_id=PL_STOVE_COMMUNITY_MILE_PAID&client_id=M_STOVE_COMMUNITY",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "billuser",
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "body": null
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/mileage/v1.0/exchange/point",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "billuser",
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "client_id": "M_STOVE_COMMUNITY",
+        "exchange_id": 1,
+        "from_amount": 192500,
+        "descriptions": "플레이크 전환"
+      }
+    }
+  ],
+  "tabs": [],
+  "delays": [],
+  "logs": [
+    "[info] 💱 7700 포인트 교환 준비 중...",
+    "[info]   💎 현재 보유: 250,000 FLAKE",
+    "[info]   ✓ 필요 플레이크: 192,500 FLAKE",
+    "[success] ✓ 7,700 포인트 교환 완료 (-192,500 FLAKE)",
+    "[info]   💰 잔여 FLAKE: 57,500"
+  ],
+  "titles": [],
+  "sounds": 0,
+  "alerts": [],
+  "localStorage": {},
+  "sessionStorage": {},
+  "state": {
+    "isRunning": false,
+    "progress": {
+      "articleLikes": 0,
+      "comments": 0,
+      "newArticle": 0
+    },
+    "completed": {
+      "roulette": false,
+      "dailyShop": false,
+      "majak": false,
+      "dailyMissions": false,
+      "contentMissions": false,
+      "weeklyMissions": false,
+      "bannerMissions": false,
+      "attendanceMissions": false,
+      "surveyMissions": false,
+      "prizeEntry": false
+    },
+    "createdCommentIds": [],
+    "earnings": {
+      "roulette": 0,
+      "rouletteExtra": 0,
+      "dailyShop": 0,
+      "majak": 0,
+      "dailyMissions": 0,
+      "contentMissions": 0,
+      "weeklyMissions": 0,
+      "bannerMissions": 0,
+      "attendanceMissions": 0,
+      "surveyMissions": 0,
+      "prizeEntry": 0,
+      "dailyAccumulated": 0,
+      "boostMission": 0,
+      "specialForce": 0
+    },
+    "missionComponents": {
+      "daily": null,
+      "dailyComponents": [],
+      "content": null,
+      "weekly": null,
+      "survey": null,
+      "banner": null,
+      "attendance": null
+    },
+    "rouletteEvents": {
+      "draw": null,
+      "extra": null,
+      "apply": null,
+      "checkIn": null
+    },
+    "prizeInfo": {
+      "eventNo": null,
+      "giftNo": null,
+      "giftName": null,
+      "flakeCost": null
+    },
+    "pointCashCharge": {
+      "availableFlake": null,
+      "hasRequiredFlake": false
+    }
+  }
+}

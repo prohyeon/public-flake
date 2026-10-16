@@ -1,0 +1,52 @@
+[
+  {
+    "method": "POST",
+    "url": "https://api.onstove.com/dailyshop/v1.0/campaigns/202610/luvplace/register",
+    "headers": {
+      "Authorization": "Bearer test-suat",
+      "caller-id": "event-hub",
+      "X-UUID": "test-uuid",
+      "x-lang": "ko",
+      "x-nation": "KR",
+      "x-device-type": "P01",
+      "Accept": "application/json, text/plain, */*",
+      "Content-Type": "application/json",
+      "Origin": "https://event.onstove.com",
+      "Referer": "https://event.onstove.com/",
+      "caller-detail": "test-uuid",
+      "X-Timezone": "Asia/Seoul",
+      "X-Utc-Offset": "540"
+    },
+    "body": null,
+    "timeout": 15000
+  },
+  {
+    "method": "POST",
+    "url": "https://api.onstove.com/shop/v2.0/indie/wishlist/add",
+    "headers": {
+      "Authorization": "Bearer test-suat",
+      "caller-id": "event-hub",
+      "X-UUID": "test-uuid",
+      "x-lang": "ko",
+      "x-nation": "KR",
+      "x-device-type": "P01",
+      "Accept": "application/json, text/plain, */*",
+      "Content-Type": "application/json",
+      "Origin": "https://event.onstove.com",
+      "Referer": "https://event.onstove.com/",
+      "caller-detail": "test-uuid",
+      "X-Timezone": "Asia/Seoul",
+      "X-Utc-Offset": "540"
+    },
+    "body": {
+      "shop_key": "indie",
+      "shop_item_ids": [
+        {
+          "shop_item_id": 14203
+        }
+      ],
+      "shop_item_ids_str": "[{\"shop_item_id\":14203}]"
+    },
+    "timeout": 15000
+  }
+]

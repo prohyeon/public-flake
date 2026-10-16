@@ -1,0 +1,139 @@
+{
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/emsbackapi/v3.0/extra?sub_event_no=1000000357",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/emsbackapi/v3.0/extra/1000000357",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "gift_no": 502,
+        "current_cycle": 2
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/emsbackapi/v3.0/extra/1000000357",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "gift_no": 504,
+        "current_cycle": 2
+      }
+    }
+  ],
+  "tabs": [],
+  "delays": [
+    200,
+    200
+  ],
+  "logs": [
+    "[info] 룰렛 EXTRA 확인 중...",
+    "[info] 현재 카운트: 25",
+    "[info] 총 마일스톤: 5개",
+    "[success] ✓ 수령 가능한 EXTRA: 2개",
+    "[success] ✓ EXTRA 수령 완료: 1,000 플레이크 (1000 FLAKE)",
+    "[success] ✓ EXTRA 수령 완료: 스토브 포인트 500P (0 FLAKE)",
+    "[success] 💰 총 EXTRA 수령: 1000 FLAKE",
+    "[success] ✅ 룰렛 EXTRA 처리 완료!"
+  ],
+  "titles": [],
+  "sounds": 0,
+  "alerts": [],
+  "localStorage": {},
+  "sessionStorage": {},
+  "state": {
+    "isRunning": false,
+    "progress": {
+      "articleLikes": 0,
+      "comments": 0,
+      "newArticle": 0
+    },
+    "completed": {
+      "roulette": false,
+      "dailyShop": false,
+      "majak": false,
+      "dailyMissions": false,
+      "contentMissions": false,
+      "weeklyMissions": false,
+      "bannerMissions": false,
+      "attendanceMissions": false,
+      "surveyMissions": false,
+      "prizeEntry": false
+    },
+    "createdCommentIds": [],
+    "earnings": {
+      "roulette": 0,
+      "rouletteExtra": 1000,
+      "dailyShop": 0,
+      "majak": 0,
+      "dailyMissions": 0,
+      "contentMissions": 0,
+      "weeklyMissions": 0,
+      "bannerMissions": 0,
+      "attendanceMissions": 0,
+      "surveyMissions": 0,
+      "prizeEntry": 0,
+      "dailyAccumulated": 0,
+      "boostMission": 0,
+      "specialForce": 0
+    },
+    "missionComponents": {
+      "daily": null,
+      "dailyComponents": [],
+      "content": null,
+      "weekly": null,
+      "survey": null,
+      "banner": null,
+      "attendance": null
+    },
+    "rouletteEvents": {
+      "draw": null,
+      "extra": null,
+      "apply": null,
+      "checkIn": null
+    },
+    "prizeInfo": {
+      "eventNo": null,
+      "giftNo": null,
+      "giftName": null,
+      "flakeCost": null
+    },
+    "pointCashCharge": {
+      "availableFlake": null,
+      "hasRequiredFlake": false
+    }
+  }
+}

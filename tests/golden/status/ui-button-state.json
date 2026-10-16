@@ -1,0 +1,80 @@
+{
+  "running": {
+    "buttons": {
+      "stove-btn-start": {
+        "disabled": true,
+        "opacity": "0.5"
+      },
+      "stove-btn-reward-shop": {
+        "disabled": true,
+        "opacity": "0.5"
+      },
+      "stove-btn-status-refresh": {
+        "disabled": true,
+        "opacity": "0.5"
+      },
+      "stove-btn-point-cash-charge": {
+        "disabled": true,
+        "opacity": "0.5"
+      },
+      "stove-btn-special-force-refresh": {
+        "disabled": false,
+        "opacity": ""
+      },
+      "stove-btn-special-force-claim": {
+        "disabled": true,
+        "opacity": ""
+      }
+    },
+    "charge": {
+      "disabled": true,
+      "title": "192,500 플레이크 보유: 충전 가능",
+      "opacity": "0.5",
+      "status": "충전 가능",
+      "statusColor": "rgb(167, 243, 208)"
+    },
+    "state": {
+      "availableFlake": 200000,
+      "hasRequiredFlake": true
+    }
+  },
+  "idle": {
+    "buttons": {
+      "stove-btn-start": {
+        "disabled": false,
+        "opacity": "1"
+      },
+      "stove-btn-reward-shop": {
+        "disabled": false,
+        "opacity": "1"
+      },
+      "stove-btn-status-refresh": {
+        "disabled": false,
+        "opacity": "1"
+      },
+      "stove-btn-point-cash-charge": {
+        "disabled": false,
+        "opacity": "1"
+      },
+      "stove-btn-special-force-refresh": {
+        "disabled": false,
+        "opacity": ""
+      },
+      "stove-btn-special-force-claim": {
+        "disabled": true,
+        "opacity": ""
+      }
+    },
+    "charge": {
+      "disabled": false,
+      "title": "192,500 플레이크 보유: 충전 가능",
+      "opacity": "1",
+      "status": "충전 가능",
+      "statusColor": "rgb(167, 243, 208)"
+    },
+    "state": {
+      "availableFlake": 200000,
+      "hasRequiredFlake": true
+    }
+  }
+}

@@ -1,0 +1,40 @@
+[
+  {
+    "method": "GET",
+    "url": "https://api.onstove.com/mileage/v1.0/exchange?from_use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&to_deposit_rule_id=PL_STOVE_COMMUNITY_MILE_PAID&client_id=M_STOVE_COMMUNITY",
+    "headers": {
+      "Authorization": "Bearer test-suat",
+      "caller-id": "billuser",
+      "Accept": "application/json",
+      "Content-Type": "application/json"
+    },
+    "body": null
+  },
+  {
+    "method": "GET",
+    "url": "https://api.onstove.com/mileage/v1.0/balance?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY",
+    "headers": {
+      "Authorization": "Bearer test-suat",
+      "caller-id": "billuser",
+      "Accept": "application/json",
+      "Content-Type": "application/json"
+    },
+    "body": null
+  },
+  {
+    "method": "POST",
+    "url": "https://api.onstove.com/mileage/v1.0/exchange/point",
+    "headers": {
+      "Authorization": "Bearer test-suat",
+      "caller-id": "billuser",
+      "Accept": "application/json",
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "client_id": "M_STOVE_COMMUNITY",
+      "exchange_id": 3,
+      "from_amount": 192500,
+      "descriptions": "플레이크 전환"
+    }
+  }
+]

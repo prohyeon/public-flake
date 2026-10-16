@@ -1,0 +1,179 @@
+{
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=501",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/participate",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "application/json",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "mission_no": 501,
+        "component_no": 501,
+        "content_nos": [
+          9001
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/participate",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "application/json",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "mission_no": 504,
+        "component_no": 501,
+        "content_nos": [
+          9001
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/participate",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "application/json",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "mission_no": 505,
+        "component_no": 501,
+        "content_nos": [
+          9001
+        ]
+      }
+    }
+  ],
+  "tabs": [],
+  "delays": [
+    200,
+    200,
+    200
+  ],
+  "logs": [
+    "[info] 📊 설문조사 미션 시작...",
+    "[info] 📝 총 6개 설문조사 확인",
+    "[info] 🗳️ 투표 가능한 설문조사 4개 발견",
+    "[info] 📊 \"미션 501\" 투표 중...",
+    "[info]   🎯 선택: \"좋아요\" (61%)",
+    "[success]   ✓ 투표 완료: +20 FLAKE",
+    "[info] 📊 \"미션 502\" 투표 중...",
+    "[warning]   ⚠️ 투표할 항목을 찾을 수 없습니다",
+    "[info] 📊 \"미션 504\" 투표 중...",
+    "[info]   🎯 선택: \"좋아요\" (61%)",
+    "[error]   ✗ 투표 실패",
+    "[info] 📊 \"미션 505\" 투표 중...",
+    "[info]   🎯 선택: \"좋아요\" (61%)",
+    "[error]   ✗ \"미션 505\" 투표 실패: API Error: 500 Error",
+    "[success] ✅ 설문조사 투표 완료: +20 FLAKE",
+    "[info] 📊 설문조사 진행 상황: 1/6 완료",
+    "[success] ✅ 설문조사 미션 처리 완료!"
+  ],
+  "titles": [],
+  "sounds": 0,
+  "alerts": [],
+  "localStorage": {},
+  "sessionStorage": {},
+  "state": {
+    "isRunning": false,
+    "progress": {
+      "articleLikes": 0,
+      "comments": 0,
+      "newArticle": 0
+    },
+    "completed": {
+      "roulette": false,
+      "dailyShop": false,
+      "majak": false,
+      "dailyMissions": false,
+      "contentMissions": false,
+      "weeklyMissions": false,
+      "bannerMissions": false,
+      "attendanceMissions": false,
+      "surveyMissions": true,
+      "prizeEntry": false
+    },
+    "createdCommentIds": [],
+    "earnings": {
+      "roulette": 0,
+      "rouletteExtra": 0,
+      "dailyShop": 0,
+      "majak": 0,
+      "dailyMissions": 0,
+      "contentMissions": 0,
+      "weeklyMissions": 0,
+      "bannerMissions": 0,
+      "attendanceMissions": 0,
+      "surveyMissions": 20,
+      "prizeEntry": 0,
+      "dailyAccumulated": 0,
+      "boostMission": 0,
+      "specialForce": 0
+    },
+    "missionComponents": {
+      "daily": 226,
+      "dailyComponents": [
+        226
+      ],
+      "content": 301,
+      "weekly": 401,
+      "survey": 501,
+      "banner": 601,
+      "attendance": 701
+    },
+    "rouletteEvents": {
+      "draw": null,
+      "extra": null,
+      "apply": null,
+      "checkIn": null
+    },
+    "prizeInfo": {
+      "eventNo": null,
+      "giftNo": null,
+      "giftName": null,
+      "flakeCost": null
+    },
+    "pointCashCharge": {
+      "availableFlake": null,
+      "hasRequiredFlake": false
+    }
+  }
+}

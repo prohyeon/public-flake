@@ -1,0 +1,119 @@
+{
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=301",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=301",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    }
+  ],
+  "tabs": [],
+  "delays": [
+    200,
+    3000
+  ],
+  "logs": [
+    "[info] 📰 컨텐츠 미션 시작...",
+    "[info] 📝 총 1개 컨텐츠 미션 확인",
+    "[info] 🌐 미완료 컨텐츠 미션 1개 탭 열기 시작...",
+    "[info]   🌐 \"미션 131...\" 방문 중...",
+    "[error]   ✗ 방문 실패: popup blocked",
+    "[success] ✅ 컨텐츠 미션 탭 열기 완료",
+    "[info] ℹ️ 수령 가능한 컨텐츠 미션이 없습니다",
+    "[info] 📊 컨텐츠 미션 진행 상황: 0/1 완료",
+    "[success] ✅ 컨텐츠 미션 처리 완료!"
+  ],
+  "titles": [],
+  "sounds": 0,
+  "alerts": [],
+  "localStorage": {},
+  "sessionStorage": {},
+  "state": {
+    "isRunning": false,
+    "progress": {
+      "articleLikes": 0,
+      "comments": 0,
+      "newArticle": 0
+    },
+    "completed": {
+      "roulette": false,
+      "dailyShop": false,
+      "majak": false,
+      "dailyMissions": false,
+      "contentMissions": true,
+      "weeklyMissions": false,
+      "bannerMissions": false,
+      "attendanceMissions": false,
+      "surveyMissions": false,
+      "prizeEntry": false
+    },
+    "createdCommentIds": [],
+    "earnings": {
+      "roulette": 0,
+      "rouletteExtra": 0,
+      "dailyShop": 0,
+      "majak": 0,
+      "dailyMissions": 0,
+      "contentMissions": 0,
+      "weeklyMissions": 0,
+      "bannerMissions": 0,
+      "attendanceMissions": 0,
+      "surveyMissions": 0,
+      "prizeEntry": 0,
+      "dailyAccumulated": 0,
+      "boostMission": 0,
+      "specialForce": 0
+    },
+    "missionComponents": {
+      "daily": 226,
+      "dailyComponents": [
+        226
+      ],
+      "content": 301,
+      "weekly": 401,
+      "survey": 501,
+      "banner": 601,
+      "attendance": 701
+    },
+    "rouletteEvents": {
+      "draw": null,
+      "extra": null,
+      "apply": null,
+      "checkIn": null
+    },
+    "prizeInfo": {
+      "eventNo": null,
+      "giftNo": null,
+      "giftName": null,
+      "flakeCost": null
+    },
+    "pointCashCharge": {
+      "availableFlake": null,
+      "hasRequiredFlake": false
+    }
+  }
+}

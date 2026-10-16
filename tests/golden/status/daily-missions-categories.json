@@ -1,0 +1,308 @@
+{
+  "result": {
+    "success": true,
+    "categories": {
+      "daily": {
+        "total": 3,
+        "completed": 1,
+        "receivable": 1,
+        "incomplete": 1,
+        "components": [
+          {
+            "component_no": 271,
+            "component_type": "SINGLE",
+            "title": "SINGLE 271"
+          },
+          {
+            "component_no": 272,
+            "component_type": "SINGLE",
+            "title": "SINGLE 272"
+          }
+        ],
+        "missions": [
+          {
+            "mission_no": 1,
+            "title": "스토브 메인 방문",
+            "status": "INCOMPLETE",
+            "reward_amount": 10,
+            "is_visit_mission": true
+          },
+          {
+            "mission_no": 2,
+            "title": "리워드샵 방문",
+            "status": "RECEIVABLE",
+            "reward_amount": 10
+          },
+          {
+            "mission_no": 3,
+            "title": "라운지 좋아요",
+            "status": "COMPLETE",
+            "reward_amount": 10
+          }
+        ]
+      },
+      "weekly": {
+        "total": 2,
+        "completed": 0,
+        "receivable": 1,
+        "incomplete": 1,
+        "components": [
+          {
+            "component_no": 274,
+            "component_type": "ACCUMULATION",
+            "title": "ACCUMULATION 274"
+          }
+        ],
+        "missions": [
+          {
+            "mission_no": 20,
+            "title": "주간 댓글 5회",
+            "status": "RECEIVABLE",
+            "reward_amount": 10,
+            "user_complete_cnt": 5,
+            "milestone_total_cnt": 5
+          },
+          {
+            "mission_no": 21,
+            "title": "주간 글쓰기 3회",
+            "status": "INCOMPLETE",
+            "reward_amount": 10,
+            "user_complete_cnt": 1,
+            "milestone_total_cnt": 3
+          }
+        ]
+      },
+      "content": {
+        "total": 2,
+        "completed": 0,
+        "receivable": 0,
+        "incomplete": 2,
+        "components": [
+          {
+            "component_no": 280,
+            "component_type": "CONTENT1",
+            "title": "CONTENT1 280"
+          }
+        ],
+        "missions": [
+          {
+            "mission_no": 10,
+            "title": "게임 플레이",
+            "status": "INCOMPLETE",
+            "reward_amount": 10
+          },
+          {
+            "mission_no": 11,
+            "title": "게임 위시리스트",
+            "status": "INCOMPLETE",
+            "reward_amount": 10
+          }
+        ]
+      },
+      "attendance": {
+        "total": 1,
+        "completed": 0,
+        "receivable": 0,
+        "incomplete": 1,
+        "components": [
+          {
+            "component_no": 284,
+            "component_type": "ACCUMULATION",
+            "title": "ACCUMULATION 284"
+          }
+        ],
+        "missions": [
+          {
+            "mission_no": 50,
+            "title": "월간 출석",
+            "status": "INCOMPLETE",
+            "reward_amount": 10,
+            "user_complete_cnt": 9,
+            "milestone_per_cnt": 7,
+            "milestone_total_cnt": 28
+          }
+        ]
+      }
+    }
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=271",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=272",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=280",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=274",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=281",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=283",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=284",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    }
+  ],
+  "tabs": [],
+  "delays": [],
+  "logs": [],
+  "titles": [],
+  "sounds": 0,
+  "alerts": [],
+  "localStorage": {},
+  "sessionStorage": {},
+  "state": {
+    "isRunning": false,
+    "progress": {
+      "articleLikes": 0,
+      "comments": 0,
+      "newArticle": 0
+    },
+    "completed": {
+      "roulette": false,
+      "dailyShop": false,
+      "majak": false,
+      "dailyMissions": false,
+      "contentMissions": false,
+      "weeklyMissions": false,
+      "bannerMissions": false,
+      "attendanceMissions": false,
+      "surveyMissions": false,
+      "prizeEntry": false
+    },
+    "createdCommentIds": [],
+    "earnings": {
+      "roulette": 0,
+      "rouletteExtra": 0,
+      "dailyShop": 0,
+      "majak": 0,
+      "dailyMissions": 0,
+      "contentMissions": 0,
+      "weeklyMissions": 0,
+      "bannerMissions": 0,
+      "attendanceMissions": 0,
+      "surveyMissions": 0,
+      "prizeEntry": 0,
+      "dailyAccumulated": 0,
+      "boostMission": 0,
+      "specialForce": 0
+    },
+    "missionComponents": {
+      "daily": 272,
+      "dailyComponents": [
+        271,
+        272
+      ],
+      "content": 280,
+      "weekly": 274,
+      "survey": 281,
+      "banner": 283,
+      "attendance": 284
+    },
+    "rouletteEvents": {
+      "draw": null,
+      "extra": null,
+      "apply": null,
+      "checkIn": null
+    },
+    "prizeInfo": {
+      "eventNo": null,
+      "giftNo": null,
+      "giftName": null,
+      "flakeCost": null
+    },
+    "pointCashCharge": {
+      "availableFlake": null,
+      "hasRequiredFlake": false
+    }
+  }
+}

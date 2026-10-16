@@ -1,0 +1,288 @@
+{
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/dailyshop/v1.0/202610/services/STOVEINDIE",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "caller-detail": "test-uuid",
+        "X-Client-Lang": "ko",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540",
+        "X-Nation": "KR",
+        "X-Lang": "ko",
+        "X-Device-Type": "pc",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/dailyshop/v1.0/attendances/accumulate/flake?item_no=2001",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "caller-detail": "test-uuid",
+        "X-Client-Lang": "ko",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540",
+        "X-Nation": "KR",
+        "X-Lang": "ko",
+        "X-Device-Type": "pc",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "item_no": 2001
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/dailyshop/v1.0/attendances/accumulate/itembox?item_no=2002",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "caller-detail": "test-uuid",
+        "X-Client-Lang": "ko",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540",
+        "X-Nation": "KR",
+        "X-Lang": "ko",
+        "X-Device-Type": "pc",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "item_no": 2002
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/dailyshop/v1.0/attendances/accumulate/coupon?item_no=2003",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "caller-detail": "test-uuid",
+        "X-Client-Lang": "ko",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540",
+        "X-Nation": "KR",
+        "X-Lang": "ko",
+        "X-Device-Type": "pc",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "item_no": 2003
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/ownership/v1/check_ownership_by_bgameid?game_id=INDIE_A",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "caller-detail": "test-uuid",
+        "X-Client-Lang": "ko",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540",
+        "X-Nation": "KR",
+        "X-Lang": "ko",
+        "X-Device-Type": "pc",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/dailyshop/v1.0/attendances/accumulate/LIBRARY?item_no=2004",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "caller-detail": "test-uuid",
+        "X-Client-Lang": "ko",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540",
+        "X-Nation": "KR",
+        "X-Lang": "ko",
+        "X-Device-Type": "pc",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "item_no": 2004
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/ownership/v1/check_ownership_by_bgameid?game_id=INDIE_B",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "caller-detail": "test-uuid",
+        "X-Client-Lang": "ko",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540",
+        "X-Nation": "KR",
+        "X-Lang": "ko",
+        "X-Device-Type": "pc",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/dailyshop/v1.0/attendances/accumulate/LIBRARY?item_no=2006",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "caller-detail": "test-uuid",
+        "X-Client-Lang": "ko",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540",
+        "X-Nation": "KR",
+        "X-Lang": "ko",
+        "X-Device-Type": "pc",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "item_no": 2006
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/dailyshop/v1.0/attendances/accumulate/LIBRARY?item_no=2007",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "caller-detail": "test-uuid",
+        "X-Client-Lang": "ko",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540",
+        "X-Nation": "KR",
+        "X-Lang": "ko",
+        "X-Device-Type": "pc",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "item_no": 2007
+      }
+    }
+  ],
+  "tabs": [],
+  "delays": [
+    200,
+    200,
+    200,
+    200,
+    200,
+    200
+  ],
+  "logs": [
+    "[info] 🎁 데일리 누적 보상 수령 시작...",
+    "[info] 현재 누적 출석일: 16일",
+    "[success] ✓ 수령 가능한 누적 보상: 7개",
+    "[info] 📦 보상 정보: 누적 5일 플레이크 (타입: FLAKE, 5일)",
+    "[success] ✓ FLAKE 보상 수령 완료 (5일): 누적 5일 플레이크 (300 FLAKE)",
+    "[info] 📦 보상 정보: 아이템 상자 (타입: ITEMBOX, 7일)",
+    "[success] ✓ 보상 수령 완료 (7일): 아이템 상자",
+    "[info] 📦 보상 정보: 할인 쿠폰 (타입: INDIE_SALE_COUPON, 10일)",
+    "[success] ✓ 보상 수령 완료 (10일): 할인 쿠폰",
+    "[info] 📦 보상 정보: 인디 게임 A (타입: INDIE_GAME_COUPON, 12일)",
+    "[success] ✓ 보상 수령 완료 (12일): 인디 게임 A",
+    "[info] 📦 보상 정보: 인디 게임 B (타입: INDIE_GAME_COUPON, 14일)",
+    "[warning] ⚠️ 이미 소유한 게임: 인디 게임 B - 수령 건너뜀",
+    "[info] 📦 보상 정보: 인디 게임 (ID 없음) (타입: INDIE_GAME_COUPON, 15일)",
+    "[success] ✓ 보상 수령 완료 (15일): 인디 게임 (ID 없음)",
+    "[info] 📦 보상 정보: 기타 보상 (타입: STOVE_CASH, 16일)",
+    "[success] ✓ 보상 수령 완료 (16일): 기타 보상"
+  ],
+  "titles": [],
+  "sounds": 0,
+  "alerts": [],
+  "localStorage": {},
+  "sessionStorage": {},
+  "state": {
+    "isRunning": false,
+    "progress": {
+      "articleLikes": 0,
+      "comments": 0,
+      "newArticle": 0
+    },
+    "completed": {
+      "roulette": false,
+      "dailyShop": false,
+      "majak": false,
+      "dailyMissions": false,
+      "contentMissions": false,
+      "weeklyMissions": false,
+      "bannerMissions": false,
+      "attendanceMissions": false,
+      "surveyMissions": false,
+      "prizeEntry": false
+    },
+    "createdCommentIds": [],
+    "earnings": {
+      "roulette": 0,
+      "rouletteExtra": 0,
+      "dailyShop": 0,
+      "majak": 0,
+      "dailyMissions": 0,
+      "contentMissions": 0,
+      "weeklyMissions": 0,
+      "bannerMissions": 0,
+      "attendanceMissions": 0,
+      "surveyMissions": 0,
+      "prizeEntry": 0,
+      "dailyAccumulated": 300,
+      "boostMission": 0,
+      "specialForce": 0
+    },
+    "missionComponents": {
+      "daily": null,
+      "dailyComponents": [],
+      "content": null,
+      "weekly": null,
+      "survey": null,
+      "banner": null,
+      "attendance": null
+    },
+    "rouletteEvents": {
+      "draw": null,
+      "extra": null,
+      "apply": null,
+      "checkIn": null
+    },
+    "prizeInfo": {
+      "eventNo": null,
+      "giftNo": null,
+      "giftName": null,
+      "flakeCost": null
+    },
+    "pointCashCharge": {
+      "availableFlake": null,
+      "hasRequiredFlake": false
+    }
+  }
+}

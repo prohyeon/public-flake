@@ -1,0 +1,175 @@
+{
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/dailyshop/v1.0/202610/services/STOVEINDIE",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "caller-detail": "test-uuid",
+        "X-Client-Lang": "ko",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540",
+        "X-Nation": "KR",
+        "X-Lang": "ko",
+        "X-Device-Type": "pc",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/dailyshop/v1.0/attendances/daily/flake?item_no=1001&reward_type=flake",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "caller-detail": "test-uuid",
+        "X-Client-Lang": "ko",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540",
+        "X-Nation": "KR",
+        "X-Lang": "ko",
+        "X-Device-Type": "pc",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "item_no": 1001,
+        "reward_type": "flake"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/dailyshop/v1.0/attendances/daily/indie_sale_coupon?item_no=1002&reward_type=indie_sale_coupon",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "caller-detail": "test-uuid",
+        "X-Client-Lang": "ko",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540",
+        "X-Nation": "KR",
+        "X-Lang": "ko",
+        "X-Device-Type": "pc",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "item_no": 1002,
+        "reward_type": "indie_sale_coupon"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/dailyshop/v1.0/attendances/daily/coupon?item_no=1003&reward_type=coupon",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "caller-detail": "test-uuid",
+        "X-Client-Lang": "ko",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540",
+        "X-Nation": "KR",
+        "X-Lang": "ko",
+        "X-Device-Type": "pc",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "item_no": 1003,
+        "reward_type": "coupon"
+      }
+    }
+  ],
+  "tabs": [],
+  "delays": [
+    200,
+    200,
+    200
+  ],
+  "logs": [
+    "[info] 데일리 보상 확인 중...",
+    "[info] 오늘 날짜: 2026-10-16",
+    "[success] ✓ 오늘 수령 가능한 보상: 3개",
+    "[success] ✓ 보상 수령 완료: 플레이크 50 (50 FLAKE)",
+    "[success] ✓ 보상 수령 완료: 인디 게임 할인 쿠폰 (0 FLAKE)",
+    "[success] ✓ 보상 수령 완료: COUPON (0 FLAKE)",
+    "[success] 💰 총 3개 보상 수령 완료: 50 FLAKE",
+    "[success] ✅ 데일리 보상 처리 완료!"
+  ],
+  "titles": [],
+  "sounds": 0,
+  "alerts": [],
+  "localStorage": {},
+  "sessionStorage": {},
+  "state": {
+    "isRunning": false,
+    "progress": {
+      "articleLikes": 0,
+      "comments": 0,
+      "newArticle": 0
+    },
+    "completed": {
+      "roulette": false,
+      "dailyShop": true,
+      "majak": false,
+      "dailyMissions": false,
+      "contentMissions": false,
+      "weeklyMissions": false,
+      "bannerMissions": false,
+      "attendanceMissions": false,
+      "surveyMissions": false,
+      "prizeEntry": false
+    },
+    "createdCommentIds": [],
+    "earnings": {
+      "roulette": 0,
+      "rouletteExtra": 0,
+      "dailyShop": 50,
+      "majak": 0,
+      "dailyMissions": 0,
+      "contentMissions": 0,
+      "weeklyMissions": 0,
+      "bannerMissions": 0,
+      "attendanceMissions": 0,
+      "surveyMissions": 0,
+      "prizeEntry": 0,
+      "dailyAccumulated": 0,
+      "boostMission": 0,
+      "specialForce": 0
+    },
+    "missionComponents": {
+      "daily": null,
+      "dailyComponents": [],
+      "content": null,
+      "weekly": null,
+      "survey": null,
+      "banner": null,
+      "attendance": null
+    },
+    "rouletteEvents": {
+      "draw": null,
+      "extra": null,
+      "apply": null,
+      "checkIn": null
+    },
+    "prizeInfo": {
+      "eventNo": null,
+      "giftNo": null,
+      "giftName": null,
+      "flakeCost": null
+    },
+    "pointCashCharge": {
+      "availableFlake": null,
+      "hasRequiredFlake": false
+    }
+  }
+}

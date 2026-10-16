@@ -1,0 +1,211 @@
+{
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=226",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/participate",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "application/json",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "mission_no": 611,
+        "component_no": 226
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/participate",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "application/json",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "mission_no": 612,
+        "component_no": 226
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/participate",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "application/json",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "mission_no": 613,
+        "component_no": 226
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/participate",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "application/json",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "mission_no": 613,
+        "component_no": 226
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/participate",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "application/json",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "mission_no": 614,
+        "component_no": 226
+      }
+    }
+  ],
+  "tabs": [],
+  "delays": [
+    1000,
+    1000,
+    1000
+  ],
+  "logs": [
+    "[info] [SINGLE 미션] 자동 참여 시작",
+    "[info] [SINGLE 미션] 4개 발견",
+    "[info] [SINGLE 미션] \"미션 611\" 참여 중...",
+    "[success] [SINGLE 미션] 🎁 \"미션 611\" 보상 수령 완료 (+11 플레이크)",
+    "[info] [SINGLE 미션] \"미션 612\" 참여 중...",
+    "[warning] [SINGLE 미션] ⚠️ \"미션 612\" 참여 실패 (상태: INCOMPLETE)",
+    "[info] [SINGLE 미션] \"미션 613\" 참여 중...",
+    "[warning] [SINGLE 미션] ⚠️ \"미션 613\" 응답 없음",
+    "[info] [SINGLE 미션] \"미션 614\" 참여 중...",
+    "[error] [SINGLE 미션] ❌ \"미션 614\" 오류: API Error: 500 Error",
+    "[success] [SINGLE 미션] 총 참여: 0개, 즉시 완료: 2개, 스킵: 0개"
+  ],
+  "titles": [],
+  "sounds": 0,
+  "alerts": [],
+  "localStorage": {},
+  "sessionStorage": {},
+  "state": {
+    "isRunning": false,
+    "progress": {
+      "articleLikes": 0,
+      "comments": 0,
+      "newArticle": 0
+    },
+    "completed": {
+      "roulette": false,
+      "dailyShop": false,
+      "majak": false,
+      "dailyMissions": false,
+      "contentMissions": false,
+      "weeklyMissions": false,
+      "bannerMissions": false,
+      "attendanceMissions": false,
+      "surveyMissions": false,
+      "prizeEntry": false
+    },
+    "createdCommentIds": [],
+    "earnings": {
+      "roulette": 0,
+      "rouletteExtra": 0,
+      "dailyShop": 0,
+      "majak": 0,
+      "dailyMissions": 0,
+      "contentMissions": 0,
+      "weeklyMissions": 0,
+      "bannerMissions": 0,
+      "attendanceMissions": 0,
+      "surveyMissions": 0,
+      "prizeEntry": 0,
+      "dailyAccumulated": 0,
+      "boostMission": 0,
+      "specialForce": 0
+    },
+    "missionComponents": {
+      "daily": 226,
+      "dailyComponents": [
+        226
+      ],
+      "content": null,
+      "weekly": null,
+      "survey": null,
+      "banner": null,
+      "attendance": null
+    },
+    "rouletteEvents": {
+      "draw": null,
+      "extra": null,
+      "apply": null,
+      "checkIn": null
+    },
+    "prizeInfo": {
+      "eventNo": null,
+      "giftNo": null,
+      "giftName": null,
+      "flakeCost": null
+    },
+    "pointCashCharge": {
+      "availableFlake": null,
+      "hasRequiredFlake": false
+    }
+  },
+  "result": {
+    "success": true,
+    "participated": 0,
+    "completed": 2,
+    "skipped": 0,
+    "total": 4,
+    "targeted": false,
+    "targetMissionNos": []
+  }
+}

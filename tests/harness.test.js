@@ -81,12 +81,21 @@ test('panel logs, tabs, title signals, cookies and storage are observable', asyn
 
     assert.deepEqual(h.logs(), ['[info] 시작', '[success] 완료', '[warning] 주의', '[error] 실패']);
     assert.deepEqual(h.tabs, [
-        { url: 'https://example.com/a', active: false, closed: true },
-        { url: 'https://example.com/b', active: true, closed: false }
+        { url: 'https://example.com/a', active: false, via: 'GM_openInTab', options: { active: false, insert: true, setParent: true }, closed: true },
+        { url: 'https://example.com/b', active: true, via: 'GM_openInTab', options: { active: true, insert: true, setParent: true }, closed: false }
     ]);
     assert.deepEqual(h.titles, ['[SG_RUNNING] 실행 중 | STOVE']);
     assert.deepEqual(extractHeaders(), TEST_HEADERS);
     assert.deepEqual(h.snapshot().sessionStorage, { k: 'v' });
+    assert.deepEqual(h.delays, [], 'jsdom storage event timers are not app delays');
+});
+
+test('alerts are recorded and the local time zone is pinned to KST unless a test chose one', t => {
+    const h = useHarness(t);
+    alert('세션 없음');
+    window.alert('두 번째');
+    assert.deepEqual(h.alerts, ['세션 없음', '두 번째']);
+    assert.equal(new Date().getTimezoneOffset(), -540);
 });
 
 test('uninstall restores globals, state and CONFIG in place', () => {

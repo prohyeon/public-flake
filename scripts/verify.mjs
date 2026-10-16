@@ -10,7 +10,8 @@ const BUNDLE_TESTS = [
   'tests/releaseMetadata.test.js',
   'tests/userscriptMetadata.test.js',
   'tests/ui/userscriptMount.test.js',
-  'tests/ui/boostUserscript.test.js'
+  'tests/ui/boostUserscript.test.js',
+  'tests/ui/panel.characterization.test.js'
 ];
 
 function run(label, args, env = process.env) {

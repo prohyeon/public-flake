@@ -82,6 +82,13 @@ function matchesUrl(match, url, request) {
     return Boolean(match(url, request));
 }
 
+// The script targets KST users and several modules read the local calendar. Pin the zone unless
+// a test already chose one explicitly (Node applies runtime TZ changes).
+const DEFAULT_TIME_ZONE = 'Asia/Seoul';
+
+// jsdom schedules its own timers (e.g. storage event dispatch on setItem). Those are not app delays.
+const JSDOM_FRAME = /[\\/]node_modules[\\/]jsdom[\\/]/;
+
 const LOG_ICON_TYPES = new Map([['✓', 'success'], ['✗', 'error'], ['⏳', 'info'], ['⚠️', 'warning']]);
 
 const DEFAULT_BODY = `
@@ -112,6 +119,9 @@ export function installHarness(options = {}) {
         silenceConsole = true
     } = options;
 
+    const pinnedTimeZone = process.env.TZ ? null : DEFAULT_TIME_ZONE;
+    if (pinnedTimeZone) process.env.TZ = pinnedTimeZone;
+
     const dom = new JSDOM(`<!doctype html><html><head><title>STOVE</title></head><body>${body}</body></html>`, { url });
     const { window } = dom;
     const { document } = window;
@@ -126,6 +136,7 @@ export function installHarness(options = {}) {
     const delays = [];
     const titles = [];
     const sounds = [];
+    const alerts = [];
     const consoleCalls = [];
 
     const titleDescriptor = Object.getOwnPropertyDescriptor(window.Document.prototype, 'title');
@@ -150,12 +161,19 @@ export function installHarness(options = {}) {
         };
     };
 
-    function openTab(tabUrl, tabOptions) {
-        const entry = { url: tabUrl, active: Boolean(tabOptions?.active), closed: false };
+    function openTab(tabUrl, tabOptions, via = 'GM_openInTab') {
+        const entry = {
+            url: tabUrl,
+            active: Boolean(tabOptions?.active),
+            via,
+            options: tabOptions === undefined ? null : structuredClone(tabOptions),
+            closed: false
+        };
         tabs.push(entry);
         return { close() { entry.closed = true; } };
     }
-    window.open = (tabUrl) => openTab(tabUrl, { active: true });
+    window.open = (tabUrl, target) => openTab(tabUrl, { active: true, target: target ?? null }, 'window.open');
+    window.alert = message => { alerts.push(String(message)); };
 
     const nativeSetTimeout = globalThis.setTimeout;
     const nativeSetImmediate = globalThis.setImmediate;
@@ -211,8 +229,10 @@ export function installHarness(options = {}) {
     setGlobal('localStorage', window.localStorage);
     setGlobal('sessionStorage', window.sessionStorage);
     setGlobal('GM_xmlhttpRequest', gmXmlHttpRequest);
-    setGlobal('GM_openInTab', openTab);
+    setGlobal('GM_openInTab', (tabUrl, tabOptions) => openTab(tabUrl, tabOptions));
+    setGlobal('alert', window.alert);
     setGlobal('setTimeout', (callback, ms, ...args) => {
+        if (JSDOM_FRAME.test(new Error().stack)) return nativeSetTimeout(callback, ms, ...args);
         delays.push(ms);
         return nativeSetTimeout(callback, 0, ...args);
     });
@@ -257,6 +277,7 @@ export function installHarness(options = {}) {
         delays,
         titles,
         sounds,
+        alerts,
         consoleCalls,
 
         on(method, match, response) {
@@ -280,6 +301,7 @@ export function installHarness(options = {}) {
                 logs: logs(),
                 titles: [...titles],
                 sounds: sounds.length,
+                alerts: [...alerts],
                 localStorage: storage(window.localStorage),
                 sessionStorage: storage(window.sessionStorage),
                 state: structuredClone(state)
@@ -309,6 +331,7 @@ export function installHarness(options = {}) {
                 else delete globalThis[name];
             }
             saved.clear();
+            if (pinnedTimeZone) delete process.env.TZ;
             resetState();
             resetConfig();
             window.close();

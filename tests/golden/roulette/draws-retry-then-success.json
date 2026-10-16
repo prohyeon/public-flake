@@ -1,0 +1,181 @@
+{
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/emsbackapi/v3.0/participationCnt?sub_event_no=1000000353",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/emsbackapi/v3.0/draw/1000000353",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "application/json",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "type_no": 1
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/emsbackapi/v3.0/draw/1000000353",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "application/json",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "type_no": 1
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.onstove.com/emsbackapi/v3.0/draw/1000000353",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "application/json",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "type_no": 1
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/emsbackapi/v3.0/participationCnt?sub_event_no=1000000353",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    }
+  ],
+  "tabs": [],
+  "delays": [
+    1000,
+    1000,
+    200,
+    200
+  ],
+  "logs": [
+    "[info] 룰렛 확인 중...",
+    "[success] ✓ 룰렛 참여 가능 횟수: 1/30 (현재: 29)",
+    "[info] 룰렛 1회 실행 시작...",
+    "[error] ✗ 룰렛 1/1 실패: API Error: 500 Error",
+    "[warning] 🔄 룰렛 1/1 재시도 (1/3)...",
+    "[error] ✗ 룰렛 1/1 API 오류 (코드: undefined)",
+    "[warning] 🔄 룰렛 1/1 재시도 (2/3)...",
+    "[success] ✓ 룰렛 1/1 완료: 500 플레이크 (500 FLAKE)",
+    "[info] [1차] 1/1 성공",
+    "[info] ✓ [2차] 남은 횟수 재확인: 0/30",
+    "[info] 모든 룰렛 횟수를 소진했습니다",
+    "[info] ",
+    "[success] 🎰 최종 룰렛 결과 (2차 실행)",
+    "[success]   🎯 총 실행: 1회 성공",
+    "[success]   💰 총 획득: 500 FLAKE",
+    "[info]   💸 총 비용: 100 FLAKE",
+    "[success]   📊 순수익: +400 FLAKE"
+  ],
+  "titles": [],
+  "sounds": 0,
+  "alerts": [],
+  "localStorage": {},
+  "sessionStorage": {},
+  "state": {
+    "isRunning": false,
+    "progress": {
+      "articleLikes": 0,
+      "comments": 0,
+      "newArticle": 0
+    },
+    "completed": {
+      "roulette": true,
+      "dailyShop": false,
+      "majak": false,
+      "dailyMissions": false,
+      "contentMissions": false,
+      "weeklyMissions": false,
+      "bannerMissions": false,
+      "attendanceMissions": false,
+      "surveyMissions": false,
+      "prizeEntry": false
+    },
+    "createdCommentIds": [],
+    "earnings": {
+      "roulette": 400,
+      "rouletteExtra": 0,
+      "dailyShop": 0,
+      "majak": 0,
+      "dailyMissions": 0,
+      "contentMissions": 0,
+      "weeklyMissions": 0,
+      "bannerMissions": 0,
+      "attendanceMissions": 0,
+      "surveyMissions": 0,
+      "prizeEntry": 0,
+      "dailyAccumulated": 0,
+      "boostMission": 0,
+      "specialForce": 0
+    },
+    "missionComponents": {
+      "daily": null,
+      "dailyComponents": [],
+      "content": null,
+      "weekly": null,
+      "survey": null,
+      "banner": null,
+      "attendance": null
+    },
+    "rouletteEvents": {
+      "draw": null,
+      "extra": null,
+      "apply": null,
+      "checkIn": null
+    },
+    "prizeInfo": {
+      "eventNo": null,
+      "giftNo": null,
+      "giftName": null,
+      "flakeCost": null
+    },
+    "pointCashCharge": {
+      "availableFlake": null,
+      "hasRequiredFlake": false
+    }
+  }
+}

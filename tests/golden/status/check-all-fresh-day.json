@@ -1,0 +1,598 @@
+{
+  "loadingPanel": {
+    "values": {
+      "stove-status-article": "<span class=\"stove-status-value\" id=\"stove-status-article\"><span style=\"color: #3b82f6\">⏳ 확인 중...</span></span>",
+      "stove-status-mission-daily": "<span class=\"stove-status-value\" id=\"stove-status-mission-daily\"><span style=\"color: #3b82f6\">⏳</span></span>",
+      "stove-status-mission-weekly": "<span class=\"stove-status-value\" id=\"stove-status-mission-weekly\"><span style=\"color: #3b82f6\">⏳</span></span>",
+      "stove-status-mission-content": "<span class=\"stove-status-value\" id=\"stove-status-mission-content\"><span style=\"color: #3b82f6\">⏳</span></span>",
+      "stove-status-mission-attendance": "<span class=\"stove-status-value\" id=\"stove-status-mission-attendance\"><span style=\"color: #3b82f6\">⏳</span></span>",
+      "stove-status-roulette": "<span class=\"stove-status-value\" id=\"stove-status-roulette\"><span style=\"color: #3b82f6\">⏳ 확인 중...</span></span>",
+      "stove-status-boost": "<span class=\"stove-status-value\" id=\"stove-status-boost\" title=\"\" style=\"color: rgb(156, 163, 175);\">⏳ 확인 중...</span>",
+      "stove-status-boost-reward": "<span class=\"stove-status-value\" id=\"stove-status-boost-reward\" title=\"\" style=\"color: rgb(156, 163, 175);\">⏳ 확인 중...</span>",
+      "stove-status-boost-target": "<span class=\"stove-status-value\" id=\"stove-status-boost-target\" title=\"\" style=\"color: rgb(156, 163, 175);\">⏳ 확인 중...</span>",
+      "stove-status-review-event": "<span class=\"stove-status-value\" id=\"stove-status-review-event\" title=\"\" style=\"color: rgb(156, 163, 175);\">⏳ 확인 중...</span>",
+      "stove-status-review-period": "<span class=\"stove-status-value\" id=\"stove-status-review-period\" title=\"\" style=\"color: rgb(156, 163, 175);\">-</span>",
+      "stove-status-review-target": "<span class=\"stove-status-value\" id=\"stove-status-review-target\" title=\"\" style=\"color: rgb(156, 163, 175);\">-</span>",
+      "stove-status-daily": "<span class=\"stove-status-value\" id=\"stove-status-daily\"><span style=\"color: #3b82f6\">⏳ 확인 중...</span></span>",
+      "stove-status-majak": "<span class=\"stove-status-value\" id=\"stove-status-majak\"><span style=\"color: #3b82f6\">⏳ 확인 중...</span></span>",
+      "stove-status-survey": "<span class=\"stove-status-value\" id=\"stove-status-survey\"><span style=\"color: #3b82f6\">⏳ 확인 중...</span></span>",
+      "stove-status-total-flake": "<span class=\"stove-status-value\" id=\"stove-status-total-flake\"><span style=\"color: #3b82f6\">⏳ 확인 중...</span></span>",
+      "stove-status-monthly-flake": "<span class=\"stove-status-value\" id=\"stove-status-monthly-flake\"><span style=\"color: #3b82f6\">⏳ 확인 중...</span></span>"
+    },
+    "tooltips": {
+      "daily": [],
+      "weekly": [],
+      "content": [],
+      "attendance": []
+    },
+    "pointCashCharge": {
+      "disabled": true,
+      "title": "192,500 플레이크 이상일 때 충전 가능",
+      "opacity": "",
+      "status": "플레이크 확인 중",
+      "statusColor": ""
+    },
+    "specialForce": {
+      "busy": "true",
+      "text": "↻스페셜포스 서버 상태 확인 중…누적 플레이와 보상 수령 현황을 불러오고 있습니다.",
+      "claimDisabled": true,
+      "link": "https://event.onstove.com/ko/dailyshop/specialforce"
+    }
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/cwms/v1.0/user/CHANNEL/73?timestemp=1792112400000",
+      "headers": {
+        "caller-id": "storee-cp",
+        "X-Lang": "KO",
+        "X-Nation": "KR",
+        "X-Device-Type": "P01",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Origin": "https://page.onstove.com",
+        "Referer": "https://page.onstove.com/",
+        "Authorization": "Bearer test-suat",
+        "X-UUID": "test-uuid"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/cwms/v1.0/user/board/permission?board_seq_list=134147&timestemp=1792112400000",
+      "headers": {
+        "caller-id": "storee-cp",
+        "X-Lang": "KO",
+        "X-Nation": "KR",
+        "X-Device-Type": "P01",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Origin": "https://page.onstove.com",
+        "Referer": "https://page.onstove.com/",
+        "Authorization": "Bearer test-suat",
+        "X-UUID": "test-uuid"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/cwms/v1.1/article/14523486/comment/list?size=20&page=1&sort_type_code=LATEST&request_id=CM&timestemp=1792112400000",
+      "headers": {
+        "caller-id": "storee-cp",
+        "X-Lang": "KO",
+        "X-Nation": "KR",
+        "X-Device-Type": "P01",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Origin": "https://page.onstove.com",
+        "Referer": "https://page.onstove.com/",
+        "Authorization": "Bearer test-suat",
+        "X-UUID": "test-uuid"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/cwms/v3.0/article?article_id=14523486&request_id=CM&timestemp=1792112400000",
+      "headers": {
+        "caller-id": "storee-cp",
+        "X-Lang": "KO",
+        "X-Nation": "KR",
+        "X-Device-Type": "P01",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Origin": "https://page.onstove.com",
+        "Referer": "https://page.onstove.com/",
+        "Authorization": "Bearer test-suat",
+        "X-UUID": "test-uuid"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/dailyshop/v1.0/202610/services/RIICHICITY_IND",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "caller-detail": "test-uuid",
+        "X-Client-Lang": "ko",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540",
+        "X-Nation": "KR",
+        "X-Lang": "ko",
+        "X-Device-Type": "pc",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/dailyshop/v1.0/202610/services/STOVEINDIE",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "caller-detail": "test-uuid",
+        "X-Client-Lang": "ko",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540",
+        "X-Nation": "KR",
+        "X-Lang": "ko",
+        "X-Device-Type": "pc",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/dailyshop/v1.0/202610/services/specialforce",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "X-UUID": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "x-device-type": "P01",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/",
+        "caller-detail": "test-uuid",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540"
+      },
+      "body": null,
+      "timeout": 15000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/dailyshop/v1.0/services/family-links",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "X-UUID": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "x-device-type": "P01",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/",
+        "caller-detail": "test-uuid",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540"
+      },
+      "body": null,
+      "timeout": 15000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/emsbackapi/v3.0/participationCnt?sub_event_no=1000000353",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/eventhub/v1.0/promotion/events/ON?page=0&service_id=STOVEINDIE&timestemp=1792112400000",
+      "headers": {
+        "caller-id": "event-hub",
+        "X-Lang": "KO",
+        "X-Nation": "KR",
+        "X-Device-Type": "P01",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=271",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=272",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=274",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=280",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=281",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=281",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "storee-lounge",
+        "X-UUID": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "x-device-type": "P01",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Origin": "https://lounge.onstove.com",
+        "Referer": "https://lounge.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=283",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/mission/component?component_no=284",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/flake-shop/v1/page?page_type=MISSION",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/mileage/v1.0/balance?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "Content-Type": "application/json;charset=utf-8",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/mileage/v2.0/master/deposit/total?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&tz_offset=540&yyyyMM=202610",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "Content-Type": "application/json;charset=utf-8",
+        "Accept": "*/*",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/postie/v1.0/interest/user/100/article/list?user_id=100&sort=LATEST&size=10&type=WRITE&timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "indie-my",
+        "X-UUID": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "x-device-type": "P01",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Origin": "https://profile.onstove.com",
+        "Referer": "https://profile.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/postie/v1.0/user/me?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "indie-web-my",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "x-device-type": "P01",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Origin": "https://profile.onstove.com",
+        "Referer": "https://profile.onstove.com/",
+        "caller-detail": "test-uuid"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/postie/v1.0/user/me?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "indie-web-my",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "x-device-type": "P01",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Origin": "https://profile.onstove.com",
+        "Referer": "https://profile.onstove.com/",
+        "caller-detail": "test-uuid"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/stadium-api/v1.0/boost/balance?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "lounge",
+        "X-UUID": "test-uuid",
+        "x-device-type": "P01",
+        "x-lang": "KO",
+        "x-nation": "KR",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://lounge.onstove.com",
+        "Referer": "https://lounge.onstove.com/"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/stadium-api/v1.0/missions?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "lounge",
+        "X-UUID": "test-uuid",
+        "x-device-type": "P01",
+        "x-lang": "KO",
+        "x-nation": "KR",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://lounge.onstove.com",
+        "Referer": "https://lounge.onstove.com/"
+      },
+      "body": null,
+      "timeout": 10000
+    }
+  ],
+  "tabs": [],
+  "delays": [],
+  "logs": [],
+  "titles": [],
+  "sounds": 0,
+  "alerts": [],
+  "localStorage": {},
+  "sessionStorage": {},
+  "state": {
+    "isRunning": false,
+    "progress": {
+      "articleLikes": 0,
+      "comments": 0,
+      "newArticle": 0
+    },
+    "completed": {
+      "roulette": false,
+      "dailyShop": false,
+      "majak": false,
+      "dailyMissions": false,
+      "contentMissions": false,
+      "weeklyMissions": false,
+      "bannerMissions": false,
+      "attendanceMissions": false,
+      "surveyMissions": false,
+      "prizeEntry": false
+    },
+    "createdCommentIds": [],
+    "earnings": {
+      "roulette": 0,
+      "rouletteExtra": 0,
+      "dailyShop": 0,
+      "majak": 0,
+      "dailyMissions": 0,
+      "contentMissions": 0,
+      "weeklyMissions": 0,
+      "bannerMissions": 0,
+      "attendanceMissions": 0,
+      "surveyMissions": 0,
+      "prizeEntry": 0,
+      "dailyAccumulated": 0,
+      "boostMission": 0,
+      "specialForce": 0
+    },
+    "missionComponents": {
+      "daily": 272,
+      "dailyComponents": [
+        271,
+        272
+      ],
+      "content": 280,
+      "weekly": 274,
+      "survey": 281,
+      "banner": 283,
+      "attendance": 284
+    },
+    "rouletteEvents": {
+      "draw": null,
+      "extra": null,
+      "apply": null,
+      "checkIn": null
+    },
+    "prizeInfo": {
+      "eventNo": null,
+      "giftNo": null,
+      "giftName": null,
+      "flakeCost": null
+    },
+    "pointCashCharge": {
+      "availableFlake": 150000,
+      "hasRequiredFlake": false
+    }
+  },
+  "panel": {
+    "values": {
+      "stove-status-article": "<span class=\"stove-status-value\" id=\"stove-status-article\"><span style=\"color: #f59e0b\">✍️ 아직 작성 안 함</span></span>",
+      "stove-status-mission-daily": "<span class=\"stove-status-value\" id=\"stove-status-mission-daily\"><span style=\"color: #f59e0b\">🎁 1개</span></span>",
+      "stove-status-mission-weekly": "<span class=\"stove-status-value\" id=\"stove-status-mission-weekly\"><span style=\"color: #f59e0b\">🎁 1개</span></span>",
+      "stove-status-mission-content": "<span class=\"stove-status-value\" id=\"stove-status-mission-content\"><span style=\"color: #6b7280\">받을 보상 없음</span></span>",
+      "stove-status-mission-attendance": "<span class=\"stove-status-value\" id=\"stove-status-mission-attendance\"><span style=\"color: #6b7280\">7일중 9일출석</span></span>",
+      "stove-status-roulette": "<span class=\"stove-status-value\" id=\"stove-status-roulette\"><span style=\"color: #10b981\">0/30 (30회 남음)</span></span>",
+      "stove-status-boost": "<span class=\"stove-status-value\" id=\"stove-status-boost\" title=\"\" style=\"color: rgb(245, 158, 11);\">0/1 · 잔여 5회</span>",
+      "stove-status-boost-reward": "<span class=\"stove-status-value\" id=\"stove-status-boost-reward\" title=\"부스트: 0/1\n댓글: 1/1\n글쓰기: 1/1\" style=\"color: rgb(156, 163, 175);\">조건 진행 중 · 3,000 F</span>",
+      "stove-status-boost-target": "<span class=\"stove-status-value\" id=\"stove-status-boost-target\" title=\"\" style=\"color: rgb(156, 163, 175);\">자동화 실행 후 표시</span>",
+      "stove-status-review-event": "<span class=\"stove-status-value\" id=\"stove-status-review-event\" title=\"\" style=\"color: rgb(245, 158, 11);\">0/1 · 참여 전</span>",
+      "stove-status-review-period": "<span class=\"stove-status-value\" id=\"stove-status-review-period\" title=\"이벤트 배너의 노출 기간을 자동화 실행 조건으로 사용합니다.\" style=\"color: rgb(156, 163, 175);\">2026-10-10 ~ 2026-10-20 (한국 시간)</span>",
+      "stove-status-review-target": "<span class=\"stove-status-value\" id=\"stove-status-review-target\" title=\"\" style=\"color: rgb(156, 163, 175);\"><a href=\"https://page.onstove.com/quarter/kr/view/14523486\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color: rgb(147, 197, 253);\">게임 리뷰</a></span>",
+      "stove-status-daily": "<span class=\"stove-status-value\" id=\"stove-status-daily\"><span style=\"color: #f59e0b\">📦 보상 받지 않음</span></span>",
+      "stove-status-majak": "<span class=\"stove-status-value\" id=\"stove-status-majak\"><span style=\"color: #f59e0b\">🀄 보상 받지 않음</span></span>",
+      "stove-status-survey": "<span class=\"stove-status-value\" id=\"stove-status-survey\"><span style=\"color: #f59e0b\">📊 1개 투표 가능</span></span>",
+      "stove-status-total-flake": "<span class=\"stove-status-value\" id=\"stove-status-total-flake\"><span style=\"color: #10b981\">150,000 F</span></span>",
+      "stove-status-monthly-flake": "<span class=\"stove-status-value\" id=\"stove-status-monthly-flake\"><span style=\"color: #10b981\">+12,345 F</span></span>"
+    },
+    "tooltips": {
+      "daily": [
+        "<div class=\"stove-mission-tooltip-title\">📅 데일리 미션</div><div class=\"stove-mission-tooltip-item\"><span class=\"stove-mission-tooltip-name\">스토브 메인 방문</span><span class=\"stove-mission-tooltip-status\" style=\"color: #6b7280\">⏳</span></div><div class=\"stove-mission-tooltip-item\"><span class=\"stove-mission-tooltip-name\">리워드샵 방문</span><span class=\"stove-mission-tooltip-status\" style=\"color: #f59e0b\">🎁</span></div><div class=\"stove-mission-tooltip-item\"><span class=\"stove-mission-tooltip-name\">라운지 좋아요</span><span class=\"stove-mission-tooltip-status\" style=\"color: #10b981\">✅</span></div>"
+      ],
+      "weekly": [
+        "<div class=\"stove-mission-tooltip-title\">📆 위클리 미션</div><div class=\"stove-mission-tooltip-item\"><span class=\"stove-mission-tooltip-name\">주간 댓글 5회</span><span class=\"stove-mission-tooltip-status\" style=\"color: #f59e0b\">🎁</span></div><div class=\"stove-mission-tooltip-item\"><span class=\"stove-mission-tooltip-name\">주간 글쓰기 3회</span><span class=\"stove-mission-tooltip-status\" style=\"color: #6b7280\">⏳</span></div>"
+      ],
+      "content": [
+        "<div class=\"stove-mission-tooltip-title\">💬 컨텐츠</div><div class=\"stove-mission-tooltip-item\"><span class=\"stove-mission-tooltip-name\">게임 플레이</span><span class=\"stove-mission-tooltip-status\" style=\"color: #6b7280\">⏳</span></div><div class=\"stove-mission-tooltip-item\"><span class=\"stove-mission-tooltip-name\">게임 위시리스트</span><span class=\"stove-mission-tooltip-status\" style=\"color: #6b7280\">⏳</span></div>"
+      ],
+      "attendance": [
+        "<div class=\"stove-mission-tooltip-title\">📆 월간출석</div><div class=\"stove-mission-tooltip-item\"><span class=\"stove-mission-tooltip-name\">월간 출석</span><span class=\"stove-mission-tooltip-status\" style=\"color: #6b7280\">⏳</span></div>"
+      ]
+    },
+    "pointCashCharge": {
+      "disabled": true,
+      "title": "192,500 플레이크 필요 (현재 150,000)",
+      "opacity": "0.45",
+      "status": "42,500 플레이크 부족",
+      "statusColor": "rgb(251, 191, 36)"
+    },
+    "specialForce": {
+      "busy": "false",
+      "text": "행사 기간2026.10.15 ~ 2026.10.2814일 행사13일 남음누적 플레이 1/7일수령한 보상 0/7개수령 가능 1개1일차↓1,000 FSP부스트(60분)수령 가능2일차◇1,000 F계급 경험치 부스트(60분)1일 더 플레이3일차◇1,000 F무기 경험치 부스트(60분)2일 더 플레이4일차◇1,000 F무기 훈련 교본[하급] x 10개3일 더 플레이5일차◇1,000 FSP 20004일 더 플레이6일차◇1,000 FSC 20005일 더 플레이7일차◇10,000 F프라임 포스, 스페셜 키 x 10개6일 더 플레이정상 게임 종료 후 기록 반영에 최대 5분이 걸릴 수 있습니다.최근 확인 오전 10:00:00",
+      "claimDisabled": false,
+      "link": "https://event.onstove.com/ko/dailyshop/specialforce/202610"
+    }
+  }
+}
