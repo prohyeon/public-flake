@@ -1,7 +1,7 @@
 import { collectSpecialForceRewards } from './specialForce.js';
 import { runPreRegistrations } from './preRegistration.js';
 import { CONFIG } from '../config.js';
-import { state } from '../state.js';
+import { state, resetRunProgress } from '../state.js';
 import { delay } from '../utils/time.js';
 import { extractHeaders } from '../utils/auth.js';
 import { playCompletionSound } from '../utils/audio.js';
@@ -338,20 +338,7 @@ export async function runAutomation() {
     state.isRunning = true;
     setAutomationSignal(AUTOMATION_SIGNAL.running, '전체 자동화 실행 중');
     setButtonState(true);
-    state.progress = { articleLikes: 0, comments: 0, newArticle: 0 };
-    state.createdCommentIds = [];
-    state.completed = {
-        roulette: false,
-        dailyShop: false,
-        majak: false,
-        dailyMissions: false,
-        contentMissions: false,
-        weeklyMissions: false,
-        bannerMissions: false,
-        attendanceMissions: false,
-        surveyMissions: false,
-        prizeEntry: false
-    };
+    resetRunProgress();
     const allTabs = [];
 
     const progressSection = document.querySelector('.stove-progress-section');
@@ -360,12 +347,6 @@ export async function runAutomation() {
         const offsetTop = window.pageYOffset + rect.top - (window.innerHeight * 0.3) + (rect.height / 2);
         window.scrollTo({ top: offsetTop, behavior: 'smooth' });
     }
-
-    state.earnings = {
-        roulette: 0, rouletteExtra: 0, dailyShop: 0, majak: 0,
-        dailyMissions: 0, contentMissions: 0, weeklyMissions: 0, bannerMissions: 0,
-        attendanceMissions: 0, surveyMissions: 0, prizeEntry: 0, dailyAccumulated: 0, boostMission: 0, specialForce: 0
-    };
 
     try {
         log('🚀 전체 자동화 시작', 'info');

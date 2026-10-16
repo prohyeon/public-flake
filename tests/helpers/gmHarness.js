@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 
 import { CONFIG } from '../../src/config.js';
-import { state } from '../../src/state.js';
+import { state, createInitialState } from '../../src/state.js';
 
 export const DEFAULT_NOW = Date.parse('2026-10-16T01:00:00Z'); // 2026-10-16 10:00 KST
 export const TEST_HEADERS = Object.freeze({
@@ -22,7 +22,6 @@ export const TEST_HEADERS = Object.freeze({
     'Referer': 'https://lounge.onstove.com/'
 });
 
-const INITIAL_STATE = structuredClone(state);
 const INITIAL_CONFIG = structuredClone(CONFIG);
 
 // Restores in place so module-level references to nested objects stay valid.
@@ -43,7 +42,7 @@ function restoreInPlace(target, snapshot) {
 }
 
 export function resetState() {
-    restoreInPlace(state, INITIAL_STATE);
+    restoreInPlace(state, createInitialState());
 }
 
 export function resetConfig() {
