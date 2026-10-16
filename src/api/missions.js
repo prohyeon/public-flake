@@ -15,6 +15,23 @@ export function makeMissionHeaders(headers) {
     };
 }
 
+// Mission writes (participate, vote, prize apply) send JSON with the reward-page headers.
+export function makeMissionJsonHeaders(headers) {
+    return {
+        ...makeMissionHeaders(headers),
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+    };
+}
+
+export function missionComponentUrl(componentNo) {
+    return `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
+}
+
+export function missionParticipateUrl() {
+    return `${CONFIG.api.baseUrl}/flake-shop/v1/mission/participate`;
+}
+
 export function isWeeklyAccumulation(startDt, endDt) {
     const start = new Date(startDt);
     const end = new Date(endDt);
@@ -141,8 +158,7 @@ export async function getDailyMissions(headers) {
         const values = [];
 
         for (const componentNo of componentNos) {
-            const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
-            const response = await apiRequest(url, 'GET', missionHeaders);
+            const response = await apiRequest(missionComponentUrl(componentNo), 'GET', missionHeaders);
 
             if (response && response.code === 0 && response.value) {
                 values.push({
@@ -183,18 +199,12 @@ export async function getDailyMissions(headers) {
 }
 
 export async function receiveMissionReward(headers, missionNo, componentNo) {
-    const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/participate`;
-    const missionHeaders = {
-        ...makeMissionHeaders(headers),
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-    };
     const body = { mission_no: missionNo, component_no: componentNo };
 
     console.log(`[미션 보상 수령] mission_no: ${missionNo}`);
 
     try {
-        const response = await apiRequest(url, 'POST', missionHeaders, body);
+        const response = await apiRequest(missionParticipateUrl(), 'POST', makeMissionJsonHeaders(headers), body);
         if (response && response.code === 0 && response.value) {
             const reward = response.value.reward_amount || 0;
             console.log(`[미션 보상 수령] ✓ ${response.value.title}: ${reward} FLAKE`);
@@ -210,10 +220,7 @@ export async function receiveMissionReward(headers, missionNo, componentNo) {
 }
 
 export async function getDailyMissionStatus(headers, componentNo = 1) {
-    const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/component?component_no=${componentNo}`;
-    const rewardHeaders = makeMissionHeaders(headers);
-    const response = await apiRequest(url, 'GET', rewardHeaders);
-    return response;
+    return apiRequest(missionComponentUrl(componentNo), 'GET', makeMissionHeaders(headers));
 }
 
 export async function getAllDailyMissions(headers) {
@@ -255,16 +262,10 @@ export async function getAllDailyMissions(headers) {
 }
 
 export async function participateMission(headers, missionNo, componentNo) {
-    const url = `${CONFIG.api.baseUrl}/flake-shop/v1/mission/participate`;
-    const rewardHeaders = {
-        ...makeMissionHeaders(headers),
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-    };
     const body = { mission_no: missionNo, component_no: componentNo };
 
     console.log(`[미션 참여] mission_no: ${missionNo}, component_no: ${componentNo}`);
-    const response = await apiRequest(url, 'POST', rewardHeaders, body);
+    const response = await apiRequest(missionParticipateUrl(), 'POST', makeMissionJsonHeaders(headers), body);
 
     if (response && response.value) {
         console.log(`[미션 참여] ${response.value.title} - 상태: ${response.value.status}`);
