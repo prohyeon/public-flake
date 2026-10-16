@@ -38,6 +38,8 @@ export function buildAutomationSignalTitle(signal, message = '', baseTitle = '')
     return cleanBaseTitle ? `${signalTitle} | ${cleanBaseTitle}` : signalTitle;
 }
 
+// Reader side of the title protocol that stove-bot-win (SGManager) implements in Python. The script
+// itself never parses titles; this stays as the executable spec the signal tests round-trip against.
 export function parseAutomationSignalTitle(title = '') {
     const source = String(title || '').trim();
     const match = source.match(SIGNAL_PATTERN);

@@ -58,8 +58,7 @@
 | `src/workflows/shop.js:161` vs `:229-234` | 마작 쿠폰은 게임 보유 확인을 건너뛴다. |
 | `src/main.js:598` | 점검 모드에서도 500ms 뒤 상태 조회 API를 호출한다. |
 
-## 5. 죽은 코드 (F에서 제거 후보)
+## 5. 죽은 코드 (F에서 제거 완료)
 
-- `src/ui/progress.js:39` `stove-btn-test-tab`: 패널에 없는 id
-- `src/ui/progress.js:52` `extractComments`: 호출하는 곳 없음
-- `getLostArkPaymentInfo`/`buildLostArkPaymentInfoUrl`, `closeTabAfterDelay`, `getCurrentMonthDateRange`: 호출하는 곳 없음 (F 단계에서 codegraph로 재확인)
+- 제거: `stove-btn-test-tab`(패널에 없는 id), `extractComments`, `getLostArkPaymentInfo`/`buildLostArkPaymentInfoUrl`, `closeTabAfterDelay`, `getCurrentMonthDateRange`, `runRoulette`(독립 룰렛 버튼이 사라진 뒤 남은 진입점)
+- 유지: `parseAutomationSignalTitle`. 스크립트는 쓰지 않지만 stove-bot-win이 읽는 탭 제목 신호 형식의 명세 역할을 해서 남겼다.

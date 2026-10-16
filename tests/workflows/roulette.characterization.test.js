@@ -8,7 +8,7 @@ import { useHarness, httpError, rawText, TEST_HEADERS } from '../helpers/gmHarne
 import { assertGolden } from '../helpers/golden.js';
 import { CONFIG } from '../../src/config.js';
 import { state } from '../../src/state.js';
-import { runRouletteDraws, claimRouletteExtraRewards, runRoulette } from '../../src/workflows/roulette.js';
+import { runRouletteDraws, claimRouletteExtraRewards } from '../../src/workflows/roulette.js';
 import {
     getRouletteSubEventNo, getRouletteExtraSubEventNo, getPrizeEventNo, getPrizeGiftNo, getPrizeFlakeCost,
     getRouletteEventIds, getPrizeInfo, getRouletteParticipationCount, executeRouletteDraw,
@@ -496,67 +496,6 @@ test('claimRouletteExtraRewards uses the extra event id loaded into state', asyn
         `GET ${extraUrl('1000000998')}`,
         `POST ${extraClaimUrl('1000000998')} {"gift_no":5001,"current_cycle":1}`
     ]);
-});
-
-// ---------------------------------------------------------------------------------------------
-// runRoulette
-// ---------------------------------------------------------------------------------------------
-
-const PANEL_WITH_BUTTONS = `
-    <div id="stove-quest-automation">
-        <div class="stove-progress-section">
-            <div class="stove-progress-fill"></div>
-            <div id="stove-progress-text"></div>
-        </div>
-        <button id="stove-btn-start">시작</button>
-        <button id="stove-btn-reward-shop">리워드샵</button>
-        <div class="stove-log-section"><div id="stove-log-content"></div></div>
-    </div>`;
-
-test('runRoulette runs the draws with cookie headers while the buttons are disabled', async t => {
-    const h = useHarness(t, { body: PANEL_WITH_BUTTONS });
-    const duringRun = [];
-    h.on('GET', participationUrl(), (request, callIndex) => {
-        duringRun.push({
-            isRunning: state.isRunning,
-            startDisabled: h.document.getElementById('stove-btn-start').disabled
-        });
-        return callIndex === 0 ? participation(29) : participation(30);
-    });
-    h.on('POST', drawUrl(), drawWon('100 플레이크', 100));
-
-    assert.equal(await runRoulette(), undefined);
-
-    assert.deepEqual(duringRun, [{ isRunning: true, startDisabled: true }, { isRunning: true, startDisabled: true }]);
-    assert.equal(state.isRunning, false);
-    assert.equal(h.document.getElementById('stove-btn-start').disabled, false);
-    assert.equal(h.document.getElementById('stove-btn-start').style.opacity, '1');
-    assert.equal(drawPosts(h).length, 1);
-    assert.deepEqual(h.requests[0].headers, REWARD_HEADERS);
-    assert.equal(state.completed.roulette, true);
-    assertGolden('roulette/run-roulette', h.snapshot());
-});
-
-test('runRoulette does nothing while another run is in progress', async t => {
-    const h = useHarness(t);
-    state.isRunning = true;
-
-    assert.equal(await runRoulette(), undefined);
-
-    assert.deepEqual(h.requests, []);
-    assert.equal(state.isRunning, true);
-    assertGolden('roulette/run-roulette-already-running', h.snapshot());
-});
-
-test('runRoulette logs the error and resets isRunning when the auth cookie is missing', async t => {
-    const h = useHarness(t, { cookies: {} });
-
-    await runRoulette();
-
-    assert.deepEqual(h.requests, []);
-    assert.equal(state.isRunning, false);
-    assert.ok(h.logs().includes('[error] ✗ 오류 발생: Authorization token (SUAT) not found'));
-    assertGolden('roulette/run-roulette-missing-auth', h.snapshot());
 });
 
 // ---------------------------------------------------------------------------------------------

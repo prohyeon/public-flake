@@ -36,7 +36,7 @@ export function updateProgress(task, current, total) {
 }
 
 export function setButtonState(running) {
-    const btnIds = ['stove-btn-start', 'stove-btn-reward-shop', 'stove-btn-status-refresh', 'stove-btn-test-tab'];
+    const btnIds = ['stove-btn-start', 'stove-btn-reward-shop', 'stove-btn-status-refresh'];
 
     for (const id of btnIds) {
         const btn = document.getElementById(id);
@@ -47,19 +47,4 @@ export function setButtonState(running) {
     }
 
     updatePointCashChargeButtonAvailability(state.pointCashCharge.availableFlake, { running });
-}
-
-export function extractComments(articles, count) {
-    const comments = [];
-    for (const article of articles) {
-        if (article.comments) {
-            for (const comment of article.comments) {
-                if (comment.comment_id) {
-                    comments.push(comment.comment_id);
-                    if (comments.length >= count) return comments;
-                }
-            }
-        }
-    }
-    return comments;
 }

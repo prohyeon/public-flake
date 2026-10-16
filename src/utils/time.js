@@ -15,23 +15,6 @@ export function getTimestamp() {
     return Date.now();
 }
 
-export function getCurrentMonthDateRange() {
-    const now = new Date();
-    const kstOffset = 9 * 60 * 60 * 1000;
-    const kstNow = new Date(now.getTime() + kstOffset);
-
-    const year = kstNow.getUTCFullYear();
-    const month = kstNow.getUTCMonth();
-
-    const startDate = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
-    const startTimestamp = startDate.getTime() - kstOffset;
-
-    const endDate = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999));
-    const endTimestamp = endDate.getTime() - kstOffset;
-
-    return { startDate: startTimestamp, endDate: endTimestamp };
-}
-
 export function getTodayString() {
     const today = new Date();
     const year = today.getFullYear();

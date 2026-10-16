@@ -21,14 +21,12 @@ import {
 } from '../../src/api/pointExchange.js';
 import {
     buildLostArkCashChargeUrl,
-    buildLostArkPaymentInfoUrl,
     buildLostArkPointBalanceUrl,
     buildLostArkPointCashChargePayload,
     chargeLostArkCashWithPoints,
     extractBearerToken,
     extractLostArkOrderNo,
     extractStovePointBalance,
-    getLostArkPaymentInfo,
     getLostArkPointBalance,
     makeLostArkPaymentHeaders
 } from '../../src/api/lostArkCashCharge.js';
@@ -312,17 +310,6 @@ test('lostArkCashCharge: URL builders, payload overrides and response extraction
     assert.equal(extractLostArkOrderNo({ value: { order_no: '' } }), null);
     assert.equal(extractLostArkOrderNo({ value: { order_no: null } }), null);
     assert.equal(extractLostArkOrderNo(null), null);
-});
-
-// Dead code: getLostArkPaymentInfo / buildLostArkPaymentInfoUrl are not called anywhere in src.
-// If refactor F removes them, delete this test with them.
-test('lostArkCashCharge (unused export): payment info request', async t => {
-    const h = useHarness(t);
-    const url = `${API}/pay/v1.0/payment/info/2605101202375031`;
-    h.on('GET', url, { code: 0, value: { status: 'DONE' } });
-    assert.equal(buildLostArkPaymentInfoUrl('2605101202375031'), url);
-    assert.deepEqual(await getLostArkPaymentInfo(TEST_HEADERS, '2605101202375031'), { code: 0, value: { status: 'DONE' } });
-    assert.deepEqual(h.requests, [{ method: 'GET', url, headers: PAYMENT_HEADERS, body: null }]);
 });
 
 // ---------------------------------------------------------------------------------------------

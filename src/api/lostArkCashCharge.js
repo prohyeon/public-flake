@@ -42,10 +42,6 @@ export function buildLostArkCashChargeUrl(configOverrides = {}) {
     return `${CONFIG.api.baseUrl}/pay/v1.0/payment/${config.gameCode}/request/direct`;
 }
 
-export function buildLostArkPaymentInfoUrl(orderNo) {
-    return `${CONFIG.api.baseUrl}/pay/v1.0/payment/info/${orderNo}`;
-}
-
 export function buildLostArkPointCashChargePayload({ accessToken }, configOverrides = {}) {
     const config = getLostArkCashChargeConfig(configOverrides);
 
@@ -116,8 +112,4 @@ export async function chargeLostArkCashWithPoints(headers) {
         makeLostArkPaymentHeaders(headers),
         payload
     );
-}
-
-export async function getLostArkPaymentInfo(headers, orderNo) {
-    return apiRequest(buildLostArkPaymentInfoUrl(orderNo), 'GET', makeLostArkPaymentHeaders(headers));
 }

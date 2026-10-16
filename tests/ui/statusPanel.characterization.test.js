@@ -307,28 +307,6 @@ test('setButtonState: an unknown (null) flake balance is treated as 0 F, so idle
     assert.equal(panelSnapshot(h.document).pointCashCharge.status, '플레이크 확인 중', 'only undefined/NaN reach the unknown branch');
 });
 
-// ---------------------------------------------------------------- extractComments
-
-// extractComments has no caller in src (dead code); it is read through the namespace so that
-// removing it (refactor F) skips this test instead of breaking the whole file at import time.
-test('extractComments: collects comment ids in order, skipping falsy ids, up to count', {
-    skip: typeof progressModule.extractComments !== 'function' && 'extractComments was removed (it had no callers)'
-}, () => {
-    const { extractComments } = progressModule;
-    const articles = [
-        { article_id: 1 },
-        { article_id: 2, comments: [{ comment_id: 'a' }, { comment_id: null }, { comment_id: 'b' }] },
-        { article_id: 3, comments: [] },
-        { article_id: 4, comments: [{ comment_id: 'c' }, { comment_id: 'd' }] }
-    ];
-    assert.deepEqual(extractComments(articles, 3), ['a', 'b', 'c']);
-    assert.deepEqual(extractComments(articles, 10), ['a', 'b', 'c', 'd']);
-    assert.deepEqual(extractComments(articles, 1), ['a']);
-    assert.deepEqual(extractComments([], 5), []);
-    // count 0 still takes the first id: the limit is only checked after a push
-    assert.deepEqual(extractComments(articles, 0), ['a']);
-});
-
 // ---------------------------------------------------------------- log
 
 test('log: appends an icon-prefixed, colored entry per call (info by default)', async t => {

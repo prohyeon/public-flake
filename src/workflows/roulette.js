@@ -6,9 +6,8 @@ import {
     getRouletteExtra, claimRouletteExtra,
     getRouletteSubEventNo, getRouletteExtraSubEventNo
 } from '../api/roulette.js';
-import { extractHeaders } from '../utils/auth.js';
 import { log } from '../ui/logger.js';
-import { updateProgress, setButtonState } from '../ui/progress.js';
+import { updateProgress } from '../ui/progress.js';
 import { debugLog } from '../utils/debug.js';
 
 function services(deps = {}) {
@@ -233,25 +232,4 @@ export async function claimRouletteExtraRewards(headers, deps = {}) {
     state.earnings.rouletteExtra = extraFlakeEarned;
     io.log('✅ 룰렛 EXTRA 처리 완료!', 'success');
     return extraFlakeEarned;
-}
-
-export async function runRoulette() {
-    if (state.isRunning) {
-        log('⚠️ 이미 실행 중입니다', 'warning');
-        return;
-    }
-
-    state.isRunning = true;
-    setButtonState(true);
-
-    try {
-        log('🎰 룰렛 실행 시작...', 'info');
-        const headers = extractHeaders();
-        await runRouletteDraws(headers);
-    } catch (error) {
-        log(`✗ 오류 발생: ${error.message}`, 'error');
-    } finally {
-        state.isRunning = false;
-        setButtonState(false);
-    }
 }

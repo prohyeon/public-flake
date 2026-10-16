@@ -1,4 +1,3 @@
-import { delay } from './time.js';
 import { debugLog } from './debug.js';
 
 export function openTabInBackground(url, active = false) {
@@ -36,10 +35,4 @@ export function closeTab(tabs) {
 
     debugLog(`[Tab] 총 ${closedCount}/${tabArray.length}개 탭 닫힘`);
     return closedCount;
-}
-
-export async function closeTabAfterDelay(tabs, delayMs = 3000) {
-    debugLog(`[Tab] ${delayMs}ms 후 탭 닫기 예약됨`);
-    await delay(delayMs);
-    return closeTab(tabs);
 }

@@ -6,10 +6,9 @@ import assert from 'node:assert/strict';
 
 import { useHarness, DEFAULT_NOW, TEST_HEADERS } from '../helpers/gmHarness.js';
 import { CONFIG } from '../../src/config.js';
-import { closeTab, closeTabAfterDelay, openTabInBackground } from '../../src/utils/tabs.js';
+import { closeTab, openTabInBackground } from '../../src/utils/tabs.js';
 import {
     delay,
-    getCurrentMonthDateRange,
     getKSTDate,
     getTimestamp,
     getTodayKSTString,
@@ -83,18 +82,6 @@ test('closeTab: counts only tabs whose close() succeeded', t => {
     assert.deepEqual(closed, ['single', 'first', 'last']);
 });
 
-// Dead code: closeTabAfterDelay is not called anywhere in src. Delete with the export if refactor F removes it.
-test('closeTabAfterDelay (unused export): waits 3000ms by default, then closes', async t => {
-    const h = useHarness(t);
-    let closes = 0;
-    const tab = { close() { closes++; } };
-    assert.equal(await closeTabAfterDelay([tab, tab]), 2);
-    assert.equal(await closeTabAfterDelay(tab, 500), 1);
-    assert.equal(await closeTabAfterDelay(null, 10), 0);
-    assert.deepEqual(h.delays, [3000, 500, 10]);
-    assert.equal(closes, 3);
-});
-
 // ---------------------------------------------------------------------------------------------
 // time.js
 // ---------------------------------------------------------------------------------------------
@@ -142,22 +129,6 @@ test('delay / getTimestamp: delays go through setTimeout, timestamps through Dat
     await delay(0);
     assert.deepEqual(h.delays, [1234, 0]);
     assert.equal(getTimestamp(), DEFAULT_NOW);
-});
-
-// Dead code: getCurrentMonthDateRange is not called anywhere in src. Delete with the export if refactor F removes it.
-test('getCurrentMonthDateRange (unused export): the current KST month as UTC epoch bounds', async t => {
-    const cases = [
-        ['2026-10-16T01:00:00Z', '2026-09-30T15:00:00.000Z', '2026-10-31T14:59:59.999Z'],
-        ['2026-12-31T14:59:59Z', '2026-11-30T15:00:00.000Z', '2026-12-31T14:59:59.999Z'],
-        ['2026-12-31T15:00:00Z', '2026-12-31T15:00:00.000Z', '2027-01-31T14:59:59.999Z'],
-        ['2028-02-10T00:00:00Z', '2028-01-31T15:00:00.000Z', '2028-02-29T14:59:59.999Z']
-    ];
-    for (const [iso, start, end] of cases) {
-        await t.test(iso, st => {
-            useHarness(st, at(iso));
-            assert.deepEqual(getCurrentMonthDateRange(), { startDate: Date.parse(start), endDate: Date.parse(end) });
-        });
-    }
 });
 
 // ---------------------------------------------------------------------------------------------
