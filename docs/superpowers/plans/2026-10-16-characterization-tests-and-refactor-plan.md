@@ -150,6 +150,22 @@ Phase 1~2는 `src/`를 건드리지 않아 번들이 그대로다. 그래서 `ma
 - **병렬 그룹 interleaving:** 2절의 비교 규칙으로 오탐을 막는다.
 - **민감정보:** HAR 원본과 fixture를 커밋하기 전에 토큰, 쿠키, member_no를 마스킹했는지 확인한다.
 
+## 진행 상황 (2026-10-16)
+
+| 단계 | 커밋 | 결과 |
+|---|---|---|
+| Phase 0 | 3199c99 | 기준선 기록, `.codegraph/`·HAR ignore |
+| Phase 1 | 4cae98c | GM 경계 하네스, golden, `npm run verify` |
+| Phase 2 | 693273a (main 머지) | golden 132개, 커버리지 line 55.7% → 98.7%, 변이 11개 모두 검출 |
+| A | 4446eb6 | 미션 공통 조각을 helper로 추출, missions에 deps 주입 |
+| B | 9819538 | shop/roulette/status/task handler에 deps 주입, shop·status 중복 정리 |
+| C | 4b7189a | 패널 템플릿을 `src/ui/panelTemplate.js`로 분리, 버튼 연결 테이블화 |
+| D | a00e726 | `src/api/headers.js`로 헤더 통합, 요청 추적 로그를 debug 플래그 뒤로 |
+| E | c038179 | `createInitialState()`/`resetRunProgress()` |
+| F | 0ea5c6c | 죽은 코드 제거 |
+
+Phase 3 동안 기존 golden은 하나도 바뀌지 않았다(죽은 코드 테스트용 golden 3개만 삭제). 리팩터링한 코드에 대한 변이 12개도 모두 검출된다. 남은 단계는 Phase 4(버전 결정, 번들 재생성, 실환경 스모크)다.
+
 ## 결정 사항 (2026-10-16)
 
 1. Phase 3 범위: A~F 전부, A부터 순서대로 진행
