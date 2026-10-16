@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import { CONFIG } from '../src/config.js';
+import { readUserscriptBundle } from './helpers/bundle.js';
 
 const readJson = path => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
 const capture = (source, expression, description) => {
@@ -15,7 +16,7 @@ test('source, package lock, build metadata, and deployed bundle use one release 
     const packageJson = readJson('../package.json');
     const packageLock = readJson('../package-lock.json');
     const viteConfig = readFileSync(new URL('../vite.config.js', import.meta.url), 'utf8');
-    const userscript = readFileSync(new URL('../stove-quest-automation.user.js', import.meta.url), 'utf8');
+    const userscript = readUserscriptBundle();
 
     const viteVersion = capture(
         viteConfig,

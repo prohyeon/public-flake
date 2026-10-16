@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { boostFixture, boostCandidate } from '../helpers/boostFixture.js';
 import { reviewEventFixture } from '../helpers/reviewEventFixture.js';
 import { specialForceShop } from '../helpers/specialForceFixture.js';
+import { readUserscriptBundle } from '../helpers/bundle.js';
 
-const userscript = readFileSync(new URL('../../stove-quest-automation.user.js', import.meta.url), 'utf8');
+const userscript = readUserscriptBundle();
 
 test('distributed dashboard only reads status; full automation queries five times and claims after background comments', async t => {
     const dom = new JSDOM('<!doctype html><title>MY홈</title><div id="__nuxt"><div data-slot="App"><div data-slot="Body"></div></div></div>', {

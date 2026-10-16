@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
+import { readUserscriptBundle } from '../helpers/bundle.js';
 
-const userscript = readFileSync(new URL('../../stove-quest-automation.user.js', import.meta.url), 'utf8');
+const userscript = readUserscriptBundle();
 const waitForMutations = () => new Promise(resolve => setTimeout(resolve, 25));
 
 test('deployed userscript mounts once into MY홈 and survives route replacement and reevaluation', async t => {
