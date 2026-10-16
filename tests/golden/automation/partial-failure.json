@@ -827,48 +827,6 @@
     },
     {
       "method": "GET",
-      "url": "https://api.onstove.com/dailyshop/v1.0/services/family-links",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": null,
-      "timeout": 15000
-    },
-    {
-      "method": "GET",
-      "url": "https://api.onstove.com/dailyshop/v1.0/services/family-links",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": null,
-      "timeout": 15000
-    },
-    {
-      "method": "GET",
       "url": "https://api.onstove.com/emsbackapi/v3.0/apply?sub_event_no=1000000354",
       "headers": {
         "Authorization": "Bearer test-suat",
@@ -3955,7 +3913,6 @@
     "[info]   ✓ 경품 응모 미션 확인: 359 (INCOMPLETE)",
     "[info]   🌐 \"이번 주 인디 게임 소식 읽고 플레이크 받기...\" 방문 중...",
     "[info]   🎁 데일리 누적 보상: 0 FLAKE",
-    "[info]   🎮 스페셜포스: 0 FLAKE",
     "[info]   🎯 선택: \"최고예요\" (70%)",
     "[info]   🏠 스토브 메인 페이지 방문 중...",
     "[info]   👍 게시글 좋아요: 0 FLAKE (0회 × 3)",
@@ -4153,16 +4110,14 @@
     "[warning] 새글 작성 실패했지만 자동화를 계속 진행합니다",
     "[warning] 새글 작성 실패했지만 자동화를 계속 진행합니다",
     "[warning] 스냅샷 비교: 글 미완료, 미션 1개, 데일리 1개, 마작 0개, EXTRA 0개, 월간출석 +1 1/1",
-    "[warning] 스페셜포스 확인 필요: API Error: 503 Error",
-    "[warning] 스페셜포스: API Error: 503 Error",
     "[warning] 안전 복구 대상 확인 중...",
-    "[warning] 일부 작업이 실패했거나 확인이 필요합니다: 작업 실패 4개, 글·미션·보상 미완료, 스페셜포스 확인 필요, 사전등록 확인 필요",
+    "[warning] 일부 작업이 실패했거나 확인이 필요합니다: 작업 실패 4개, 글·미션·보상 미완료, 사전등록 확인 필요",
     "[warning] 재확인 결과: 글 미완료, 미션 1개, 데일리 1개, 마작 0개, EXTRA 0개, 월간출석 +1 1/1",
-    "[warning] 전체 자동화 종료 · 확인 필요: 작업 실패 4개, 글·미션·보상 미완료, 스페셜포스 확인 필요, 사전등록 확인 필요"
+    "[warning] 전체 자동화 종료 · 확인 필요: 작업 실패 4개, 글·미션·보상 미완료, 사전등록 확인 필요"
   ],
   "titles": [
     "[SG_RUNNING] 전체 자동화 실행 중 | STOVE",
-    "[SG_ERROR] 작업 실패 4개, 글·미션·보상 미완료, 스페셜포스 확인 필요, 사전등록 확인 필요 | STOVE"
+    "[SG_ERROR] 작업 실패 4개, 글·미션·보상 미완료, 사전등록 확인 필요 | STOVE"
   ],
   "sounds": 0,
   "alerts": [],
@@ -4212,8 +4167,7 @@
       "surveyMissions": 5,
       "prizeEntry": -200,
       "dailyAccumulated": 0,
-      "boostMission": 0,
-      "specialForce": 0
+      "boostMission": 0
     },
     "missionComponents": {
       "daily": 226,

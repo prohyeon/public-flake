@@ -8,7 +8,6 @@
 //
 // Clock: the harness pins Date to DEFAULT_NOW (2026-10-16 10:00 KST); all dates here straddle it.
 import { DEFAULT_NOW } from '../helpers/gmHarness.js';
-import { specialForceShop } from '../helpers/specialForceFixture.js';
 
 export const API = 'https://api.onstove.com';
 export const NOW = DEFAULT_NOW;
@@ -129,7 +128,6 @@ const boostCandidate = (id, score) => ({
  *   dailyShopClaimed / majakClaimed: boolean
  *   boost: 'pending' | 'rewarded' | 'none'
  *   reviewEvent: 'ready' | 'commented' | 'none'
- *   specialForce: 'claimable' | 'claimed' | 'none'
  *   attendanceTrigger: 'rewardTab' | 'focusedRewardTab' | 'never'
  *       which opened tab makes the server count today's monthly attendance (+1 once)
  *   overrides: { [routeName]: (request, callIndex, next) => response }
@@ -178,17 +176,13 @@ export function installAutomationWorld(h, options = {}) {
                 { comment_id: 5001, comment_status_code: 'NORMAL', user_info: { member_no: 300 } }
             ]
         },
-        specialForce: {
-            mode: options.specialForce ?? 'claimable',
-            received: new Set(options.specialForce === 'claimed' ? [25] : [])
-        },
         attendance: { trigger: options.attendanceTrigger ?? 'rewardTab', counted: false },
         overrides: { ...(options.overrides || {}) },
         audit: {
             missionClaims: [], duplicateClaims: [], prematureClaims: [],
             draws: 0, overDraws: 0, prizeApplies: 0, extraClaims: [],
             shopClaims: [], boosts: [], boostRewards: 0, reviewComments: 0,
-            specialForceClaims: [], likes: [], duplicateLikes: [], comments: [], articlesCreated: [],
+            likes: [], duplicateLikes: [], comments: [], articlesCreated: [],
             preRegistrations: 0, wishlists: 0
         }
     };
@@ -400,33 +394,6 @@ export function installAutomationWorld(h, options = {}) {
             return okBody({ item_no: itemNo });
         }
         return { code: 1404, message: '보상을 찾을 수 없습니다' };
-    });
-    route('familyLinks', 'GET', /^\/dailyshop\/v1\.0\/services\/family-links$/, () => okBody([
-        { service_id: 'riichicity', progress_month: '202610' },
-        ...(world.specialForce.mode === 'none' ? [] : [{ service_id: 'specialforce', progress_month: '202610' }])
-    ]));
-    const specialForceValue = () => {
-        const value = specialForceShop();
-        value.date_info = { attend_start_dt: '2026-10-01T00:00:00', attend_end_dt: '2026-10-31T23:59:59' };
-        for (const reward of value.accumulated_plays.rewards) reward.is_received = world.specialForce.received.has(reward.item_no);
-        return value;
-    };
-    route('specialForceShop', 'GET', /^\/dailyshop\/v1\.0\/\d{6}\/services\/specialforce$/, () => okBody(specialForceValue()));
-    route('specialForceClaim', 'POST', /^\/dailyshop\/v1\.0\/attendances\/accumulate-play\/flake$/, (request, url) => {
-        const itemNo = Number(url.searchParams.get('item_no'));
-        const reward = specialForceValue().accumulated_plays.rewards.find(item => item.item_no === itemNo);
-        if (!reward) return { code: 1404, message: '보상을 찾을 수 없습니다' };
-        if (reward.is_received) {
-            audit.duplicateClaims.push(`specialForce:${itemNo}`);
-            return { code: 1001, message: '이미 수령한 보상입니다' };
-        }
-        if (!reward.eligible) {
-            audit.prematureClaims.push(`specialForce:${itemNo}`);
-            return { code: 1002, message: '플레이 일수가 부족합니다' };
-        }
-        world.specialForce.received.add(itemNo);
-        audit.specialForceClaims.push(itemNo);
-        return okBody({ item_no: itemNo, category: 'ACCUMULATE_PLAY', flake_amount: reward.flake_amount });
     });
     route('preRegister', 'POST', /^\/dailyshop\/v1\.0\/campaigns\/(\d{6})\/([\w-]+)\/register$/, () => {
         audit.preRegistrations += 1;

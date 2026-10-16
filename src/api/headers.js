@@ -59,8 +59,8 @@ export function makeEventHubHeaders(headers) {
     };
 }
 
-// event.onstove.com on top of the full lounge headers: special force and pre-registration.
-// caller-detail is only the X-UUID here (no caller-detail fallback), as those pages send it.
+// event.onstove.com on top of the full lounge headers: pre-registration.
+// caller-detail is only the X-UUID here (no caller-detail fallback), as that page sends it.
 export function withEventHubOrigin(headers) {
     return { ...headers, 'caller-id': 'event-hub', 'caller-detail': headers['X-UUID'],
         Origin: 'https://event.onstove.com', Referer: 'https://event.onstove.com/',

@@ -1,4 +1,3 @@
-import { refreshSpecialForce, receiveSpecialForce } from './workflows/specialForce.js';
 import { isMaintenanceMode } from './utils/maintenance.js';
 import { log } from './ui/logger.js';
 import { runAutomation } from './workflows/automation.js';
@@ -12,8 +11,6 @@ import { panelMarkup } from './ui/panelTemplate.js';
 
 // Panel buttons and the workflow each one starts. Maintenance mode disables all of them.
 const ACTION_BUTTONS = [
-    ['stove-btn-special-force-refresh', refreshSpecialForce],
-    ['stove-btn-special-force-claim', receiveSpecialForce],
     ['stove-btn-start', runAutomation],
     ['stove-btn-point-cash-charge', runPointExchange],
     ['stove-btn-reward-shop', openRewardShop],

@@ -16,14 +16,6 @@
       "stove-btn-point-cash-charge": {
         "disabled": true,
         "opacity": "0.5"
-      },
-      "stove-btn-special-force-refresh": {
-        "disabled": false,
-        "opacity": ""
-      },
-      "stove-btn-special-force-claim": {
-        "disabled": true,
-        "opacity": ""
       }
     },
     "charge": {
@@ -55,14 +47,6 @@
       "stove-btn-point-cash-charge": {
         "disabled": false,
         "opacity": "1"
-      },
-      "stove-btn-special-force-refresh": {
-        "disabled": false,
-        "opacity": ""
-      },
-      "stove-btn-special-force-claim": {
-        "disabled": true,
-        "opacity": ""
       }
     },
     "charge": {

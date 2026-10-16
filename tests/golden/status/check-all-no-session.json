@@ -43,8 +43,7 @@
       "surveyMissions": 0,
       "prizeEntry": 0,
       "dailyAccumulated": 0,
-      "boostMission": 0,
-      "specialForce": 0
+      "boostMission": 0
     },
     "missionComponents": {
       "daily": null,
@@ -104,12 +103,6 @@
       "opacity": "0.45",
       "status": "192,500 플레이크 부족",
       "statusColor": "rgb(251, 191, 36)"
-    },
-    "specialForce": {
-      "busy": "false",
-      "text": "!확인 실패Authorization token (SUAT) not found",
-      "claimDisabled": true,
-      "link": "https://event.onstove.com/ko/dailyshop/specialforce"
     }
   }
 }

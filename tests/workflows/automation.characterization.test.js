@@ -38,7 +38,7 @@ const ALL_ARTICLE_IDS = Array.from({ length: 13 }, (_, index) => 70001 + index);
 const DONE_WORLD = Object.freeze({
     missions: 'done', articleWritten: true, likedArticleIds: ALL_ARTICLE_IDS,
     rouletteUsed: 30, rouletteExtraReceived: [10, 20, 30], dailyShopClaimed: true, majakClaimed: true,
-    boost: 'rewarded', reviewEvent: 'commented', specialForce: 'claimed', attendanceTrigger: 'never'
+    boost: 'rewarded', reviewEvent: 'commented', attendanceTrigger: 'never'
 });
 const MONTHLY_RECORD_KEY = `stove-monthly-attendance-v1:${USER_ID}`;
 
@@ -105,7 +105,6 @@ function expectedSummaryLogs({ progress, earnings }) {
         `[${level(earnings.dailyShop)}]   💝 데일리 보상: ${earnings.dailyShop} FLAKE`,
         `[${level(earnings.dailyAccumulated)}]   🎁 데일리 누적 보상: ${earnings.dailyAccumulated} FLAKE`,
         `[${level(earnings.majak)}]   🀄 마작 리워드: ${earnings.majak} FLAKE`,
-        `[info]   🎮 스페셜포스: ${earnings.specialForce} FLAKE`,
         '[info] ───────────────────────────────────────',
         `[${total >= 0 ? 'success' : 'warning'}]   📊 총 순수익: ${sign}${total} FLAKE`,
         '[info] ═══════════════════════════════════════'
@@ -116,7 +115,7 @@ function assertSummaryMatchesState(h) {
     const logs = h.logs();
     const start = logs.indexOf('[success] 💰 최종 FLAKE 수익 요약') - 1;
     assert.ok(start >= 0, 'summary block is printed');
-    assert.deepEqual(logs.slice(start, start + 23), expectedSummaryLogs(state));
+    assert.deepEqual(logs.slice(start, start + 22), expectedSummaryLogs(state));
 }
 
 const groupLogs = h => h.logs().filter(line => /(그룹|복구) (시작|완료)|복구 그룹|백그라운드 작업/.test(line));
@@ -523,7 +522,7 @@ test('runAutomation fresh day: every task runs once, no repair, done signal, sou
         // Single-visit rewards (missions 1001/1002, 20 FLAKE) are claimed but never added to earnings.
         dailyMissions: 0, contentMissions: 20, weeklyMissions: 100, bannerMissions: 15,
         attendanceMissions: 30, surveyMissions: 5, prizeEntry: -200, dailyAccumulated: 100,
-        boostMission: 3000, specialForce: 1000
+        boostMission: 3000
     });
     // Weekly/attendance/survey claims run concurrently, so compare the claimed set, not its order.
     assert.deepEqual([...world.audit.missionClaims].sort((a, b) => a - b),
@@ -607,15 +606,14 @@ test('runAutomation partial failure: repair pass, "확인 필요" warning and er
                 return next();
             },
             dailyClaim: failFirst(1, httpError(500)),
-            preRegister: () => httpError(500),
-            familyLinks: () => httpError(503)
+            preRegister: () => httpError(500)
         }
     });
     await runAutomation();
 
     assertGolden('automation/partial-failure', h.snapshot({ unordered: true }));
 
-    const issues = '작업 실패 4개, 글·미션·보상 미완료, 스페셜포스 확인 필요, 사전등록 확인 필요';
+    const issues = '작업 실패 4개, 글·미션·보상 미완료, 사전등록 확인 필요';
     assert.deepEqual(h.titles, [RUNNING_TITLE, `[SG_ERROR] ${issues} | STOVE`]);
     assert.equal(h.sounds.length, 0);
     assert.equal(h.document.getElementById('stove-progress-text').textContent, '확인 필요');
@@ -635,7 +633,6 @@ test('runAutomation partial failure: repair pass, "확인 필요" warning and er
         '[warning] 복구 그룹 1개 실행',
         '[warning] 복구 완료: repairSafe (2/3)',
         '[warning] 복구 후 비교: 글 미완료, 미션 0개, 데일리 0개, 마작 0개, EXTRA 0개, 월간출석 +1 1/1',
-        '[warning] 스페셜포스 확인 필요: API Error: 503 Error',
         '[warning] 사전등록 확인 필요: luvplace: API Error: 500 Error',
         // Roulette lost 100 FLAKE but the line borrows the positive total's '+' sign.
         '[warning]   🎰 룰렛 순수익: +-100 FLAKE'

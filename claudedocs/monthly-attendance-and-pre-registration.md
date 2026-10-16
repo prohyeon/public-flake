@@ -29,7 +29,7 @@
 
 구현:
 
-- 파일: `src/api/preRegistration.js`, `src/workflows/preRegistration.js`. 전체 자동화의 스페셜포스 처리 다음에 실행한다.
+- 파일: `src/api/preRegistration.js`, `src/workflows/preRegistration.js`. 전체 자동화에서 월간출석 기록을 저장한 다음에 실행한다. (스페셜포스 처리는 2026-10-16 행사 종료로 제거)
 - 신규 등록이면 찜하기도 보낸다. 찜하기 실패는 경고로만 처리한다.
 - `90605`(이미 참여)는 정상으로 처리하고 찜하기를 반복하지 않는다.
 - 등록 실패는 결과에 `사전등록 확인 필요`를 추가하고 `[SG_ERROR]`를 보낸다.

@@ -900,174 +900,6 @@
     },
     {
       "method": "GET",
-      "url": "https://api.onstove.com/dailyshop/v1.0/202610/services/specialforce",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": null,
-      "timeout": 15000
-    },
-    {
-      "method": "GET",
-      "url": "https://api.onstove.com/dailyshop/v1.0/202610/services/specialforce",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": null,
-      "timeout": 15000
-    },
-    {
-      "method": "GET",
-      "url": "https://api.onstove.com/dailyshop/v1.0/202610/services/specialforce",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": null,
-      "timeout": 15000
-    },
-    {
-      "method": "GET",
-      "url": "https://api.onstove.com/dailyshop/v1.0/202610/services/specialforce",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": null,
-      "timeout": 15000
-    },
-    {
-      "method": "GET",
-      "url": "https://api.onstove.com/dailyshop/v1.0/services/family-links",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": null,
-      "timeout": 15000
-    },
-    {
-      "method": "GET",
-      "url": "https://api.onstove.com/dailyshop/v1.0/services/family-links",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": null,
-      "timeout": 15000
-    },
-    {
-      "method": "GET",
-      "url": "https://api.onstove.com/dailyshop/v1.0/services/family-links",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": null,
-      "timeout": 15000
-    },
-    {
-      "method": "GET",
-      "url": "https://api.onstove.com/dailyshop/v1.0/services/family-links",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": null,
-      "timeout": 15000
-    },
-    {
-      "method": "GET",
       "url": "https://api.onstove.com/emsbackapi/v3.0/apply?sub_event_no=1000000354",
       "headers": {
         "Authorization": "Bearer test-suat",
@@ -3690,29 +3522,6 @@
     },
     {
       "method": "POST",
-      "url": "https://api.onstove.com/dailyshop/v1.0/attendances/accumulate-play/flake?item_no=25",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": {
-        "item_no": 25
-      },
-      "timeout": 15000
-    },
-    {
-      "method": "POST",
       "url": "https://api.onstove.com/dailyshop/v1.0/attendances/accumulate/coupon?item_no=911",
       "headers": {
         "Authorization": "Bearer test-suat",
@@ -4540,7 +4349,6 @@
     "[info]   ⏳ \"가을 세일 배너\" 방문 중...",
     "[info]   ✓ 경품 응모 미션 확인: 359 (INCOMPLETE)",
     "[info]   🌐 \"이번 주 인디 게임 소식 읽고 플레이크 받기...\" 방문 중...",
-    "[info]   🎮 스페셜포스: 1000 FLAKE",
     "[info]   🎯 선택: \"최고예요\" (70%)",
     "[info]   🏠 스토브 메인 페이지 방문 중...",
     "[info]   💰 잔여 FLAKE: 149500",
@@ -4658,7 +4466,7 @@
     "[success]   📆 출석 미션: 30 FLAKE",
     "[success]   📊 설문조사: 5 FLAKE",
     "[success]   📊 순수익: +150 FLAKE",
-    "[success]   📊 총 순수익: +5630 FLAKE",
+    "[success]   📊 총 순수익: +4630 FLAKE",
     "[success]   📰 컨텐츠 미션: 20 FLAKE",
     "[success]   🔥 오늘의 1등 미션: 3000 FLAKE",
     "[success] [SINGLE 미션] ✅ \"스토브 이벤트 페이지 방문\" 참여 완료 (수령 가능)",
@@ -4724,7 +4532,6 @@
     "[success] 댓글 작성 완료: 880005",
     "[success] 백그라운드 작업 완료: community (1/1)",
     "[success] 부스트 1회 실행을 확인했습니다",
-    "[success] 스페셜포스 1일차: 1,000 F 수령",
     "[success] 오늘의 1등 미션 보상 수령: 3000 FLAKE",
     "[success] 🀄 총 1개 마작 일일 리워드 수령 완료",
     "[success] 🎁 총 1개 마작 누적 보상 수령 완료",
@@ -4794,8 +4601,7 @@
       "surveyMissions": 5,
       "prizeEntry": -200,
       "dailyAccumulated": 100,
-      "boostMission": 3000,
-      "specialForce": 1000
+      "boostMission": 3000
     },
     "missionComponents": {
       "daily": 226,

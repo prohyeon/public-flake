@@ -96,7 +96,7 @@ test('past campaigns are skipped and failures surface in the automation outcome'
 
     const outcome = getAutomationOutcome({
         snapshot: { degraded: false }, diff: {}, plan: { groups: [] },
-        specialForceResult: { success: true }, preRegistrationResult: failed
+        preRegistrationResult: failed
     });
     assert.deepEqual(outcome.issues, ['사전등록 확인 필요']);
 });

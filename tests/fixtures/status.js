@@ -1,10 +1,9 @@
 // Fixtures for the status dashboard characterization tests (workflows/status.js, ui/status.js,
 // ui/progress.js). Response shapes follow what src reads plus captured shapes used elsewhere in
-// tests/helpers (boost, review event, special force).
+// tests/helpers (boost, review event).
 import { DEFAULT_NOW } from '../helpers/gmHarness.js';
 import { boostFixture } from '../helpers/boostFixture.js';
 import { reviewEventFixture } from '../helpers/reviewEventFixture.js';
-import { specialForceShop } from '../helpers/specialForceFixture.js';
 
 export const API = 'https://api.onstove.com';
 export const DAY = 86400000;
@@ -105,20 +104,6 @@ export const STATUS_PANEL_BODY = `
             </div>
         </div>
 
-        <section class="stove-status-section stove-sf-section" aria-label="스페셜포스 상태">
-            <div class="stove-sf-header">
-                <div class="stove-sf-title-group">
-                    <span class="stove-sf-game-icon" aria-hidden="true">🎮</span>
-                    <div><h3 class="stove-sf-title">스페셜포스 리마스터</h3><p class="stove-sf-subtitle">누적 플레이 보상</p></div>
-                </div>
-                <button id="stove-btn-special-force-refresh" class="stove-status-refresh stove-sf-refresh" type="button">↻ 새로고침</button>
-            </div>
-            <div id="stove-special-force-data" aria-live="polite"><div class="stove-sf-empty"><span class="stove-sf-empty-icon" aria-hidden="true">◇</span><div class="stove-sf-empty-content"><strong>플레이 현황을 확인해 보세요</strong><p>새로고침하면 누적 플레이와 일차별 보상을 확인할 수 있습니다.</p></div></div></div>
-            <div class="stove-sf-actions">
-                <a id="stove-special-force-link" class="stove-sf-shop-link" href="https://event.onstove.com/ko/dailyshop/specialforce" target="_blank" rel="noopener noreferrer">출석 교환 상점 <span aria-hidden="true">↗</span></a>
-                <button id="stove-btn-special-force-claim" class="stove-btn stove-sf-claim" type="button" disabled>수령 가능한 보상 받기</button>
-            </div>
-        </section>
 
         <div class="stove-progress-section">
             <div class="stove-progress-header">📊 커뮤니티 활동 진행 상황</div>
@@ -154,7 +139,6 @@ export function panelSnapshot(document) {
             [...item.querySelectorAll('.stove-mission-tooltip')].map(tooltip => compact(tooltip.innerHTML))]));
     const charge = document.getElementById('stove-btn-point-cash-charge');
     const chargeStatus = document.getElementById('stove-btn-point-cash-charge-status');
-    const specialForce = document.getElementById('stove-special-force-data');
     return {
         values,
         tooltips,
@@ -164,12 +148,6 @@ export function panelSnapshot(document) {
             opacity: charge.style.opacity,
             status: chargeStatus.textContent,
             statusColor: chargeStatus.style.color
-        },
-        specialForce: {
-            busy: specialForce.getAttribute('aria-busy'),
-            text: specialForce.textContent,
-            claimDisabled: document.getElementById('stove-btn-special-force-claim').disabled,
-            link: document.getElementById('stove-special-force-link').href
         }
     };
 }
@@ -333,19 +311,7 @@ export function reviewCommentsBody(list = []) {
     return { code: 0, message: 'OK', value: { total: list.length, display_total: list.length, page: 1, size: 20, list, next_yn: 'N' } };
 }
 
-export const familyLinksBody = (month = MONTH) => ({ code: 0, message: 'OK', value: [
-    { service_id: 'luvplace', progress_month: null },
-    ...(month ? [{ service_id: 'specialforce', progress_month: month }] : [])
-] });
 
-/** Captured special force shop, moved so the attendance window contains NOW. */
-export function specialForceBody(mutate = () => {}) {
-    const shop = specialForceShop();
-    shop.date_info.attend_start_dt = '2026-10-15T00:00:00';
-    shop.date_info.attend_end_dt = '2026-10-28T23:59:59';
-    mutate(shop);
-    return { code: 0, message: 'OK', value: shop };
-}
 
 // ------------------------------------------------------------------ checkAllStatus world
 
@@ -364,9 +330,7 @@ export const URLS = Object.freeze({
     reviewArticle: /^https:\/\/api\.onstove\.com\/cwms\/v3\.0\/article\?article_id=14523486&request_id=CM&timestemp=\d+$/,
     reviewMember: /^https:\/\/api\.onstove\.com\/cwms\/v1\.0\/user\/CHANNEL\/73\?timestemp=\d+$/,
     reviewPermission: /^https:\/\/api\.onstove\.com\/cwms\/v1\.0\/user\/board\/permission\?board_seq_list=134147&timestemp=\d+$/,
-    reviewComments: /^https:\/\/api\.onstove\.com\/cwms\/v1\.1\/article\/14523486\/comment\/list\?size=20&page=1&/,
-    familyLinks: `${API}/dailyshop/v1.0/services/family-links`,
-    specialForce: `${API}/dailyshop/v1.0/${MONTH}/services/specialforce`
+    reviewComments: /^https:\/\/api\.onstove\.com\/cwms\/v1\.1\/article\/14523486\/comment\/list\?size=20&page=1&/
 });
 
 /** Defaults: a fresh day where everything is still pending. */
@@ -387,9 +351,7 @@ export function pendingWorld() {
         reviewArticle: reviewArticleBody(),
         reviewMember: reviewMemberBody(),
         reviewPermission: reviewPermissionBody(true),
-        reviewComments: reviewCommentsBody([]),
-        familyLinks: familyLinksBody(),
-        specialForce: specialForceBody()
+        reviewComments: reviewCommentsBody([])
     };
 }
 

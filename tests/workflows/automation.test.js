@@ -67,7 +67,6 @@ const completedRun = overrides => ({
     snapshot: { degraded: false },
     diff: {},
     plan: { groups: [] },
-    specialForceResult: { success: true },
     ...overrides
 });
 
@@ -130,6 +129,5 @@ test('remaining roulette draws prevent success only when roulette was enabled an
 });
 
 test('failed follow-up reward verification prevents success', () => {
-    assert.equal(getAutomationOutcome(completedRun({ specialForceResult: { success: false } })).success, false);
     assert.equal(getAutomationOutcome(completedRun({ boostRewardResult: { success: false } })).success, false);
 });

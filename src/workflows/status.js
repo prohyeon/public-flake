@@ -1,4 +1,3 @@
-import { refreshSpecialForce } from './specialForce.js';
 import { CONFIG } from '../config.js';
 import { state } from '../state.js';
 import { extractHeaders } from '../utils/auth.js';
@@ -215,8 +214,6 @@ export async function visitRequiredPages() {
 
 export async function checkAllStatus() {
     console.log('[상태 확인 시작]');
-    // Refresh independently so an unrelated mission API failure does not hide this dashboard.
-    const specialForceRefresh = refreshSpecialForce();
     try {
         const headers = extractHeaders();
 
@@ -254,7 +251,6 @@ export async function checkAllStatus() {
         });
         updatePointCashChargeButtonAvailability(totalFlake);
 
-        await specialForceRefresh;
         console.log('[상태 확인] ✅ 완료');
     } catch (error) {
         console.error('[상태 확인 오류]', error);

@@ -20,7 +20,6 @@ import { build } from 'vite';
 
 import { readUserscriptBundle } from '../helpers/bundle.js';
 import { assertGolden } from '../helpers/golden.js';
-import { specialForceShop } from '../helpers/specialForceFixture.js';
 
 const userscript = readUserscriptBundle();
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -73,8 +72,6 @@ const BUTTON_IDS = [
     'stove-btn-point-cash-charge',
     'stove-btn-reward-shop',
     'stove-btn-status-refresh',
-    'stove-btn-special-force-refresh',
-    'stove-btn-special-force-claim',
     'stove-btn-copy-log'
 ];
 const MAINTENANCE_DISABLED_IDS = BUTTON_IDS.filter(id => id !== 'stove-btn-copy-log');
@@ -188,7 +185,6 @@ function mountBundle(t, { source = userscript, readyState = 'complete', respond 
 
 const describeRequest = request => `${request.method} ${request.url}`;
 
-const FAMILY_LINKS = 'https://api.onstove.com/dailyshop/v1.0/services/family-links';
 const MISSION_PAGE = 'https://api.onstove.com/flake-shop/v1/page?page_type=MISSION';
 const BILL_BALANCE = 'https://api.onstove.com/mileage/v1.0/balance?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY';
 
@@ -240,10 +236,6 @@ test('mount: the full panel markup (template, <style>, initializeUI effects) mat
         'stove-status-survey',
         'stove-status-total-flake',
         'stove-status-monthly-flake',
-        'stove-btn-special-force-refresh',
-        'stove-special-force-data',
-        'stove-special-force-link',
-        'stove-btn-special-force-claim',
         'stove-progress-text',
         'stove-article-likes',
         'stove-comments',
@@ -256,8 +248,6 @@ test('mount: the full panel markup (template, <style>, initializeUI effects) mat
         'stove-btn-point-cash-charge',
         'stove-btn-reward-shop',
         'stove-btn-status-refresh',
-        'stove-btn-special-force-refresh',
-        'stove-btn-special-force-claim',
         'stove-btn-copy-log'
     ]);
 });
@@ -272,8 +262,6 @@ test('mount: initializeUI leaves the normal-mode panel ready, without requests u
         'stove-btn-point-cash-charge': true,
         'stove-btn-reward-shop': false,
         'stove-btn-status-refresh': false,
-        'stove-btn-special-force-refresh': false,
-        'stove-btn-special-force-claim': true,
         'stove-btn-copy-log': false
     });
     // updatePointCashChargeButtonAvailability(null) runs once during initialization. Number(null) === 0, so the
@@ -291,13 +279,12 @@ test('mount: initializeUI leaves the normal-mode panel ready, without requests u
     assert.equal(m.timerDelays(500).length, 1, 'exactly one 500ms timer: the initial checkAllStatus');
 });
 
-test('mount: the 500ms timer runs checkAllStatus (special force refresh first, then mission components)', async t => {
+test('mount: the 500ms timer runs checkAllStatus (mission components first)', async t => {
     const m = mountBundle(t);
     assert.equal(m.runTimers(500), 1);
     await settle();
 
-    assert.deepEqual(m.requests.map(describeRequest), [`GET ${FAMILY_LINKS}`, `GET ${MISSION_PAGE}`]);
-    assert.match(m.byId('stove-special-force-data').textContent, /스페셜포스 서버 상태 확인 중/);
+    assert.deepEqual(m.requests.map(describeRequest), [`GET ${MISSION_PAGE}`]);
     assert.equal(m.byId('stove-status-article').textContent, '⏳ 확인 중...', 'status rows switch to loading');
     assert.deepEqual(m.alerts, []);
 
@@ -314,9 +301,7 @@ const BUTTON_ACTIONS = {
     'stove-btn-start': { action: 'runAutomation', requests: [`GET ${MISSION_PAGE}`], tabs: [] },
     'stove-btn-point-cash-charge': { action: 'runPointExchange', requests: [`GET ${BILL_BALANCE}`], tabs: [] },
     'stove-btn-reward-shop': { action: 'openRewardShop', requests: [], tabs: ['https://reward.onstove.com/ko'] },
-    'stove-btn-status-refresh': { action: 'checkAllStatus', requests: [`GET ${FAMILY_LINKS}`, `GET ${MISSION_PAGE}`], tabs: [] },
-    'stove-btn-special-force-refresh': { action: 'refreshSpecialForce', requests: [`GET ${FAMILY_LINKS}`], tabs: [] },
-    'stove-btn-special-force-claim': { action: 'receiveSpecialForce', requests: [`GET ${FAMILY_LINKS}`], tabs: [] }
+    'stove-btn-status-refresh': { action: 'checkAllStatus', requests: [`GET ${MISSION_PAGE}`], tabs: [] }
 };
 
 test('button wiring: every action button triggers its own workflow (first requests / tabs golden)', async t => {
@@ -326,7 +311,7 @@ test('button wiring: every action button triggers its own workflow (first reques
             const m = mountBundle(st);
             const logCount = m.logs().length;
             const button = m.byId(id);
-            // The cash-charge and claim buttons start disabled (no flake balance / no claimable reward yet),
+            // The cash-charge button starts disabled (no flake balance yet),
             // and jsdom, like browsers, ignores click() on disabled buttons. Enable them to reach the listener.
             button.disabled = false;
             button.click();
@@ -341,8 +326,7 @@ test('button wiring: every action button triggers its own workflow (first reques
                 tabs: m.tabs,
                 title: m.document.title,
                 newLogs: m.logs().slice(logCount),
-                disabledAfterClick: m.disabledStates(),
-                specialForceText: m.byId('stove-special-force-data').textContent
+                disabledAfterClick: m.disabledStates()
             };
         });
     }
@@ -353,10 +337,6 @@ test('button wiring: every action button triggers its own workflow (first reques
     assert.equal(recordings['stove-btn-point-cash-charge'].title, 'MY홈');
     assert.deepEqual(recordings['stove-btn-reward-shop'].tabs, [{ url: 'https://reward.onstove.com/ko', options: { active: true, insert: true } }]);
     assert.deepEqual(recordings['stove-btn-reward-shop'].newLogs, ['⏳ 🏪 리워드샵 페이지를 새 탭에서 엽니다...', '✓ ✅ 리워드샵 탭이 열렸습니다!']);
-    assert.match(recordings['stove-btn-special-force-refresh'].specialForceText, /스페셜포스 서버 상태 확인 중/);
-    assert.match(recordings['stove-btn-special-force-claim'].specialForceText, /플레이 현황을 확인해 보세요/,
-        'claim does not render the loading state');
-    assert.equal(recordings['stove-btn-special-force-claim'].disabledAfterClick['stove-btn-special-force-claim'], true);
     assert.deepEqual(recordings['stove-btn-point-cash-charge'].requests[0].headers, {
         Authorization: 'Bearer test-suat',
         'caller-id': 'billuser',
@@ -365,34 +345,9 @@ test('button wiring: every action button triggers its own workflow (first reques
     });
 });
 
-test('button wiring: special force refresh reads once, claim reads before and after (empty family-links)', async t => {
-    const respond = request => (request.url === FAMILY_LINKS ? { code: 0, value: [] } : undefined);
-    const idle = /현재 공개된 스페셜포스 행사가 없습니다/;
-
-    const refresh = mountBundle(t, { respond });
-    refresh.byId('stove-btn-special-force-refresh').click();
-    await settle();
-    assert.deepEqual(refresh.requests.map(describeRequest), [`GET ${FAMILY_LINKS}`]);
-    assert.match(refresh.byId('stove-special-force-data').textContent, idle);
-    assert.deepEqual(refresh.logs(), ['⏳ 자동화 패널이 준비되었습니다']);
-
-    const claim = mountBundle(t, { respond });
-    claim.byId('stove-btn-special-force-claim').disabled = false;
-    claim.byId('stove-btn-special-force-claim').click();
-    await settle();
-    assert.deepEqual(claim.requests.map(describeRequest), [`GET ${FAMILY_LINKS}`, `GET ${FAMILY_LINKS}`]);
-    assert.match(claim.byId('stove-special-force-data').textContent, idle);
-    assert.deepEqual(claim.logs(), [
-        '⏳ 자동화 패널이 준비되었습니다',
-        '⏳ 스페셜포스: 현재 수령 가능한 보상 없음 (실행 반영은 종료 후 최대 5분)'
-    ]);
-    assert.equal(claim.byId('stove-btn-special-force-claim').disabled, true);
-});
-
 test('button wiring: buttons that start disabled ignore clicks', async t => {
     const m = mountBundle(t);
     m.byId('stove-btn-point-cash-charge').click();
-    m.byId('stove-btn-special-force-claim').click();
     await settle();
     assert.deepEqual(m.requests, []);
     assert.deepEqual(m.logs(), ['⏳ 자동화 패널이 준비되었습니다']);
@@ -489,37 +444,14 @@ test('maintenance mode: notice shown, six buttons disabled and inert, warning lo
     assert.equal(m.byId('stove-btn-copy-log').textContent, '✓');
 });
 
-test('maintenance mode: the 500ms status check is still scheduled and can re-enable the inert claim button', async t => {
-    const now = Date.now();
-    const kstDate = offsetDays => new Date(now + offsetDays * 86400000 + 9 * 3600000).toISOString().slice(0, 10);
-    const shop = specialForceShop();
-    shop.date_info.attend_start_dt = `${kstDate(-1)}T00:00:00`;
-    shop.date_info.attend_end_dt = `${kstDate(10)}T23:59:59`;
+test('maintenance mode: the 500ms status check is still scheduled and still calls the API', async t => {
     const maintenanceBundle = await getMaintenanceBundle();
-    const m = mountBundle(t, {
-        source: maintenanceBundle,
-        respond: request => {
-            if (request.url === FAMILY_LINKS) return { code: 0, value: [{ service_id: 'specialforce', progress_month: '202610' }] };
-            if (request.url === 'https://api.onstove.com/dailyshop/v1.0/202610/services/specialforce') return { code: 0, value: shop };
-            return undefined;
-        }
-    });
+    const m = mountBundle(t, { source: maintenanceBundle });
 
     assert.equal(m.timerDelays(500).length, 1, 'checkAllStatus is scheduled even in maintenance mode');
     m.runTimers(500);
     await settle();
-    assert.deepEqual(m.requests.map(describeRequest), [
-        `GET ${FAMILY_LINKS}`,
-        `GET ${MISSION_PAGE}`,
-        'GET https://api.onstove.com/dailyshop/v1.0/202610/services/specialforce'
-    ]);
-    const claim = m.byId('stove-btn-special-force-claim');
-    assert.equal(claim.disabled, false, 'renderSpecialForce re-enables the claim button despite maintenance mode');
-
-    const before = m.requests.length;
-    claim.click();
-    await settle();
-    assert.equal(m.requests.length, before, 'the re-enabled claim button has no listener in maintenance mode');
+    assert.deepEqual(m.requests.map(describeRequest), [`GET ${MISSION_PAGE}`]);
 });
 
 test('maintenance mode: before CONFIG.maintenanceMode.startDate (2025-11-01) the normal panel is kept', async t => {
@@ -560,10 +492,10 @@ test('initializeUI: a missing button is skipped without breaking the other liste
     const m = mountBundle(t, { source });
     assert.deepEqual(m.logs(), ['⏳ 자동화 패널이 준비되었습니다']);
     m.byId('stove-btn-reward-shop-renamed').click();
-    m.byId('stove-btn-special-force-refresh').click();
+    m.byId('stove-btn-status-refresh').click();
     await settle();
     assert.deepEqual(m.tabs, []);
-    assert.deepEqual(m.requests.map(describeRequest), [`GET ${FAMILY_LINKS}`]);
+    assert.deepEqual(m.requests.map(describeRequest), [`GET ${MISSION_PAGE}`]);
     assert.equal(m.timerDelays(500).length, 1);
 });
 

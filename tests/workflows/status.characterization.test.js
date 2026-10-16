@@ -12,7 +12,7 @@ import {
     API, DAY, NOW, COMPONENTS, STATUS_PANEL_BODY, URLS, panelSnapshot,
     componentPageBody, loadedComponents, mission, componentBody, componentUrl, routeComponents,
     pendingComponentBodies, doneComponentBodies, participationBody, dailyShopBody, profileBody, articlesBody,
-    boostMission, boostMissionsBody, boostBalanceBody, reviewCommentsBody, specialForceBody,
+    boostMission, boostMissionsBody, boostBalanceBody, reviewCommentsBody,
     pendingWorld, routeStatusWorld
 } from '../fixtures/status.js';
 import { CONFIG } from '../../src/config.js';
@@ -431,11 +431,7 @@ function doneWorld() {
         reviewComments: reviewCommentsBody([
             { comment_id: '899', comment_status_code: 'NORMAL', user_info: { member_no: 55 } },
             { comment_id: '900', comment_status_code: 'NORMAL', user_info: { member_no: 100 } }
-        ]),
-        specialForce: specialForceBody(shop => {
-            shop.accumulated_plays.total_play_days = 7;
-            for (const reward of shop.accumulated_plays.rewards) Object.assign(reward, { eligible: true, is_received: true });
-        })
+        ])
     };
 }
 
@@ -458,7 +454,6 @@ test('checkAllStatus: fresh day with everything pending renders the full dashboa
     assert.equal(result, undefined);
     assert.deepEqual(writes(h), [], 'status refresh never mutates');
     assert.equal(loadingPanel.values['stove-status-roulette'], '<span class="stove-status-value" id="stove-status-roulette"><span style="color: #3b82f6">⏳ 확인 중...</span></span>');
-    assert.equal(loadingPanel.specialForce.busy, 'true');
 
     const text = Object.fromEntries(Object.entries(panel.values).map(([id, html]) =>
         [id.replace('stove-status-', ''), h.document.getElementById(id).textContent]));
@@ -482,7 +477,6 @@ test('checkAllStatus: fresh day with everything pending renders the full dashboa
         'monthly-flake': '+12,345 F'
     });
     assert.equal(panel.pointCashCharge.status, '42,500 플레이크 부족');
-    assert.equal(panel.specialForce.claimDisabled, false, 'claimable special force reward enables the claim button');
     assert.deepEqual(state.missionComponents, loadedComponents());
     assert.equal(countCalls(h, URLS.page), 1);
     assert.equal(countCalls(h, componentUrl(COMPONENTS.survey)), 2, 'survey component is read by both the mission and survey checks');
@@ -515,7 +509,6 @@ test('checkAllStatus: everything already done (component ids preloaded, so no mi
     assert.deepEqual(panel.pointCashCharge, {
         disabled: false, title: '192,500 플레이크 보유: 충전 가능', opacity: '1', status: '충전 가능', statusColor: 'rgb(167, 243, 208)'
     });
-    assert.equal(panel.specialForce.claimDisabled, true);
     assert.deepEqual(state.pointCashCharge, { availableFlake: 200000, hasRequiredFlake: true });
     assertGolden('status/check-all-done', { ...h.snapshot({ unordered: true }), panel });
 });
@@ -535,8 +528,7 @@ test('checkAllStatus: several APIs failing or malformed degrade cell by cell', a
         balance: httpError(500),
         deposit: { code: 1, message: 'denied' },
         boostBalance: { code: 0, value: { remaining_count: -1 } },
-        reviewEvents: networkError(),
-        familyLinks: timeoutError()
+        reviewEvents: networkError()
     });
 
     const { panel } = await runCheckAll(h);
@@ -557,7 +549,6 @@ test('checkAllStatus: several APIs failing or malformed degrade cell by cell', a
     assert.equal(text('total-flake'), '0 F');
     assert.equal(text('monthly-flake'), '+0 F');
     assert.equal(panel.pointCashCharge.status, '192,500 플레이크 부족');
-    assert.match(panel.specialForce.text, /확인 실패.*API request timed out/);
     assertGolden('status/check-all-partial-failures', { ...h.snapshot({ unordered: true }), panel });
 });
 
@@ -594,6 +585,5 @@ test('checkAllStatus: without a session cookie it alerts and marks every cell as
     assert.equal(text('total-flake'), '❌ 확인 실패');
     assert.equal(text('monthly-flake'), '❌ 확인 실패');
     assert.equal(text('boost'), '⚠️ 확인 실패');
-    assert.match(panel.specialForce.text, /Authorization token \(SUAT\) not found/);
     assertGolden('status/check-all-no-session', { ...h.snapshot(), panel });
 });

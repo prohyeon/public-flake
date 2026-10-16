@@ -112,48 +112,6 @@
     },
     {
       "method": "GET",
-      "url": "https://api.onstove.com/dailyshop/v1.0/202610/services/specialforce",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": null,
-      "timeout": 15000
-    },
-    {
-      "method": "GET",
-      "url": "https://api.onstove.com/dailyshop/v1.0/services/family-links",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": null,
-      "timeout": 15000
-    },
-    {
-      "method": "GET",
       "url": "https://api.onstove.com/emsbackapi/v3.0/participationCnt?sub_event_no=1000000353",
       "headers": {
         "Authorization": "Bearer test-suat",
@@ -460,8 +418,7 @@
       "surveyMissions": 0,
       "prizeEntry": 0,
       "dailyAccumulated": 0,
-      "boostMission": 0,
-      "specialForce": 0
+      "boostMission": 0
     },
     "missionComponents": {
       "daily": 272,
@@ -532,12 +489,6 @@
       "opacity": "1",
       "status": "충전 가능",
       "statusColor": "rgb(167, 243, 208)"
-    },
-    "specialForce": {
-      "busy": "false",
-      "text": "행사 기간2026.10.15 ~ 2026.10.2814일 행사13일 남음누적 플레이 7/7일수령한 보상 7/7개수령 가능 0개1일차✓1,000 FSP부스트(60분)수령 완료2일차✓1,000 F계급 경험치 부스트(60분)수령 완료3일차✓1,000 F무기 경험치 부스트(60분)수령 완료4일차✓1,000 F무기 훈련 교본[하급] x 10개수령 완료5일차✓1,000 FSP 2000수령 완료6일차✓1,000 FSC 2000수령 완료7일차✓10,000 F프라임 포스, 스페셜 키 x 10개수령 완료정상 게임 종료 후 기록 반영에 최대 5분이 걸릴 수 있습니다.최근 확인 오전 10:00:00",
-      "claimDisabled": true,
-      "link": "https://event.onstove.com/ko/dailyshop/specialforce/202610"
     }
   }
 }

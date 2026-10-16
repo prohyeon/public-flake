@@ -30,11 +30,5 @@
     "opacity": "",
     "status": "플레이크 확인 중",
     "statusColor": ""
-  },
-  "specialForce": {
-    "busy": null,
-    "text": "◇플레이 현황을 확인해 보세요새로고침하면 누적 플레이와 일차별 보상을 확인할 수 있습니다.",
-    "claimDisabled": true,
-    "link": "https://event.onstove.com/ko/dailyshop/specialforce"
   }
 }

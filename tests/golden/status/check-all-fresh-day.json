@@ -31,12 +31,6 @@
       "opacity": "",
       "status": "플레이크 확인 중",
       "statusColor": ""
-    },
-    "specialForce": {
-      "busy": "true",
-      "text": "↻스페셜포스 서버 상태 확인 중…누적 플레이와 보상 수령 현황을 불러오고 있습니다.",
-      "claimDisabled": true,
-      "link": "https://event.onstove.com/ko/dailyshop/specialforce"
     }
   },
   "requests": [
@@ -149,48 +143,6 @@
         "Referer": "https://event.onstove.com/"
       },
       "body": null
-    },
-    {
-      "method": "GET",
-      "url": "https://api.onstove.com/dailyshop/v1.0/202610/services/specialforce",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": null,
-      "timeout": 15000
-    },
-    {
-      "method": "GET",
-      "url": "https://api.onstove.com/dailyshop/v1.0/services/family-links",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": null,
-      "timeout": 15000
     },
     {
       "method": "GET",
@@ -515,8 +467,7 @@
       "surveyMissions": 0,
       "prizeEntry": 0,
       "dailyAccumulated": 0,
-      "boostMission": 0,
-      "specialForce": 0
+      "boostMission": 0
     },
     "missionComponents": {
       "daily": 272,
@@ -587,12 +538,6 @@
       "opacity": "0.45",
       "status": "42,500 플레이크 부족",
       "statusColor": "rgb(251, 191, 36)"
-    },
-    "specialForce": {
-      "busy": "false",
-      "text": "행사 기간2026.10.15 ~ 2026.10.2814일 행사13일 남음누적 플레이 1/7일수령한 보상 0/7개수령 가능 1개1일차↓1,000 FSP부스트(60분)수령 가능2일차◇1,000 F계급 경험치 부스트(60분)1일 더 플레이3일차◇1,000 F무기 경험치 부스트(60분)2일 더 플레이4일차◇1,000 F무기 훈련 교본[하급] x 10개3일 더 플레이5일차◇1,000 FSP 20004일 더 플레이6일차◇1,000 FSC 20005일 더 플레이7일차◇10,000 F프라임 포스, 스페셜 키 x 10개6일 더 플레이정상 게임 종료 후 기록 반영에 최대 5분이 걸릴 수 있습니다.최근 확인 오전 10:00:00",
-      "claimDisabled": false,
-      "link": "https://event.onstove.com/ko/dailyshop/specialforce/202610"
     }
   }
 }

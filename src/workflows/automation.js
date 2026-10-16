@@ -1,4 +1,3 @@
-import { collectSpecialForceRewards } from './specialForce.js';
 import { runPreRegistrations } from './preRegistration.js';
 import { CONFIG } from '../config.js';
 import { state, resetRunProgress } from '../state.js';
@@ -263,7 +262,7 @@ function isFailedTask(result) {
 }
 
 export function getAutomationOutcome({ snapshot, diff, plan, groupResults = [],
-    specialForceResult, boostRewardResult, preRegistrationResult,
+    boostRewardResult, preRegistrationResult,
     rouletteEnabled = CONFIG.roulette.enabled }) {
     const issues = [];
     const failedTasks = flattenTaskResults(groupResults).filter(isFailedTask);
@@ -277,7 +276,6 @@ export function getAutomationOutcome({ snapshot, diff, plan, groupResults = [],
         issues.push('룰렛 미완료');
     }
     if (boostRewardResult?.success === false) issues.push('오늘의 1등 보상 확인 필요');
-    if (specialForceResult?.success !== true) issues.push('스페셜포스 확인 필요');
     if (preRegistrationResult?.success === false) issues.push('사전등록 확인 필요');
     return { success: issues.length === 0, issues };
 }
@@ -465,10 +463,9 @@ export async function runAutomation() {
         }
         saveMonthlyAttendanceRecord(monthlyAttendanceContext, beforeSnapshot, afterSnapshot, diff);
 
-        const specialForceResult = await collectSpecialForceRewards(headers);
         const preRegistrationResult = await runPreRegistrations(headers);
         const outcome = getAutomationOutcome({ snapshot: afterSnapshot, diff, plan,
-            groupResults: allGroupResults, specialForceResult, boostRewardResult, preRegistrationResult });
+            groupResults: allGroupResults, boostRewardResult, preRegistrationResult });
         const dailyAccumulatedFlake = state.earnings.dailyAccumulated || 0;
 
         // Calculate earnings summary
@@ -490,7 +487,6 @@ export async function runAutomation() {
             (state.earnings.surveyMissions || 0) +
             (state.earnings.prizeEntry || 0) +
             (state.earnings.boostMission || 0) +
-            (state.earnings.specialForce || 0) +
             (dailyAccumulatedFlake || 0);
 
         if (isNaN(totalEarnings)) {
@@ -523,7 +519,6 @@ export async function runAutomation() {
         log(`  💝 데일리 보상: ${state.earnings.dailyShop} FLAKE`, state.earnings.dailyShop > 0 ? 'success' : 'info');
         log(`  🎁 데일리 누적 보상: ${dailyAccumulatedFlake} FLAKE`, dailyAccumulatedFlake > 0 ? 'success' : 'info');
         log(`  🀄 마작 리워드: ${state.earnings.majak} FLAKE`, state.earnings.majak > 0 ? 'success' : 'info');
-        log(`  🎮 스페셜포스: ${state.earnings.specialForce || 0} FLAKE`, 'info');
         log('───────────────────────────────────────', 'info');
         log(`  📊 총 순수익: ${profitSign}${totalEarnings} FLAKE`, totalEarnings >= 0 ? 'success' : 'warning');
         log('═══════════════════════════════════════', 'info');
@@ -552,9 +547,6 @@ export async function runAutomation() {
         log('✅ 상태 업데이트 완료!', 'success');
 
         log('', 'info');
-        if (!specialForceResult.success) {
-            log(`스페셜포스 확인 필요: ${specialForceResult.error}`, 'warning');
-        }
         if (!preRegistrationResult.success) {
             log(`사전등록 확인 필요: ${preRegistrationResult.error}`, 'warning');
         }

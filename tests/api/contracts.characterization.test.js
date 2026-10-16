@@ -1,5 +1,5 @@
-// Characterization of the HTTP contracts of src/api/request.js, pointExchange.js, lostArkCashCharge.js,
-// preRegistration.js and specialForce.js. Method, URL, headers, body and timeout are locked exactly
+// Characterization of the HTTP contracts of src/api/request.js, pointExchange.js, lostArkCashCharge.js
+// and preRegistration.js. Method, URL, headers, body and timeout are locked exactly
 // (refactor D dedupes header/URL construction and must not change them); console output is not.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,8 +31,6 @@ import {
     makeLostArkPaymentHeaders
 } from '../../src/api/lostArkCashCharge.js';
 import { addIndieWishlist, PRE_REGISTRATION_ALREADY_JOINED, registerPreRegistration } from '../../src/api/preRegistration.js';
-import { claimSpecialForceReward, getSpecialForceShop, SPECIAL_FORCE_GAME_ID } from '../../src/api/specialForce.js';
-import { specialForceShop } from '../helpers/specialForceFixture.js';
 
 const API = 'https://api.onstove.com';
 
@@ -313,7 +311,7 @@ test('lostArkCashCharge: URL builders, payload overrides and response extraction
 });
 
 // ---------------------------------------------------------------------------------------------
-// src/api/preRegistration.js and src/api/specialForce.js (shared event-hub headers)
+// src/api/preRegistration.js (lounge + event-hub headers)
 // ---------------------------------------------------------------------------------------------
 
 const EVENT_HEADERS = {
@@ -391,98 +389,4 @@ test('preRegistration: response classification', async t => {
     // An unparseable 2xx becomes { success: true }, which has no response_code.
     await assert.rejects(addIndieWishlist(TEST_HEADERS, 14203), { message: '찜하기 응답 확인 실패 (code=없음)' });
     assert.equal(h.requests.length, 8);
-});
-
-const FAMILY_LINKS_URL = `${API}/dailyshop/v1.0/services/family-links`;
-const SF_SHOP_URL = `${API}/dailyshop/v1.0/202610/services/specialforce`;
-const SF_CLAIM_URL = `${API}/dailyshop/v1.0/attendances/accumulate-play/flake?item_no=25`;
-const SF_LINKS = [{ service_id: 'other', progress_month: '202609' }, { service_id: 'specialforce', progress_month: '202610' }];
-
-test('specialForce: shop lookup and claim requests (method/url/headers/body/timeout)', async t => {
-    const h = useHarness(t);
-    const shop = specialForceShop();
-    h.on('GET', FAMILY_LINKS_URL, { code: 0, value: SF_LINKS })
-        .on('GET', SF_SHOP_URL, { code: 0, value: shop })
-        .on('POST', SF_CLAIM_URL, { code: 0, value: { item_no: 25, category: 'ACCUMULATE_PLAY', flake_amount: 1000 } });
-
-    const result = await getSpecialForceShop(TEST_HEADERS);
-    assert.deepEqual(result, { ...shop, month: '202610' });
-    assert.equal(SPECIAL_FORCE_GAME_ID, 'GM-2A26-6A4CAF50_IND');
-    assert.deepEqual(await claimSpecialForceReward(TEST_HEADERS, result.accumulated_plays.rewards[0]),
-        { item_no: 25, category: 'ACCUMULATE_PLAY', flake_amount: 1000 });
-
-    assert.deepEqual(h.requests, [
-        { method: 'GET', url: FAMILY_LINKS_URL, headers: EVENT_HEADERS, body: null, timeout: 15000 },
-        { method: 'GET', url: SF_SHOP_URL, headers: EVENT_HEADERS, body: null, timeout: 15000 },
-        { method: 'POST', url: SF_CLAIM_URL, headers: EVENT_HEADERS, body: { item_no: 25 }, timeout: 15000 }
-    ]);
-    assertGolden('api/special-force-requests', h.requests);
-});
-
-test('specialForce: family-links classification', async t => {
-    const h = useHarness(t);
-    h.on('GET', FAMILY_LINKS_URL, [
-        { code: 0, value: [] },
-        { code: 0, value: [{ service_id: 'specialforce' }] },
-        { code: 0, value: { service_id: 'specialforce' } },
-        { code: 0, value: [{ service_id: 'specialforce', progress_month: '2026-10' }] },
-        { code: 1, value: [] },
-        { code: 0, value: null },
-        {},
-        { code: 0, value: [{ service_id: 'specialforce', progress_month: 202610 }] }
-    ]).on('GET', SF_SHOP_URL, { code: 7 });
-
-    assert.deepEqual(await getSpecialForceShop(TEST_HEADERS), { notAvailable: true });
-    assert.deepEqual(await getSpecialForceShop(TEST_HEADERS), { notAvailable: true });
-    await assert.rejects(getSpecialForceShop(TEST_HEADERS), { message: '행사 목록 형식 확인 실패' });
-    await assert.rejects(getSpecialForceShop(TEST_HEADERS), { message: '행사 월 형식 확인 실패' });
-    await assert.rejects(getSpecialForceShop(TEST_HEADERS), { message: '스페셜포스 API 확인 실패 (code=1)' });
-    await assert.rejects(getSpecialForceShop(TEST_HEADERS), { message: '스페셜포스 API 확인 실패 (code=0)' });
-    await assert.rejects(getSpecialForceShop(TEST_HEADERS), { message: '스페셜포스 API 확인 실패 (code=없음)' });
-    // The shop lookup response goes through the same code/value check.
-    await assert.rejects(getSpecialForceShop(TEST_HEADERS), { message: '스페셜포스 API 확인 실패 (code=7)' });
-
-    assert.equal(h.calls().filter(call => call === `GET ${FAMILY_LINKS_URL}`).length, 8);
-    assert.equal(h.calls().filter(call => call === `GET ${SF_SHOP_URL}`).length, 1,
-        'only a valid month reaches the shop lookup');
-});
-
-test('specialForce: numeric progress month is returned as a string', async t => {
-    const h = useHarness(t);
-    h.on('GET', FAMILY_LINKS_URL, { code: 0, value: [{ service_id: 'specialforce', progress_month: 202610 }] })
-        .on('GET', SF_SHOP_URL, { code: 0, value: { service_id: SPECIAL_FORCE_GAME_ID, month: 'ignored' } });
-    assert.deepEqual(await getSpecialForceShop(TEST_HEADERS), { service_id: SPECIAL_FORCE_GAME_ID, month: '202610' });
-    assert.deepEqual(h.calls(), [`GET ${FAMILY_LINKS_URL}`, `GET ${SF_SHOP_URL}`]);
-});
-
-test('specialForce: claim validation before the request and strict response checks after it', async t => {
-    const h = useHarness(t);
-    const reward = { item_type: 'FLAKE', item_no: 25 };
-    h.on('POST', SF_CLAIM_URL, [
-        { code: 0, value: { item_no: 26, category: 'ACCUMULATE_PLAY', flake_amount: 1000 } },
-        { code: 0, value: { item_no: 25, category: 'DAILY', flake_amount: 1000 } },
-        { code: 0, value: { item_no: 25, category: 'ACCUMULATE_PLAY', flake_amount: -1 } },
-        { code: 0, value: { item_no: 25, category: 'ACCUMULATE_PLAY', flake_amount: '1000' } },
-        { code: 0, value: { item_no: 25, category: 'ACCUMULATE_PLAY' } },
-        { code: 3 },
-        { code: 0, value: { item_no: 25, category: 'ACCUMULATE_PLAY', flake_amount: 0, extra: true } }
-    ]);
-
-    for (const invalid of [
-        { item_type: 'ITEM', item_no: 25 },
-        { item_type: 'FLAKE', item_no: 0 },
-        { item_type: 'FLAKE', item_no: '25' },
-        { item_type: 'FLAKE', item_no: 2.5 },
-        { item_type: 'FLAKE' }
-    ]) {
-        await assert.rejects(claimSpecialForceReward(TEST_HEADERS, invalid), { message: '지원하지 않는 스페셜포스 보상' });
-    }
-    assert.equal(h.requests.length, 0, 'unsupported rewards are rejected without a request');
-
-    const mismatch = { message: '보상 응답 일치 확인 실패; 상태를 새로고침해 주세요' };
-    for (let i = 0; i < 5; i++) await assert.rejects(claimSpecialForceReward(TEST_HEADERS, reward), mismatch);
-    await assert.rejects(claimSpecialForceReward(TEST_HEADERS, reward), { message: '스페셜포스 API 확인 실패 (code=3)' });
-    assert.deepEqual(await claimSpecialForceReward(TEST_HEADERS, reward),
-        { item_no: 25, category: 'ACCUMULATE_PLAY', flake_amount: 0, extra: true });
-    assert.equal(h.requests.length, 7, 'each claim is a single POST, never retried');
 });
