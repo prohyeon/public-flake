@@ -304,3 +304,15 @@ raw/
 # package-lock.json
 # yarn.lock
 # pnpm-lock.yaml
+
+# ============================================
+# CodeGraph index (local)
+# ============================================
+.codegraph/
+
+# ============================================
+# Recorded HTTP archives (may contain tokens/cookies)
+# ============================================
+payment_har.json
+*.har
+*.har.json
