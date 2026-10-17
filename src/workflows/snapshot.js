@@ -1,6 +1,6 @@
 import { CONFIG } from '../config.js';
 import { state } from '../state.js';
-import { getTodayKSTString } from '../utils/time.js';
+import { getTimestamp, getTodayKSTString } from '../utils/time.js';
 import { getAllDailyMissions, getMissionComponentIds } from '../api/missions.js';
 import {
     getRouletteParticipationCount,
@@ -394,8 +394,17 @@ export function normalizeMissionSnapshot(components = [], options = {}) {
 export async function captureAutomationSnapshot(headers, deps = {}) {
     const services = { ...defaultServices, ...deps };
     const errors = {};
+    // deps.onSectionTime(name, ms) reports how long each read took; timing stays out of the snapshot.
+    const settle = (name, factory) => {
+        if (!services.onSectionTime) return settleSnapshotPart(factory);
+        const begin = getTimestamp();
+        return settleSnapshotPart(factory).then(result => {
+            services.onSectionTime(name, getTimestamp() - begin);
+            return result;
+        });
+    };
 
-    const missionComponentResult = await settleSnapshotPart(() => services.getMissionComponentIds(headers));
+    const missionComponentResult = await settle('missionComponents', () => services.getMissionComponentIds(headers));
     let missionComponentIds = state.missionComponents;
     if (missionComponentResult.ok && hasComponentIds(missionComponentResult.value)) {
         missionComponentIds = missionComponentResult.value;
@@ -417,16 +426,16 @@ export async function captureAutomationSnapshot(headers, deps = {}) {
         boostResult,
         reviewEventResult
     ] = await Promise.all([
-        settleSnapshotPart(() => services.checkArticleWriteStatus(headers)),
-        settleSnapshotPart(() => services.getAllDailyMissions(headers)),
-        settleSnapshotPart(() => services.getRouletteParticipationCount(headers, services.getRouletteSubEventNo())),
-        settleSnapshotPart(() => services.getRouletteExtra(headers, services.getRouletteExtraSubEventNo())),
-        settleSnapshotPart(() => services.getDailyShopRewards(headers)),
-        settleSnapshotPart(() => services.getMajakDailyShopRewards(headers)),
-        settleSnapshotPart(() => services.getTotalFlakeBalance(headers)),
-        settleSnapshotPart(() => services.getMonthlyFlakeTotal(headers)),
-        settleSnapshotPart(() => services.checkBoostStatus(headers)),
-        settleSnapshotPart(() => services.checkReviewEventStatus(headers))
+        settle('articleWrite', () => services.checkArticleWriteStatus(headers)),
+        settle('missions', () => services.getAllDailyMissions(headers)),
+        settle('roulette', () => services.getRouletteParticipationCount(headers, services.getRouletteSubEventNo())),
+        settle('rouletteExtra', () => services.getRouletteExtra(headers, services.getRouletteExtraSubEventNo())),
+        settle('shop', () => services.getDailyShopRewards(headers)),
+        settle('majak', () => services.getMajakDailyShopRewards(headers)),
+        settle('flakeTotal', () => services.getTotalFlakeBalance(headers)),
+        settle('flakeMonthly', () => services.getMonthlyFlakeTotal(headers)),
+        settle('boost', () => services.checkBoostStatus(headers)),
+        settle('reviewEvent', () => services.checkReviewEventStatus(headers))
     ]);
 
     const rouletteResult = validateRouletteResult(rawRouletteResult);

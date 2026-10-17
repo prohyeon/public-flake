@@ -184,3 +184,12 @@ test('unverified monthly attendance is remembered so later same-day runs skip th
         diffWith({ notIncreasedMissionNos: [399] }), snapshotWithCount(9), context);
     assert.deepEqual(nextRun.monthlyAttendanceProgress.alreadyCountedMissionNos, [399]);
 });
+
+test('the monthly attendance context also carries the account id for the same-day community record', async () => {
+    const context = await loadMonthlyAttendanceContext({}, {
+        getMyProfile: async () => ({ code: 0, value: { user_id: 12345 } }),
+        storage: memoryStorage(),
+        today: TODAY
+    });
+    assert.equal(context.userId, '12345');
+});

@@ -18,6 +18,26 @@ function isSectionKnown(section) {
     return Boolean(section) && section.success !== false && section.unknown !== true;
 }
 
+// A mission task is skipped only when the snapshot proves its whole category is done: the section
+// is known, the category has missions and every one is COMPLETE. "Nothing receivable yet" is not
+// enough because missions become receivable mid-run (the reward-shop visit counts monthly
+// attendance, comments advance the weekly count), and an empty category may be a component that
+// failed to load.
+const MISSION_TASK_CATEGORIES = {
+    dailyMissions: 'daily',
+    contentMissions: 'content',
+    bannerMissions: 'banner',
+    weeklyMissions: 'weekly',
+    attendanceMissions: 'attendance',
+    surveyMissions: 'survey'
+};
+
+function isCategoryDone(snapshot, category) {
+    if (!isSectionKnown(snapshot?.missions)) return false;
+    const missions = snapshot.missions.categories?.[category];
+    return Boolean(missions) && missions.all.length > 0 && missions.complete.length === missions.all.length;
+}
+
 function getVisitMissionNos(snapshot) {
     return Object.values(snapshot?.missions?.byMissionNo || {})
         .filter(mission =>
@@ -52,8 +72,16 @@ function shouldSchedulePrizeEntry(snapshot) {
     return getPrizeEntryMission(snapshot)?.status === 'INCOMPLETE';
 }
 
-export function buildAutomationPlan(snapshot = {}) {
+/**
+ * options.community: { likesRemaining, commentsRemaining } from today's local record; a 0 drops the
+ * task. Without it both tasks run with the full target.
+ */
+export function buildAutomationPlan(snapshot = {}, options = {}) {
     const plannedMissionNos = getVisitMissionNos(snapshot);
+    const community = options.community || {};
+    const skippedDone = Object.keys(MISSION_TASK_CATEGORIES)
+        .filter(kind => isCategoryDone(snapshot, MISSION_TASK_CATEGORIES[kind]));
+    const missionTask = (id, kind, meta) => (skippedDone.includes(kind) ? null : task(id, kind, meta));
     const articleWrite = snapshot.articleWrite;
     const roulette = snapshot.roulette;
     const rouletteExtra = snapshot.rouletteExtra;
@@ -72,8 +100,8 @@ export function buildAutomationPlan(snapshot = {}) {
             isSectionKnown(articleWrite) && articleWrite.hasWrittenToday === false
                 ? task('community:articleWrite', 'articleWrite')
                 : null,
-            task('community:articleLikes', 'articleLikes'),
-            task('community:comments', 'comments', {
+            community.likesRemaining === 0 ? null : task('community:articleLikes', 'articleLikes'),
+            community.commentsRemaining === 0 ? null : task('community:comments', 'comments', {
                 background: true,
                 rateLimited: true,
                 nonAuthoritativeRepair: true
@@ -83,9 +111,9 @@ export function buildAutomationPlan(snapshot = {}) {
             plannedMissionNos.length > 0
                 ? task('visits:singleVisits', 'singleVisits', { missionNos: plannedMissionNos })
                 : null,
-            task('visits:dailyMissions', 'dailyMissions'),
-            task('visits:contentMissions', 'contentMissions'),
-            task('visits:bannerMissions', 'bannerMissions')
+            missionTask('visits:dailyMissions', 'dailyMissions'),
+            missionTask('visits:contentMissions', 'contentMissions'),
+            missionTask('visits:bannerMissions', 'bannerMissions')
         ]),
         group('boost', 1, [
             CONFIG.boostMission.enabled && isSectionKnown(snapshot.boost) &&
@@ -97,9 +125,9 @@ export function buildAutomationPlan(snapshot = {}) {
                 : null
         ]),
         group('missionClaims', 2, [
-            task('missionClaims:weeklyMissions', 'weeklyMissions'),
-            task('missionClaims:attendanceMissions', 'attendanceMissions'),
-            task('missionClaims:surveyMissions', 'surveyMissions')
+            missionTask('missionClaims:weeklyMissions', 'weeklyMissions'),
+            missionTask('missionClaims:attendanceMissions', 'attendanceMissions'),
+            missionTask('missionClaims:surveyMissions', 'surveyMissions')
         ]),
         group('flakeSpending', 1, [
             shouldRunRouletteDraws
@@ -133,7 +161,7 @@ export function buildAutomationPlan(snapshot = {}) {
         ])
     ]);
 
-    return { plannedMissionNos, groups };
+    return { plannedMissionNos, groups, skippedDone };
 }
 
 export function buildRepairPlan(diff = {}) {

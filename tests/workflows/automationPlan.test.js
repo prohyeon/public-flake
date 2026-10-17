@@ -270,3 +270,54 @@ test('buildRepairPlan includes majakShop when unclaimedMajakShop is positive', (
         }
     ]);
 });
+
+function categorySnapshot(statusesByType) {
+    return normalizeMissionSnapshot(Object.entries(statusesByType).map(([type, statuses], index) => ({
+        componentNo: 900 + index,
+        component_info: { component_type: type },
+        missions: statuses.map((status, missionIndex) => ({ mission_no: 9000 + index * 10 + missionIndex, title: type, status }))
+    })));
+}
+
+test('buildAutomationPlan skips a mission task only when its whole category is proven complete', () => {
+    const plan = buildAutomationPlan(baseSnapshot({
+        missions: categorySnapshot({
+            SINGLE: ['COMPLETE', 'INCOMPLETE'],
+            CONTENT1: ['COMPLETE', 'COMPLETED'],
+            BANNER: ['COMPLETE'],
+            SURVEY: ['RECEIVABLE'],
+            // ACCUMULATION is "attendance" unless it is the weekly component; no weekly component here.
+            ACCUMULATION: ['COMPLETE']
+        })
+    }));
+
+    assert.deepEqual(plan.skippedDone, ['contentMissions', 'bannerMissions', 'attendanceMissions']);
+    assert.deepEqual(taskKinds(plan.groups.find(group => group.id === 'visits')), ['dailyMissions']);
+    // weekly has no missions at all: an empty category may be a component that failed to load.
+    assert.deepEqual(taskKinds(plan.groups.find(group => group.id === 'missionClaims')), ['weeklyMissions', 'surveyMissions']);
+});
+
+test('buildAutomationPlan keeps every mission task when the missions section is unknown or empty', () => {
+    const everyMissionTask = ['dailyMissions', 'contentMissions', 'bannerMissions', 'weeklyMissions', 'attendanceMissions', 'surveyMissions'];
+    for (const missions of [
+        normalizeMissionSnapshot([]),
+        { ...categorySnapshot({ CONTENT1: ['COMPLETE'] }), success: false },
+        { ...categorySnapshot({ CONTENT1: ['COMPLETE'] }), unknown: true },
+        undefined
+    ]) {
+        const plan = buildAutomationPlan(baseSnapshot({ missions }));
+        assert.deepEqual(plan.skippedDone, []);
+        for (const kind of everyMissionTask) assert.ok(findTask(plan, kind), kind);
+    }
+});
+
+test("buildAutomationPlan drops likes or comments that today's record shows as done", () => {
+    const community = options => taskKinds(buildAutomationPlan(baseSnapshot(), options).groups.find(group => group.id === 'community'));
+
+    assert.deepEqual(community(), ['articleWrite', 'articleLikes', 'comments']);
+    assert.deepEqual(community({ community: { likesRemaining: 3, commentsRemaining: 0 } }), ['articleWrite', 'articleLikes']);
+    assert.deepEqual(community({ community: { likesRemaining: 0, commentsRemaining: 5 } }), ['articleWrite', 'comments']);
+    const plan = buildAutomationPlan(baseSnapshot({ articleWrite: { success: true, hasWrittenToday: true } }),
+        { community: { likesRemaining: 0, commentsRemaining: 0 } });
+    assert.equal(plan.groups.find(group => group.id === 'community'), undefined, 'an emptied group is dropped');
+});

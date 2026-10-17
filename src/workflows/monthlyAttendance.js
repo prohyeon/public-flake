@@ -37,7 +37,7 @@ export async function loadMonthlyAttendanceContext(headers, deps = {}) {
         const userId = profile?.value?.user_id;
         if (profile?.code !== 0 || !/^\d+$/.test(String(userId ?? '')) || !storage) return null;
         const key = monthlyAttendanceRecordKey(userId);
-        return { storage, key, today, record: readMonthlyAttendanceRecord(storage, key, today) };
+        return { storage, key, today, userId: String(userId), record: readMonthlyAttendanceRecord(storage, key, today) };
     } catch {
         return null;
     }

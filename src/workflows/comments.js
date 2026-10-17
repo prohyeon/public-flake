@@ -34,6 +34,7 @@ export async function postCommentsSerially(options = {}) {
         stateRef = state,
         postCommentFn = postComment,
         delayFn = delay,
+        onPosted = () => {},
         logFn = log,
         updateProgressFn = updateProgress
     } = options;
@@ -52,6 +53,7 @@ export async function postCommentsSerially(options = {}) {
             stateRef.createdCommentIds.push(commentId);
             stateRef.progress.comments++;
             commentIds.push(commentId);
+            onPosted(commentId);
             updateProgressFn('comments', stateRef.progress.comments, CONFIG.targets.comments);
         } catch (e) {
             errors.push({ articleId, message: e.message });

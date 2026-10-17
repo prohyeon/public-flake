@@ -86,3 +86,24 @@ test('postCommentsSerially keeps going after a failed comment attempt', async ()
     assert.deepEqual(result.errors, [{ articleId: 21, message: 'rate limited' }]);
     assert.equal(stateRef.progress.comments, 1);
 });
+
+test('postCommentsSerially reports each posted comment, and only successful ones', async () => {
+    const posted = [];
+    const result = await postCommentsSerially({
+        articles: [{ article_id: 21 }, { article_id: 22 }, { article_id: 23 }],
+        targetComments: 2,
+        commentPool: ['굿'],
+        stateRef: { progress: { comments: 0 }, createdCommentIds: [] },
+        postCommentFn: async (_headers, articleId) => {
+            if (articleId === 21) throw new Error('rate limited');
+            return `comment-${articleId}`;
+        },
+        onPosted: commentId => posted.push(commentId),
+        delayFn: async () => {},
+        logFn: () => {},
+        updateProgressFn: () => {}
+    });
+
+    assert.equal(result.attempted, 2, 'targetComments limits the attempts');
+    assert.deepEqual(posted, ['comment-22']);
+});

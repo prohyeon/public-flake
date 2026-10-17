@@ -41,6 +41,7 @@ const DONE_WORLD = Object.freeze({
     boost: 'rewarded', reviewEvent: 'commented', attendanceTrigger: 'never'
 });
 const MONTHLY_RECORD_KEY = `stove-monthly-attendance-v1:${USER_ID}`;
+const COMMUNITY_QUOTA_KEY = `stove-community-quota-v1:${USER_ID}`;
 
 const pathOf = url => new URL(url).pathname;
 const isWrite = request => request.method !== 'GET';
@@ -289,6 +290,33 @@ test('handler articleLikes: skips already-liked articles, likes up to the target
     assert.deepEqual(world.audit.duplicateLikes, []);
 });
 
+test("handler articleLikes: likes only what today's record leaves and records each success", async t => {
+    const h = useHarness(t);
+    const world = installAutomationWorld(h, {
+        overrides: { like: (request, callIndex, next) => (request.url.includes('/70005/') ? httpError(500) : next()) }
+    });
+    const added = [];
+    const quota = { remaining: kind => (kind === 'likes' ? 3 : 0), add: kind => added.push(kind) };
+    const handlers = createAutomationTaskHandlers({ headers: TEST_HEADERS, articles: world.articles, quota });
+
+    assert.deepEqual(await handlers.articleLikes(), {
+        attempted: 3, liked: 2, errors: [{ articleId: 70005, message: 'API Error: 500 Error' }]
+    });
+    assert.deepEqual(added, ['likes', 'likes'], 'the failed like is not recorded');
+    assert.deepEqual(world.audit.likes, [70004, 70006]);
+});
+
+test('handler comments: reuses a chain that runAutomation already started', async t => {
+    const h = useHarness(t);
+    const world = installAutomationWorld(h);
+    const started = Promise.resolve({ attempted: 2, commentIds: ['a', 'b'], errors: [] });
+    const handlers = createAutomationTaskHandlers({ headers: TEST_HEADERS, articles: world.articles, commentTask: started });
+
+    assert.equal(handlers.comments(), started);
+    assert.equal(handlers.comments(), started);
+    assert.deepEqual(h.requests, [], 'nothing is posted again');
+});
+
 test('handler articleLikes: considers only the first target×3 articles', async t => {
     const h = useHarness(t);
     const world = installAutomationWorld(h, { articleCount: 40, likedArticleIds: [] });
@@ -463,8 +491,11 @@ test('runAutomation: no lounge articles → error signal after the read-only sna
     assert.deepEqual(h.titles, [RUNNING_TITLE, '[SG_ERROR] 게시글 없음 | STOVE']);
     assert.deepEqual(h.requests.filter(isWrite), []);
     assert.deepEqual(h.tabs, []);
-    assert.deepEqual(h.logs().slice(-6), [
-        '[info] 게시글 목록 가져오는 중...', '[success] 게시글 0개 발견', '[error] 게시글이 없습니다',
+    assert.deepEqual(h.logs().slice(-7), [
+        // The article list loads while the snapshot is still reading; the run waits for the snapshot
+        // before it stops, so no read is left in flight.
+        '[info] 게시글 목록 가져오는 중...', '[success] 게시글 0개 발견',
+        '[info] 초기 스냅샷: 글작성 미완료, 룰렛 2회, 미션 완료 0/수령가능 4/미완료 7', '[error] 게시글이 없습니다',
         // An early return still reports the steps that ran.
         '[info] ', '[info] ⏱ 단계별 소요 시간 · 총 0.0초', '[info]   준비: 초기 스냅샷 0.0초 · 월간 출석 기록 0.0초 · 게시글 목록 0.0초'
     ]);
@@ -475,6 +506,21 @@ test('runAutomation: no lounge articles → error signal after the read-only sna
 // ---------------------------------------------------------------------------------------------
 // runAutomation: whole runs
 // ---------------------------------------------------------------------------------------------
+
+test('runAutomation: a failed article list ends with the error signal only after the snapshot reads finish', async t => {
+    const h = useHarness(t);
+    const world = useAutomationWorld(t, h, { overrides: { articleList: () => httpError(503) } });
+    await runAutomation();
+
+    assert.deepEqual(h.titles, [RUNNING_TITLE, '[SG_ERROR] API Error: 503 Error | STOVE']);
+    assert.deepEqual(h.requests.filter(isWrite), [], 'no comment can start without the list');
+    assert.equal(world.audit.comments.length, 0);
+    // The run waited for the before-snapshot: its deepest read chain (event → article → member →
+    // comment list) completed although the list failed after one request.
+    assert.ok(h.requests.some(request => pathOf(request.url) === '/cwms/v1.1/article/14523486/comment/list'));
+    assert.ok(h.logs().includes('[error] ✗ 오류 발생: API Error: 503 Error'));
+    assert.equal(state.isRunning, false);
+});
 
 test('runAutomation fresh day: every task runs once, no repair, done signal, sound, tabs closed', async t => {
     assertTimezonePinned();
@@ -507,12 +553,19 @@ test('runAutomation fresh day: every task runs once, no repair, done signal, sou
     ]);
     assert.ok(!h.logs().some(line => line.includes('안전 복구')), 'no repair pass on a clean run');
 
-    // Serial-by-design order: the before snapshot is read-only and finishes before the article list;
-    // FLAKE spending (draws → EXTRA → prize entry → prize mission claim) runs after mission claims.
+    // Order by design: lounge comments need only the article list, so they may start while the
+    // read-only before-snapshot is loading; every other write is planned from that snapshot and comes
+    // after its reads. FLAKE spending (draws → EXTRA → prize entry → prize mission claim) runs after
+    // mission claims.
     const requests = h.requests;
     const articleListIndex = requests.findIndex(request => pathOf(request.url) === '/stadium-api/v1.0/today/all');
     assert.ok(articleListIndex > 0);
     assert.ok(requests.slice(0, articleListIndex).every(request => request.method === 'GET'));
+    const firstPlannedWrite = requests.findIndex(request => isWrite(request) && !isLoungeComment(request));
+    for (const snapshotRead of ['/stadium-api/v1.0/missions', '/emsbackapi/v3.0/participationCnt', '/eventhub/v1.0/promotion/events/ON']) {
+        const index = requests.findIndex(request => pathOf(request.url) === snapshotRead);
+        assert.ok(index >= 0 && index < firstPlannedWrite, `${snapshotRead} is read before the first planned write`);
+    }
     const serial = requests.filter(request => !isLoungeComment(request));
     const positions = predicate => serial.flatMap((request, index) => (predicate(request) ? [index] : []));
     const draws = positions(isDraw);
@@ -541,7 +594,7 @@ test('runAutomation fresh day: every task runs once, no repair, done signal, sou
 
     // Tabs: everything collected is closed at the end; the single-visit tab is never collected (leak).
     assert.deepEqual(h.tabs.filter(tab => !tab.closed).map(({ url, active, closed }) => ({ url, active, closed })), [{ url: SINGLE_VISIT_URL, active: false, closed: false }]);
-    assert.deepEqual(h.logs().slice(-13), [
+    assert.deepEqual(h.logs().slice(-15), [
         '[info] ',
         '[info] 📊 상태 업데이트 중...',
         '[success] ✅ 상태 업데이트 완료!',
@@ -554,9 +607,12 @@ test('runAutomation fresh day: every task runs once, no repair, done signal, sou
         '[info]   준비: 초기 스냅샷 0.0초 · 월간 출석 기록 0.0초 · 게시글 목록 0.0초',
         '[info]   그룹: setup 0.0초 · community 0.0초 · visits 0.0초 · boost 0.0초 · missionClaims 0.0초 · flakeSpending 0.0초 · followups 0.0초 · reviewEvent 0.0초',
         '[info]   백그라운드: comments 0.0초 · 종료 대기 0.0초',
-        '[info]   마무리: 1등 보상 0.0초 · 최종 스냅샷 0.0초 · 사전등록 0.0초 · 상태 업데이트 0.0초'
+        '[info]   마무리: 1등 보상 0.0초 · 최종 스냅샷 0.0초 · 사전등록 0.0초 · 상태 업데이트 0.0초',
+        '[info]   초기 스냅샷 세부: missionComponents 0.0초 → articleWrite 0.0초 · missions 0.0초 · roulette 0.0초 · rouletteExtra 0.0초',
+        '[info]   최종 스냅샷 세부: missionComponents 0.0초 → articleWrite 0.0초 · missions 0.0초 · roulette 0.0초 · rouletteExtra 0.0초'
     ]);
     assert.deepEqual(JSON.parse(h.window.localStorage.getItem(MONTHLY_RECORD_KEY)), { date: '2026-10-16', counts: { 6001: 5 } });
+    assert.deepEqual(JSON.parse(h.window.localStorage.getItem(COMMUNITY_QUOTA_KEY)), { date: '2026-10-16', likes: 10, comments: 5 });
 });
 
 test('runAutomation timing: group lines and the closing ⏱ block report elapsed wall time', async t => {
@@ -574,17 +630,18 @@ test('runAutomation timing: group lines and the closing ⏱ block report elapsed
     const logs = h.logs();
     // reviewEvent awaits the comments, so nothing is left to wait for after the last group.
     assert.ok(logs.includes('[success] 백그라운드 작업 완료: community (1/1) · 대기 0.0초 (comments 55.0초)'));
-    const [total, prelude, groups, background, tail] = logs.slice(-5);
+    const [total, prelude, groups, background, tail] = logs.slice(-7);
     assert.equal(total, '[info] ⏱ 단계별 소요 시간 · 총 65.0초');
-    assert.equal(prelude, '[info]   준비: 초기 스냅샷 0.0초 · 월간 출석 기록 0.0초 · 게시글 목록 0.0초');
+    // Comments start once the article list is in, while the before-snapshot may still be reading.
+    const [, snapshotSeconds] = prelude.match(/^\[info\]   준비: 초기 스냅샷 (\d+\.\d)초 · 월간 출석 기록 0\.0초 · 게시글 목록 0\.0초$/);
     assert.equal(background, '[info]   백그라운드: comments 55.0초 · 종료 대기 0.0초');
     assert.equal(tail, '[info]   마무리: 1등 보상 0.0초 · 최종 스냅샷 0.0초 · 사전등록 0.0초 · 상태 업데이트 0.0초');
-    // Which groups the comment chain overlaps depends on the harness's event-loop interleaving;
-    // the group times still add up to the run, and boost holds at least its own five queries.
+    // Which steps the comment chain overlaps depends on the harness's event-loop interleaving; the
+    // before-snapshot and the groups still add up to the run, and boost holds its own five queries.
     const groupSeconds = Object.fromEntries([...groups.matchAll(/(\w+) (\d+\.\d)초/g)].map(([, id, sec]) => [id, Number(sec)]));
     assert.deepEqual(Object.keys(groupSeconds),
         ['setup', 'community', 'visits', 'boost', 'missionClaims', 'flakeSpending', 'followups', 'reviewEvent']);
-    assert.equal(Object.values(groupSeconds).reduce((sum, sec) => sum + sec, 0), 65);
+    assert.equal(Number(snapshotSeconds) + Object.values(groupSeconds).reduce((sum, sec) => sum + sec, 0), 65);
     assert.ok(groupSeconds.boost >= 10, groups);
     assert.match(logs.find(line => line.includes('그룹 완료: boost')), /^\[success\] 그룹 완료: boost \(1\/1\) · \d+\.\d초$/);
     // Timing only reads the clock: the run itself is the ordinary fresh day.
@@ -593,21 +650,26 @@ test('runAutomation timing: group lines and the closing ⏱ block report elapsed
     assertNoRewardClaimedTwice(world);
 });
 
-test('runAutomation same-day re-run: no FLAKE spent, nothing claimed twice, only comments are written again', async t => {
+test('runAutomation same-day re-run: nothing is written again and finished work is skipped', async t => {
     const h = useHarness(t);
     const world = useAutomationWorld(t, h);
     await runAutomation();
     const firstRun = h.requests.length;
+    const firstLogs = h.logs().length;
     const claimsBefore = structuredClone(world.audit);
     h.titles.length = 0;
 
     await runAutomation();
     const rerun = h.requests.slice(firstRun);
+    const rerunLogs = h.logs().slice(firstLogs);
 
     assert.deepEqual(h.titles, [RUNNING_TITLE, DONE_TITLE]);
-    assert.deepEqual(rerun.filter(isWrite).map(describe), world.articles.slice(0, 5).map(article =>
-        `POST /postie/v1.0/article/${article.article_id}/comment {"article_id":${article.article_id},"content":"<p>잘봤어요</p>","attached":{"media_ids":[]}}`));
-    assert.deepEqual({ ...world.audit, comments: [] }, { ...claimsBefore, comments: [] });
+    // Today's likes and comments are on the local record; everything else was proven done by the
+    // snapshot or by the tasks' own checks, so the re-run makes no write at all.
+    assert.deepEqual(rerun.filter(isWrite).map(describe), []);
+    assert.deepEqual(world.audit, claimsBefore);
+    assert.ok(rerunLogs.includes('[info] 오늘 이미 한 활동: 좋아요 10/10, 댓글 5/5 · 남은 것만 진행합니다'));
+    assert.ok(!rerunLogs.some(line => /그룹 (시작|완료): community|백그라운드 작업/.test(line)), 'no community work is planned');
     assertNoRewardClaimedTwice(world);
     assert.equal(world.audit.draws, 2);
     assert.equal(world.audit.prizeApplies, 1);
@@ -753,15 +815,16 @@ test('runAutomation monthly attendance: never confirmed → skips an unreadable 
 
 test('runAutomation: a stale final read is re-checked once and needs no repair', async t => {
     const h = useHarness(t);
-    let staleServed = false;
+    let staleServed = 0;
     const world = useAutomationWorld(t, h, {
         overrides: {
-            // The first daily-shop read after both shop claims (= the final snapshot) still shows
-            // today's reward as unclaimed; the next read is up to date.
+            // The first two daily-shop reads after both shop claims (the panel refresh and the final
+            // snapshot, which run together) still show today's reward as unclaimed; later reads are
+            // up to date.
             dailyShop: (request, callIndex, next) => {
                 const body = next();
-                if (!staleServed && world.audit.shopClaims.includes(812)) {
-                    staleServed = true;
+                if (staleServed < 2 && world.audit.shopClaims.includes(812)) {
+                    staleServed += 1;
                     body.value.daily_attendances.rewards.find(reward => reward.item_no === 802).is_received = false;
                 }
                 return body;

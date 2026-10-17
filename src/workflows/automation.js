@@ -13,6 +13,7 @@ import { captureAutomationSnapshot, compareSnapshots, getSnapshotSummary } from 
 import { buildAutomationPlan, buildRepairPlan } from './automationPlan.js';
 import { runTaskGroups, flattenTaskResults, waitForBackgroundTasks } from './taskRunner.js';
 import { createRunTiming, formatSeconds } from './runTiming.js';
+import { createCommunityQuota } from './communityQuota.js';
 import { postCommentsSerially } from './comments.js';
 import { executeBoostMission, claimBoostMissionReward } from './boost.js';
 import { executeReviewEvent } from './reviewEvent.js';
@@ -67,9 +68,12 @@ function taskServices(deps = {}) {
     };
 }
 
-export function createAutomationTaskHandlers({ headers, articles = [], allTabs = [], deps = {} }) {
+export function createAutomationTaskHandlers({
+    headers, articles = [], allTabs = [], deps = {}, commentTask: startedCommentTask, quota
+}) {
     const io = taskServices(deps);
-    let commentTask;
+    // runAutomation starts the comment chain alongside the before-snapshot; reuse it when given.
+    let commentTask = startedCommentTask;
     // Tabs opened by a task stay open until the whole run ends, then runAutomation closes them.
     const collectTabs = tabs => {
         if (tabs?.length) allTabs.push(...tabs);
@@ -111,7 +115,7 @@ export function createAutomationTaskHandlers({ headers, articles = [], allTabs =
         },
 
         articleLikes: async () => {
-            const targetArticleLikes = CONFIG.targets.articleLikes;
+            const targetArticleLikes = quota ? quota.remaining('likes') : CONFIG.targets.articleLikes;
             const candidateCount = Math.min(targetArticleLikes * 3, articles.length);
             const candidateArticles = articles.slice(0, candidateCount);
             const candidateArticleIds = candidateArticles.map(a => a.article_id);
@@ -134,6 +138,7 @@ export function createAutomationTaskHandlers({ headers, articles = [], allTabs =
                     await io.likeArticle(headers, articleId);
                     state.progress.articleLikes++;
                     liked++;
+                    quota?.add('likes');
                     io.updateProgress('article-likes', state.progress.articleLikes, CONFIG.targets.articleLikes);
                     io.log(`게시글 ${articleId} 좋아요 완료 (${state.progress.articleLikes}/${targetArticleLikes})`, 'success');
                 } catch (e) {
@@ -147,7 +152,7 @@ export function createAutomationTaskHandlers({ headers, articles = [], allTabs =
         },
 
         comments: () => {
-            commentTask = io.postCommentsSerially({ headers, articles });
+            if (!commentTask) commentTask = io.postCommentsSerially({ headers, articles });
             return commentTask;
         },
         boostMission: async () => io.executeBoostMission(headers),
@@ -328,6 +333,25 @@ function logSnapshotDiff(label, diff) {
     );
 }
 
+const SNAPSHOT_SECTION_ORDER = ['articleWrite', 'missions', 'roulette', 'rouletteExtra', 'shop', 'majak',
+    'flakeTotal', 'flakeMonthly', 'boost', 'reviewEvent'];
+
+// The component-id read runs first; the other sections run in parallel, so the slowest few decide.
+function addSnapshotDetail(timing, label, sections) {
+    const lead = sections.find(section => section.label === 'missionComponents');
+    const order = name => SNAPSHOT_SECTION_ORDER.indexOf(name);
+    const slowest = sections
+        .filter(section => section !== lead)
+        .sort((a, b) => b.ms - a.ms || order(a.label) - order(b.label))
+        .slice(0, 4);
+    timing.addDetail(label, slowest, lead ? `missionComponents ${formatSeconds(lead.ms)} → ` : '');
+}
+
+function snapshotSectionRecorder() {
+    const sections = [];
+    return { sections, onSectionTime: (label, ms) => sections.push({ label, ms }) };
+}
+
 export async function runAutomation() {
     if (state.isRunning) {
         log('이미 자동화가 실행 중입니다', 'warning');
@@ -364,30 +388,71 @@ export async function runAutomation() {
         log('', 'info');
         log('\uCD08\uAE30 \uC2A4\uB0C5\uC0F7 \uC218\uC9D1 \uC911...', 'info');
         const endBeforeSnapshot = timing.start('준비', '초기 스냅샷');
-        const beforeSnapshot = await captureAutomationSnapshot(headers);
-        endBeforeSnapshot();
-        logSnapshotSummary('\uCD08\uAE30 \uC2A4\uB0C5\uC0F7', beforeSnapshot);
-        const endMonthlyContext = timing.start('준비', '월간 출석 기록');
-        const monthlyAttendanceContext = await loadMonthlyAttendanceContext(headers);
-        endMonthlyContext();
-        const compareWithAttendanceRecord = snapshot => applyMonthlyAttendanceRecord(
-            compareSnapshots(beforeSnapshot, snapshot, plan), snapshot, monthlyAttendanceContext);
+        const beforeSections = snapshotSectionRecorder();
+        const beforeSnapshotTask = captureAutomationSnapshot(headers, { onSectionTime: beforeSections.onSectionTime })
+            .then(snapshot => {
+                endBeforeSnapshot();
+                return snapshot;
+            });
 
+        // Comments need only the article list and today's record, so the rate-limited chain starts
+        // while the read-only snapshot loads. Nothing the snapshot decides depends on comments.
         log('', 'info');
         log('\uAC8C\uC2DC\uAE00 \uBAA9\uB85D \uAC00\uC838\uC624\uB294 \uC911...', 'info');
+        const endMonthlyContext = timing.start('준비', '월간 출석 기록');
         const endArticles = timing.start('준비', '게시글 목록');
-        const articles = await getArticleList(headers, 30);
-        endArticles();
+        let monthlyAttendanceContext;
+        let articles;
+        try {
+            [monthlyAttendanceContext, articles] = await Promise.all([
+                loadMonthlyAttendanceContext(headers).then(context => {
+                    endMonthlyContext();
+                    return context;
+                }),
+                getArticleList(headers, 30).then(list => {
+                    endArticles();
+                    return list;
+                })
+            ]);
+        } catch (error) {
+            await beforeSnapshotTask; // never end the run with the snapshot reads still in flight
+            throw error;
+        }
         log(`\uAC8C\uC2DC\uAE00 ${articles.length}\uAC1C \uBC1C\uACAC`, 'success');
 
         if (articles.length === 0) {
+            logSnapshotSummary('\uCD08\uAE30 \uC2A4\uB0C5\uC0F7', await beforeSnapshotTask);
             setAutomationSignal(AUTOMATION_SIGNAL.error, '게시글 없음');
             log('\uAC8C\uC2DC\uAE00\uC774 \uC5C6\uC2B5\uB2C8\uB2E4', 'error');
             return;
         }
 
-        const plan = buildAutomationPlan(beforeSnapshot);
-        const handlers = createAutomationTaskHandlers({ headers, articles, allTabs });
+        const quota = createCommunityQuota(monthlyAttendanceContext);
+        const likesRemaining = quota.remaining('likes');
+        const commentsRemaining = quota.remaining('comments');
+        if (quota.done.likes > 0 || quota.done.comments > 0) {
+            log(`오늘 이미 한 활동: 좋아요 ${quota.done.likes}/${CONFIG.targets.articleLikes}, 댓글 ${quota.done.comments}/${CONFIG.targets.comments} · 남은 것만 진행합니다`, 'info');
+        }
+        let commentTask;
+        if (commentsRemaining > 0) {
+            commentTask = timing.track('community:comments', () => postCommentsSerially({
+                headers, articles, targetComments: commentsRemaining, onPosted: () => quota.add('comments')
+            }));
+        }
+
+        const beforeSnapshot = await beforeSnapshotTask;
+        logSnapshotSummary('\uCD08\uAE30 \uC2A4\uB0C5\uC0F7', beforeSnapshot);
+        addSnapshotDetail(timing, '초기 스냅샷 세부', beforeSections.sections);
+        const compareWithAttendanceRecord = snapshot => applyMonthlyAttendanceRecord(
+            compareSnapshots(beforeSnapshot, snapshot, plan), snapshot, monthlyAttendanceContext);
+
+        const plan = buildAutomationPlan(beforeSnapshot, { community: { likesRemaining, commentsRemaining } });
+        if (plan.skippedDone.length > 0) {
+            // The snapshot proved these categories complete, as the skipped tasks would have found.
+            for (const kind of plan.skippedDone) state.completed[kind] = true;
+            log(`오늘 이미 완료되어 건너뜀: ${plan.skippedDone.join(', ')}`, 'info');
+        }
+        const handlers = createAutomationTaskHandlers({ headers, articles, allTabs, commentTask, quota });
         const executablePlan = timing.timeTasks(bindTaskHandlers(plan, handlers));
 
         log('', 'info');
@@ -439,15 +504,22 @@ export async function runAutomation() {
 
         log('', 'info');
         log('\uCD5C\uC885 \uC2A4\uB0C5\uC0F7 \uC218\uC9D1 \uC911...', 'info');
+        // The panel refresh reads the same endpoints, so it runs alongside the final snapshot and is
+        // repeated at the end only if something changed after this snapshot.
+        const statusRefreshTask = checkAllStatus();
+        let changedAfterSnapshot = false;
         const endAfterSnapshot = timing.start('마무리', '최종 스냅샷');
-        let afterSnapshot = await captureAutomationSnapshot(headers);
+        const afterSections = snapshotSectionRecorder();
+        let afterSnapshot = await captureAutomationSnapshot(headers, { onSectionTime: afterSections.onSectionTime });
         endAfterSnapshot();
+        addSnapshotDetail(timing, '최종 스냅샷 세부', afterSections.sections);
         logSnapshotSummary('\uCD5C\uC885 \uC2A4\uB0C5\uC0F7', afterSnapshot);
         let diff = compareWithAttendanceRecord(afterSnapshot);
         logSnapshotDiff('\uC2A4\uB0C5\uC0F7 \uBE44\uAD50', diff);
         focusRewardShopAfterDiff(diff);
 
         if (hasSafeRepairableItems(diff)) {
+            changedAfterSnapshot = true;
             const endRepair = timing.start('마무리', '복구');
             log('\uC548\uC804 \uBCF5\uAD6C \uB300\uC0C1 \uD655\uC778 \uC911...', 'warning');
             await delay(CONFIG.delays.betweenActions);
@@ -487,6 +559,7 @@ export async function runAutomation() {
         }
 
         if (rewardShopFocusedForMonthlyAttendance && hasMonthlyAttendanceVerificationIssue(diff)) {
+            changedAfterSnapshot = true;
             const endRecheck = timing.start('마무리', '월간 출석 재확인');
             ({ afterSnapshot, diff } = await recheckMonthlyAttendance({
                 afterSnapshot, diff,
@@ -500,6 +573,9 @@ export async function runAutomation() {
         const endPreRegistration = timing.start('마무리', '사전등록');
         const preRegistrationResult = await runPreRegistrations(headers);
         endPreRegistration();
+        if ((preRegistrationResult.results || []).some(result => result.registered || result.error)) {
+            changedAfterSnapshot = true;
+        }
         const outcome = getAutomationOutcome({ snapshot: afterSnapshot, diff, plan,
             groupResults: allGroupResults, boostRewardResult, preRegistrationResult });
         const dailyAccumulatedFlake = state.earnings.dailyAccumulated || 0;
@@ -580,7 +656,8 @@ export async function runAutomation() {
         log('', 'info');
         log('📊 상태 업데이트 중...', 'info');
         const endStatusUpdate = timing.start('마무리', '상태 업데이트');
-        await checkAllStatus();
+        await statusRefreshTask;
+        if (changedAfterSnapshot) await checkAllStatus();
         endStatusUpdate();
         log('✅ 상태 업데이트 완료!', 'success');
 

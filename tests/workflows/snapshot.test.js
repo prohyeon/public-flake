@@ -634,3 +634,26 @@ test('captureAutomationSnapshot marks malformed truthy shop and majak payloads d
     assert.deepEqual(snapshot.shop.unclaimedDaily, []);
     assert.deepEqual(snapshot.majak.unclaimedDaily, []);
 });
+
+test('captureAutomationSnapshot reports each read once through onSectionTime without changing the snapshot', async () => {
+    const deps = {
+        getMissionComponentIds: async () => ({ daily: 100 }),
+        checkArticleWriteStatus: async () => ({ success: true, hasWrittenToday: true }),
+        getAllDailyMissions: async () => [],
+        getRouletteParticipationCount: async () => ({ value: { participation_cnt: 30 } }),
+        getRouletteExtra: async () => ({ value: { milestones: [] } }),
+        getDailyShopRewards: async () => ({ value: { daily_attendances: { rewards: [] } } }),
+        getMajakDailyShopRewards: async () => { throw new Error('offline'); },
+        getTotalFlakeBalance: async () => 100,
+        getMonthlyFlakeTotal: async () => 50
+    };
+    const timed = [];
+    const plain = await captureAutomationSnapshot({}, deps);
+    const withTiming = await captureAutomationSnapshot({}, { ...deps, onSectionTime: (name, ms) => timed.push([name, ms]) });
+
+    assert.deepEqual(timed.map(([name]) => name).sort(), ['articleWrite', 'boost', 'flakeMonthly', 'flakeTotal', 'majak',
+        'missionComponents', 'missions', 'reviewEvent', 'roulette', 'rouletteExtra', 'shop']);
+    assert.ok(timed.every(([, ms]) => Number.isFinite(ms) && ms >= 0));
+    assert.equal(timed[0][0], 'missionComponents', 'component ids are read before the parallel sections');
+    assert.deepEqual({ ...withTiming, capturedAt: 0 }, { ...plain, capturedAt: 0 }, 'a failed section is timed too');
+});

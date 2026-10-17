@@ -17,7 +17,9 @@ export function createRunTiming(now = getTimestamp) {
     const startedAt = now();
     const phases = [];
     const taskMs = new Map();
+    const tracked = new Set();
     const groupStartedAt = new Map();
+    const details = [];
 
     function record(section, label, ms) {
         if (section) phases.push({ section, label, ms });
@@ -25,10 +27,18 @@ export function createRunTiming(now = getTimestamp) {
     }
 
     return {
-        /** Starts a step; the returned function records and returns its elapsed ms. */
+        /**
+         * Starts a step; the returned function records and returns its elapsed ms. The step keeps its
+         * start position in the summary, so steps that overlap are listed in a stable order.
+         */
         start(section, label) {
             const begin = now();
-            return () => record(section, label, now() - begin);
+            const phase = { section, label, ms: null };
+            phases.push(phase);
+            return () => {
+                phase.ms = now() - begin;
+                return phase.ms;
+            };
         },
 
         startGroup(id) {
@@ -43,11 +53,26 @@ export function createRunTiming(now = getTimestamp) {
 
         record,
 
+        /** Launches a task ahead of its group (e.g. comments) and times it from that launch. */
+        track(id, launch) {
+            const begin = now();
+            const promise = launch();
+            const settle = () => { taskMs.set(id, now() - begin); };
+            tracked.add(id);
+            promise.then(settle, settle);
+            return promise;
+        },
+
+        /** One extra summary line, e.g. the slowest snapshot sections: parts are { label, ms }. */
+        addDetail(label, parts, lead = '') {
+            details.push({ label, parts, lead });
+        },
+
         /** Copies the plan so each task records how long its run() took to settle. */
         timeTasks(plan) {
             const groups = plan.groups.map(group => ({
                 ...group,
-                tasks: group.tasks.map(task => ({
+                tasks: group.tasks.map(task => tracked.has(task.id) ? task : ({
                     ...task,
                     run: () => {
                         const begin = now();
@@ -84,10 +109,15 @@ export function createRunTiming(now = getTimestamp) {
         summaryLines() {
             const lines = [`⏱ 단계별 소요 시간 · 총 ${formatSeconds(now() - startedAt)}`];
             const sections = [...new Set([...SECTION_ORDER, ...phases.map(phase => phase.section)])];
+            // A step that never ended (the run stopped early) is left out.
             for (const section of sections) {
-                const items = phases.filter(phase => phase.section === section);
+                const items = phases.filter(phase => phase.section === section && phase.ms !== null);
                 if (items.length === 0) continue;
                 lines.push(`  ${section}: ${items.map(item => `${shortTaskId(item.label)} ${formatSeconds(item.ms)}`).join(' · ')}`);
+            }
+            for (const { label, parts, lead } of details) {
+                const text = parts.map(part => `${part.label} ${formatSeconds(part.ms)}`).join(' · ');
+                lines.push(`  ${label}: ${lead}${text}`);
             }
             return lines;
         }

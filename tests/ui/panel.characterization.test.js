@@ -297,8 +297,21 @@ test('mount: the 500ms timer runs checkAllStatus (mission components first)', as
 
 // Button id -> action. Each button is clicked in its own window; requests never get a response, so the
 // recording is exactly what the action issues before it first waits on the network.
+// Fixed clock: some first requests carry a timestamp query.
+const BUTTON_NOW = Date.parse('2026-10-16T01:00:00Z');
+
 const BUTTON_ACTIONS = {
-    'stove-btn-start': { action: 'runAutomation', requests: [`GET ${MISSION_PAGE}`], tabs: [] },
+    // Full automation reads the profile and the lounge list alongside the before-snapshot so the
+    // comment chain can start early.
+    'stove-btn-start': {
+        action: 'runAutomation',
+        requests: [
+            `GET ${MISSION_PAGE}`,
+            `GET https://api.onstove.com/postie/v1.0/user/me?timestemp=${BUTTON_NOW}`,
+            'GET https://api.onstove.com/stadium-api/v1.0/today/all?size=30'
+        ],
+        tabs: []
+    },
     'stove-btn-point-cash-charge': { action: 'runPointExchange', requests: [`GET ${BILL_BALANCE}`], tabs: [] },
     'stove-btn-reward-shop': { action: 'openRewardShop', requests: [], tabs: ['https://reward.onstove.com/ko'] },
     'stove-btn-status-refresh': { action: 'checkAllStatus', requests: [`GET ${MISSION_PAGE}`], tabs: [] }
@@ -308,7 +321,7 @@ test('button wiring: every action button triggers its own workflow (first reques
     const recordings = {};
     for (const [id, expected] of Object.entries(BUTTON_ACTIONS)) {
         await t.test(`${id} -> ${expected.action}`, async st => {
-            const m = mountBundle(st);
+            const m = mountBundle(st, { now: BUTTON_NOW });
             const logCount = m.logs().length;
             const button = m.byId(id);
             // The cash-charge button starts disabled (no flake balance yet),

@@ -184,13 +184,16 @@ test('distributed dashboard only reads status; full automation queries five time
     assert.equal(reviewVisits.length, 1);
     assert.equal(boostWrites, 1);
     assert.equal(rewardWrites, 1);
+    assert.equal(comments, 5, "today's lounge comments are on the local record, so the re-run posts none");
     // 사전등록 캠페인 월(202610)에만 요청되며, 재실행은 '이미 참여'로 끝나 찜하기를 반복하지 않는다.
     if (preRegistrationCalls > 0) {
         assert.equal(preRegistrationCalls, 2);
         assert.equal(wishlistAdds, 1);
     }
 
-    // Successful event lookups must not conceal failed background comment writes.
+    // Successful event lookups must not conceal failed background comment writes. Forget today's
+    // comment record (another browser, or before this version) so the run posts again.
+    window.localStorage.removeItem('stove-community-quota-v1:100');
     failComments = true;
     const logBeforeFailure = document.getElementById('stove-log-content').textContent.length;
     document.getElementById('stove-btn-start').click();

@@ -17,6 +17,42 @@
         },
         "body": null,
         "anonymous": true
+      },
+      {
+        "method": "GET",
+        "url": "https://api.onstove.com/postie/v1.0/user/me?timestemp=1792112400000",
+        "headers": {
+          "Authorization": "Bearer test-suat",
+          "caller-id": "indie-web-my",
+          "x-lang": "ko",
+          "x-nation": "KR",
+          "x-device-type": "P01",
+          "Accept": "application/json, text/plain, */*",
+          "Content-Type": "application/json",
+          "Origin": "https://profile.onstove.com",
+          "Referer": "https://profile.onstove.com/",
+          "caller-detail": "test-uuid"
+        },
+        "body": null,
+        "anonymous": true
+      },
+      {
+        "method": "GET",
+        "url": "https://api.onstove.com/stadium-api/v1.0/today/all?size=30",
+        "headers": {
+          "Authorization": "Bearer test-suat",
+          "caller-id": "lounge",
+          "X-UUID": "test-uuid",
+          "x-lang": "KO",
+          "x-nation": "KR",
+          "x-device-type": "P01",
+          "Accept": "application/json, text/plain, */*",
+          "Content-Type": "application/json",
+          "Origin": "https://lounge.onstove.com",
+          "Referer": "https://lounge.onstove.com/"
+        },
+        "body": null,
+        "anonymous": true
       }
     ],
     "tabs": [],
@@ -26,7 +62,9 @@
       "⏳ 헤더 정보 추출 중...",
       "✓ ✓ 헤더 정보 추출 완료",
       "⏳ ",
-      "⏳ 초기 스냅샷 수집 중..."
+      "⏳ 초기 스냅샷 수집 중...",
+      "⏳ ",
+      "⏳ 게시글 목록 가져오는 중..."
     ],
     "disabledAfterClick": {
       "stove-btn-start": true,

@@ -13,7 +13,7 @@
 | `src/workflows/pointExchange.js:73` | 잔액을 알 수 없을 때(오류 코드, HTML 응답)에도 교환 POST를 보낸다. |
 | `src/workflows/pointExchange.js:148` | 교환에 성공한 뒤 포인트 잔액 조회가 실패하면 FLAKE는 이미 소비됐는데 이를 복구할 수단이 없다. |
 | `src/workflows/automation.js:59-64` | 글쓰기 상태 확인이 실패해도 새 글을 작성하므로 중복 글이 생길 수 있다. |
-| `src/workflows/comments.js` | 댓글이 멱등하지 않다. 같은 날 다시 실행해도 매번 댓글 5개를 새로 단다. |
+| ~~`src/workflows/comments.js`~~ | **수정됨(같은 브라우저 한정).** 같은 날 다시 실행하면 댓글·좋아요를 다시 썼다. 이제 계정·KST 날짜별 로컬 기록(`stove-community-quota-v1:<userId>`)으로 남은 횟수만 진행한다. 다른 브라우저나 이 기록 이전에 한 활동은 알 수 없다. |
 
 ## 2. 결과·표시 오류
 

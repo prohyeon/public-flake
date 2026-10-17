@@ -3271,6 +3271,8 @@
     "[info]   마무리: 1등 보상 0.0초 · 최종 스냅샷 0.0초 · 사전등록 0.0초 · 상태 업데이트 0.0초",
     "[info]   백그라운드: comments 0.0초 · 종료 대기 0.0초",
     "[info]   준비: 초기 스냅샷 0.0초 · 월간 출석 기록 0.0초 · 게시글 목록 0.0초",
+    "[info]   초기 스냅샷 세부: missionComponents 0.0초 → articleWrite 0.0초 · missions 0.0초 · roulette 0.0초 · rouletteExtra 0.0초",
+    "[info]   최종 스냅샷 세부: missionComponents 0.0초 → articleWrite 0.0초 · missions 0.0초 · roulette 0.0초 · rouletteExtra 0.0초",
     "[info]   🌐 \"이번 주 인디 게임 소식 읽고 플레이크 받기...\" 방문 중...",
     "[info]   🎯 선택: \"최고예요\" (70%)",
     "[info]   🏠 스토브 메인 페이지 방문 중...",
@@ -3476,6 +3478,7 @@
   "alerts": [],
   "localStorage": {
     "stove-boost-v1:100:1": "{\"boost\":{\"status\":\"confirmed\",\"articleId\":\"81012\",\"title\":\"후보 81012\",\"score\":966,\"attemptedAt\":1792112400000,\"generatedAt\":1792112370000},\"reward\":{\"status\":\"confirmed\",\"attemptedAt\":1792112400000,\"amount\":3000}}",
+    "stove-community-quota-v1:100": "{\"date\":\"2026-10-16\",\"likes\":10,\"comments\":5}",
     "stove-monthly-attendance-v1:100": "{\"date\":\"2026-10-16\",\"counts\":{\"6001\":5}}",
     "stove-review-v1:100:14523486": "{\"status\":\"confirmed\",\"eventNo\":\"1914\",\"attemptedAt\":1792112400000,\"commentId\":\"900001\"}"
   },
