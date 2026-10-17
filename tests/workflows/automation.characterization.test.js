@@ -11,7 +11,7 @@
 // Pin the zone so the goldens do not depend on the machine running them.
 process.env.TZ = 'Asia/Seoul';
 
-import test from 'node:test';
+import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { useHarness, httpError, TEST_HEADERS, DEFAULT_NOW } from '../helpers/gmHarness.js';
@@ -118,7 +118,12 @@ function assertSummaryMatchesState(h) {
     assert.deepEqual(logs.slice(start, start + 22), expectedSummaryLogs(state));
 }
 
-const groupLogs = h => h.logs().filter(line => /(그룹|복구) (시작|완료)|복구 그룹|백그라운드 작업/.test(line));
+// Group lines end with their elapsed time (src/workflows/runTiming.js). Behavior checks compare the
+// lines without it; the timing text itself is pinned in the "runAutomation timing" tests.
+const withoutElapsed = line => line.replace(/ · (?:대기 )?\d+\.\d초.*$/, '');
+const groupLogs = h => h.logs()
+    .filter(line => /(그룹|복구) (시작|완료)|복구 그룹|백그라운드 작업/.test(line))
+    .map(withoutElapsed);
 
 // ---------------------------------------------------------------------------------------------
 // src/api/articles.js
@@ -441,7 +446,9 @@ for (const [name, cookies, message] of [
         assert.deepEqual(h.logs(), [
             '[info] 🚀 전체 자동화 시작',
             '[info] 헤더 정보 추출 중...',
-            `[error] ✗ 오류 발생: ${message}`
+            `[error] ✗ 오류 발생: ${message}`,
+            '[info] ',
+            '[info] ⏱ 단계별 소요 시간 · 총 0.0초'
         ]);
         assert.equal(state.isRunning, false);
         assert.equal(h.sounds.length, 0);
@@ -456,7 +463,11 @@ test('runAutomation: no lounge articles → error signal after the read-only sna
     assert.deepEqual(h.titles, [RUNNING_TITLE, '[SG_ERROR] 게시글 없음 | STOVE']);
     assert.deepEqual(h.requests.filter(isWrite), []);
     assert.deepEqual(h.tabs, []);
-    assert.deepEqual(h.logs().slice(-3), ['[info] 게시글 목록 가져오는 중...', '[success] 게시글 0개 발견', '[error] 게시글이 없습니다']);
+    assert.deepEqual(h.logs().slice(-6), [
+        '[info] 게시글 목록 가져오는 중...', '[success] 게시글 0개 발견', '[error] 게시글이 없습니다',
+        // An early return still reports the steps that ran.
+        '[info] ', '[info] ⏱ 단계별 소요 시간 · 총 0.0초', '[info]   준비: 초기 스냅샷 0.0초 · 월간 출석 기록 0.0초 · 게시글 목록 0.0초'
+    ]);
     assert.equal(state.isRunning, false);
     assertGolden('automation/no-articles', h.snapshot({ unordered: true }));
 });
@@ -530,16 +541,56 @@ test('runAutomation fresh day: every task runs once, no repair, done signal, sou
 
     // Tabs: everything collected is closed at the end; the single-visit tab is never collected (leak).
     assert.deepEqual(h.tabs.filter(tab => !tab.closed).map(({ url, active, closed }) => ({ url, active, closed })), [{ url: SINGLE_VISIT_URL, active: false, closed: false }]);
-    assert.deepEqual(h.logs().slice(-7), [
+    assert.deepEqual(h.logs().slice(-13), [
         '[info] ',
         '[info] 📊 상태 업데이트 중...',
         '[success] ✅ 상태 업데이트 완료!',
         '[info] ',
         '[success] 🎊 모든 작업이 완료되었습니다!',
         '[info] 🔒 열린 탭 4개 닫는 중...',
-        '[success] ✓ 모든 탭 닫힘'
+        '[success] ✓ 모든 탭 닫힘',
+        '[info] ',
+        '[info] ⏱ 단계별 소요 시간 · 총 0.0초',
+        '[info]   준비: 초기 스냅샷 0.0초 · 월간 출석 기록 0.0초 · 게시글 목록 0.0초',
+        '[info]   그룹: setup 0.0초 · community 0.0초 · visits 0.0초 · boost 0.0초 · missionClaims 0.0초 · flakeSpending 0.0초 · followups 0.0초 · reviewEvent 0.0초',
+        '[info]   백그라운드: comments 0.0초 · 종료 대기 0.0초',
+        '[info]   마무리: 1등 보상 0.0초 · 최종 스냅샷 0.0초 · 사전등록 0.0초 · 상태 업데이트 0.0초'
     ]);
     assert.deepEqual(JSON.parse(h.window.localStorage.getItem(MONTHLY_RECORD_KEY)), { date: '2026-10-16', counts: { 6001: 5 } });
+});
+
+test('runAutomation timing: group lines and the closing ⏱ block report elapsed wall time', async t => {
+    const h = useHarness(t);
+    // The harness runs delays instantly, so only these two routes move the clock: each lounge
+    // comment takes 11 s and each boost ranking query 2 s.
+    const world = useAutomationWorld(t, h, {
+        overrides: {
+            comment: (request, callIndex, next) => { mock.timers.tick(11000); return next(); },
+            boostRanking: (request, callIndex, next) => { mock.timers.tick(2000); return next(); }
+        }
+    });
+    await runAutomation();
+
+    const logs = h.logs();
+    // reviewEvent awaits the comments, so nothing is left to wait for after the last group.
+    assert.ok(logs.includes('[success] 백그라운드 작업 완료: community (1/1) · 대기 0.0초 (comments 55.0초)'));
+    const [total, prelude, groups, background, tail] = logs.slice(-5);
+    assert.equal(total, '[info] ⏱ 단계별 소요 시간 · 총 65.0초');
+    assert.equal(prelude, '[info]   준비: 초기 스냅샷 0.0초 · 월간 출석 기록 0.0초 · 게시글 목록 0.0초');
+    assert.equal(background, '[info]   백그라운드: comments 55.0초 · 종료 대기 0.0초');
+    assert.equal(tail, '[info]   마무리: 1등 보상 0.0초 · 최종 스냅샷 0.0초 · 사전등록 0.0초 · 상태 업데이트 0.0초');
+    // Which groups the comment chain overlaps depends on the harness's event-loop interleaving;
+    // the group times still add up to the run, and boost holds at least its own five queries.
+    const groupSeconds = Object.fromEntries([...groups.matchAll(/(\w+) (\d+\.\d)초/g)].map(([, id, sec]) => [id, Number(sec)]));
+    assert.deepEqual(Object.keys(groupSeconds),
+        ['setup', 'community', 'visits', 'boost', 'missionClaims', 'flakeSpending', 'followups', 'reviewEvent']);
+    assert.equal(Object.values(groupSeconds).reduce((sum, sec) => sum + sec, 0), 65);
+    assert.ok(groupSeconds.boost >= 10, groups);
+    assert.match(logs.find(line => line.includes('그룹 완료: boost')), /^\[success\] 그룹 완료: boost \(1\/1\) · \d+\.\d초$/);
+    // Timing only reads the clock: the run itself is the ordinary fresh day.
+    assert.deepEqual(h.titles, [RUNNING_TITLE, DONE_TITLE]);
+    assert.equal(world.audit.comments.length, 5);
+    assertNoRewardClaimedTwice(world);
 });
 
 test('runAutomation same-day re-run: no FLAKE spent, nothing claimed twice, only comments are written again', async t => {
@@ -617,7 +668,7 @@ test('runAutomation partial failure: repair pass, "확인 필요" warning and er
     assert.deepEqual(h.titles, [RUNNING_TITLE, `[SG_ERROR] ${issues} | STOVE`]);
     assert.equal(h.sounds.length, 0);
     assert.equal(h.document.getElementById('stove-progress-text').textContent, '확인 필요');
-    const logs = h.logs();
+    const logs = h.logs().map(withoutElapsed);
     for (const line of [
         `[warning] 전체 자동화 종료 · 확인 필요: ${issues}`,
         `[warning] 일부 작업이 실패했거나 확인이 필요합니다: ${issues}`,
@@ -737,7 +788,7 @@ test('runAutomation without Web Locks: boost and review event abort, run ends wi
 
     const issues = '작업 실패 2개, 오늘의 1등 보상 확인 필요';
     assert.deepEqual(h.titles, [RUNNING_TITLE, `[SG_ERROR] ${issues} | STOVE`]);
-    const logs = h.logs();
+    const logs = h.logs().map(withoutElapsed);
     for (const line of [
         '[warning] 그룹 완료: boost (0/1)',
         '[warning] 그룹 완료: reviewEvent (0/1)',
@@ -777,7 +828,7 @@ test('runAutomation: roulette disabled still schedules the draw task, which only
     assert.equal(h.requests.filter(isDraw).length, 0);
     assert.equal(world.audit.draws, 0);
     assert.ok(h.logs().includes('[warning] ⚠️ 룰렛 기능이 비활성화되어 있습니다'));
-    assert.ok(h.logs().includes('[success] 그룹 완료: flakeSpending (3/3)'), 'draw, EXTRA and prize tasks are all planned');
+    assert.ok(h.logs().map(withoutElapsed).includes('[success] 그룹 완료: flakeSpending (3/3)'), 'draw, EXTRA and prize tasks are all planned');
     assert.equal(state.completed.roulette, true);
     assert.equal(state.earnings.roulette, 0);
 });

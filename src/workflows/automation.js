@@ -12,6 +12,7 @@ import { updateProgress, setButtonState } from '../ui/progress.js';
 import { captureAutomationSnapshot, compareSnapshots, getSnapshotSummary } from './snapshot.js';
 import { buildAutomationPlan, buildRepairPlan } from './automationPlan.js';
 import { runTaskGroups, flattenTaskResults, waitForBackgroundTasks } from './taskRunner.js';
+import { createRunTiming, formatSeconds } from './runTiming.js';
 import { postCommentsSerially } from './comments.js';
 import { executeBoostMission, claimBoostMissionReward } from './boost.js';
 import { executeReviewEvent } from './reviewEvent.js';
@@ -337,6 +338,7 @@ export async function runAutomation() {
     setAutomationSignal(AUTOMATION_SIGNAL.running, '전체 자동화 실행 중');
     setButtonState(true);
     resetRunProgress();
+    const timing = createRunTiming();
     const allTabs = [];
 
     const progressSection = document.querySelector('.stove-progress-section');
@@ -361,15 +363,21 @@ export async function runAutomation() {
 
         log('', 'info');
         log('\uCD08\uAE30 \uC2A4\uB0C5\uC0F7 \uC218\uC9D1 \uC911...', 'info');
+        const endBeforeSnapshot = timing.start('준비', '초기 스냅샷');
         const beforeSnapshot = await captureAutomationSnapshot(headers);
+        endBeforeSnapshot();
         logSnapshotSummary('\uCD08\uAE30 \uC2A4\uB0C5\uC0F7', beforeSnapshot);
+        const endMonthlyContext = timing.start('준비', '월간 출석 기록');
         const monthlyAttendanceContext = await loadMonthlyAttendanceContext(headers);
+        endMonthlyContext();
         const compareWithAttendanceRecord = snapshot => applyMonthlyAttendanceRecord(
             compareSnapshots(beforeSnapshot, snapshot, plan), snapshot, monthlyAttendanceContext);
 
         log('', 'info');
         log('\uAC8C\uC2DC\uAE00 \uBAA9\uB85D \uAC00\uC838\uC624\uB294 \uC911...', 'info');
+        const endArticles = timing.start('준비', '게시글 목록');
         const articles = await getArticleList(headers, 30);
+        endArticles();
         log(`\uAC8C\uC2DC\uAE00 ${articles.length}\uAC1C \uBC1C\uACAC`, 'success');
 
         if (articles.length === 0) {
@@ -380,27 +388,41 @@ export async function runAutomation() {
 
         const plan = buildAutomationPlan(beforeSnapshot);
         const handlers = createAutomationTaskHandlers({ headers, articles, allTabs });
-        const executablePlan = bindTaskHandlers(plan, handlers);
+        const executablePlan = timing.timeTasks(bindTaskHandlers(plan, handlers));
 
         log('', 'info');
         log(`\uC790\uB3D9\uD654 \uADF8\uB8F9 ${executablePlan.groups.length}\uAC1C \uC2E4\uD589`, 'info');
         const groupResults = await runTaskGroups(executablePlan.groups, {
-            onGroupStart: (group) => log(`\uADF8\uB8F9 \uC2DC\uC791: ${group.id}`, 'info'),
+            onGroupStart: (group) => {
+                timing.startGroup(group.id);
+                log(`\uADF8\uB8F9 \uC2DC\uC791: ${group.id}`, 'info');
+            },
             onGroupDone: (group, results) => {
                 const rejectedCount = results.filter(isFailedTask).length;
                 const backgroundCount = results.filter(result => result.status === 'background').length;
                 const foregroundCount = results.length - backgroundCount;
                 const suffix = backgroundCount > 0 ? `, \uBC31\uADF8\uB77C\uC6B4\uB4DC ${backgroundCount}\uAC1C` : '';
-                log(`\uADF8\uB8F9 \uC644\uB8CC: ${group.id} (${foregroundCount - rejectedCount}/${foregroundCount}${suffix})`, rejectedCount > 0 ? 'warning' : 'success');
+                const elapsed = timing.groupSuffix(timing.endGroup('그룹', group.id), results);
+                log(`\uADF8\uB8F9 \uC644\uB8CC: ${group.id} (${foregroundCount - rejectedCount}/${foregroundCount}${suffix})${elapsed}`, rejectedCount > 0 ? 'warning' : 'success');
             }
         });
         logFailedTasks(groupResults);
 
         const backgroundResults = await waitForBackgroundTasks(groupResults, {
-            onGroupStart: (groupResult, results) => log(`\uBC31\uADF8\uB77C\uC6B4\uB4DC \uC791\uC5C5 \uB300\uAE30: ${groupResult.groupId} (${results.length}\uAC1C)`, 'info'),
+            onGroupStart: (groupResult, results) => {
+                timing.startGroup(`background:${groupResult.groupId}`);
+                log(`\uBC31\uADF8\uB77C\uC6B4\uB4DC \uC791\uC5C5 \uB300\uAE30: ${groupResult.groupId} (${results.length}\uAC1C)`, 'info');
+            },
             onGroupDone: (groupResult, results) => {
                 const rejectedCount = results.filter(isFailedTask).length;
-                log(`\uBC31\uADF8\uB77C\uC6B4\uB4DC \uC791\uC5C5 \uC644\uB8CC: ${groupResult.groupId} (${results.length - rejectedCount}/${results.length})`, rejectedCount > 0 ? 'warning' : 'success');
+                // Waiting starts after the foreground groups; each task's own time starts at its launch.
+                const waitedMs = timing.endGroup(null, `background:${groupResult.groupId}`);
+                const timedTasks = results.filter(result => timing.taskMs(result.id) !== undefined);
+                for (const result of timedTasks) timing.record('백그라운드', result.id, timing.taskMs(result.id));
+                timing.record('백그라운드', '종료 대기', waitedMs);
+                const taskTimes = timedTasks.map(result => `${result.id.split(':').pop()} ${formatSeconds(timing.taskMs(result.id))}`);
+                const detail = taskTimes.length > 0 ? ` (${taskTimes.join(' · ')})` : '';
+                log(`\uBC31\uADF8\uB77C\uC6B4\uB4DC \uC791\uC5C5 \uC644\uB8CC: ${groupResult.groupId} (${results.length - rejectedCount}/${results.length}) · 대기 ${formatSeconds(waitedMs)}${detail}`, rejectedCount > 0 ? 'warning' : 'success');
             }
         });
         logFailedTasks(backgroundResults);
@@ -409,19 +431,24 @@ export async function runAutomation() {
         // Comments run in the background; reward eligibility must be read after they finish.
         let boostRewardResult;
         if (beforeSnapshot.boost?.success && !beforeSnapshot.boost.notAvailable) {
+            const endBoostReward = timing.start('마무리', '1등 보상');
             boostRewardResult = await claimBoostMissionReward(headers);
+            endBoostReward();
             if (!boostRewardResult.success) log('오늘의 1등 보상 상태를 확인하지 못했습니다. 대시보드를 확인해 주세요', 'warning');
         }
 
         log('', 'info');
         log('\uCD5C\uC885 \uC2A4\uB0C5\uC0F7 \uC218\uC9D1 \uC911...', 'info');
+        const endAfterSnapshot = timing.start('마무리', '최종 스냅샷');
         let afterSnapshot = await captureAutomationSnapshot(headers);
+        endAfterSnapshot();
         logSnapshotSummary('\uCD5C\uC885 \uC2A4\uB0C5\uC0F7', afterSnapshot);
         let diff = compareWithAttendanceRecord(afterSnapshot);
         logSnapshotDiff('\uC2A4\uB0C5\uC0F7 \uBE44\uAD50', diff);
         focusRewardShopAfterDiff(diff);
 
         if (hasSafeRepairableItems(diff)) {
+            const endRepair = timing.start('마무리', '복구');
             log('\uC548\uC804 \uBCF5\uAD6C \uB300\uC0C1 \uD655\uC778 \uC911...', 'warning');
             await delay(CONFIG.delays.betweenActions);
             afterSnapshot = await captureAutomationSnapshot(headers);
@@ -431,15 +458,19 @@ export async function runAutomation() {
 
             if (hasSafeRepairableItems(diff)) {
                 const repairPlan = buildRepairPlan(diff);
-                const executableRepairPlan = bindTaskHandlers(repairPlan, handlers);
+                const executableRepairPlan = timing.timeTasks(bindTaskHandlers(repairPlan, handlers));
 
                 if (executableRepairPlan.groups.length > 0) {
                     log(`\uBCF5\uAD6C \uADF8\uB8F9 ${executableRepairPlan.groups.length}\uAC1C \uC2E4\uD589`, 'warning');
                     const repairResults = await runTaskGroups(executableRepairPlan.groups, {
-                        onGroupStart: (group) => log(`\uBCF5\uAD6C \uC2DC\uC791: ${group.id}`, 'info'),
+                        onGroupStart: (group) => {
+                            timing.startGroup(`repair:${group.id}`);
+                            log(`\uBCF5\uAD6C \uC2DC\uC791: ${group.id}`, 'info');
+                        },
                         onGroupDone: (group, results) => {
                             const rejectedCount = results.filter(isFailedTask).length;
-                            log(`\uBCF5\uAD6C \uC644\uB8CC: ${group.id} (${results.length - rejectedCount}/${results.length})`, rejectedCount > 0 ? 'warning' : 'success');
+                            const elapsed = timing.groupSuffix(timing.endGroup(null, `repair:${group.id}`), results);
+                            log(`\uBCF5\uAD6C \uC644\uB8CC: ${group.id} (${results.length - rejectedCount}/${results.length})${elapsed}`, rejectedCount > 0 ? 'warning' : 'success');
                         }
                     });
                     logFailedTasks(repairResults);
@@ -452,18 +483,23 @@ export async function runAutomation() {
                     focusRewardShopAfterDiff(diff);
                 }
             }
+            endRepair();
         }
 
         if (rewardShopFocusedForMonthlyAttendance && hasMonthlyAttendanceVerificationIssue(diff)) {
+            const endRecheck = timing.start('마무리', '월간 출석 재확인');
             ({ afterSnapshot, diff } = await recheckMonthlyAttendance({
                 afterSnapshot, diff,
                 capture: () => captureAutomationSnapshot(headers),
                 compare: compareWithAttendanceRecord
             }));
+            endRecheck();
         }
         saveMonthlyAttendanceRecord(monthlyAttendanceContext, beforeSnapshot, afterSnapshot, diff);
 
+        const endPreRegistration = timing.start('마무리', '사전등록');
         const preRegistrationResult = await runPreRegistrations(headers);
+        endPreRegistration();
         const outcome = getAutomationOutcome({ snapshot: afterSnapshot, diff, plan,
             groupResults: allGroupResults, boostRewardResult, preRegistrationResult });
         const dailyAccumulatedFlake = state.earnings.dailyAccumulated || 0;
@@ -543,7 +579,9 @@ export async function runAutomation() {
 
         log('', 'info');
         log('📊 상태 업데이트 중...', 'info');
+        const endStatusUpdate = timing.start('마무리', '상태 업데이트');
         await checkAllStatus();
+        endStatusUpdate();
         log('✅ 상태 업데이트 완료!', 'success');
 
         log('', 'info');
@@ -567,6 +605,8 @@ export async function runAutomation() {
             closeTab(allTabs);
             log('✓ 모든 탭 닫힘', 'success');
         }
+        log('', 'info');
+        for (const line of timing.summaryLines()) log(line, 'info');
         state.isRunning = false;
         setButtonState(false);
     }
