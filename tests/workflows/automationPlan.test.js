@@ -50,9 +50,9 @@ test('review event is included once in full automation only when actionable and 
 });
 
 test('boost schedules a single serial task only for a known 0/1 mission with remaining charges', t => {
-    // Mission-only behavior, as with dailyBoost off.
-    CONFIG.boostMission.dailyBoost = false;
-    t.after(() => { CONFIG.boostMission.dailyBoost = true; });
+    // Mission-only behavior, as with daily boosts off.
+    CONFIG.boostMission.dailyBoosts = 0;
+    t.after(() => { CONFIG.boostMission.dailyBoosts = 5; });
     const boost = { success: true, remainingCount: 5, mission: { current: 0, required: 1, rewarded: false } };
     const plan = buildAutomationPlan(baseSnapshot({ boost }));
     assert.equal(findTask(plan, 'boostMission').consumesBoost, true);
@@ -67,19 +67,21 @@ test('boost schedules a single serial task only for a known 0/1 mission with rem
         'automatic repair must never repeat an uncertain boost');
 });
 
-test('daily boost schedules one boost a day even when the mission is finished or absent', () => {
-    assert.equal(CONFIG.boostMission.dailyBoost, true);
+test('daily boosts are scheduled until five are done today, even when the mission is finished or absent', () => {
+    assert.equal(CONFIG.boostMission.dailyBoosts, 5);
+    const done = count => Array.from({ length: count }, (_, index) => ({ status: 'confirmed', articleId: String(21 + index) }));
     const finished = { success: true, remainingCount: 5, mission: { current: 1, required: 1, rewarded: true, completed: true } };
     for (const section of [
         finished,
         { success: true, notAvailable: true, remainingCount: 5 },
+        { ...finished, dailyBoosts: done(4) },
         // A pending attempt is scheduled to be re-checked even without charges; it never boosts again.
-        { ...finished, remainingCount: 0, daily: { status: 'pending', articleId: '12' } }
+        { ...finished, remainingCount: 0, dailyBoosts: [{ status: 'pending', articleId: '12' }] }
     ]) {
         assert.ok(findTask(buildAutomationPlan(baseSnapshot({ boost: section })), 'boostMission'), JSON.stringify(section));
     }
     for (const section of [
-        { ...finished, daily: { status: 'confirmed', articleId: '12' } },
+        { ...finished, dailyBoosts: done(5) },
         { ...finished, remainingCount: 0 },
         { ...finished, success: false },
         { ...finished, unknown: true },

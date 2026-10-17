@@ -688,21 +688,23 @@ test("runAutomation everything already done: comments and today's popular-post b
     assert.deepEqual(h.logs().filter(line => line.startsWith('[error]') || line.startsWith('[warning]')), []);
 
     // No same-day record exists in this browser yet, so today's five comments are posted. The boost
-    // mission is already rewarded, but the daily popular-post boost still runs once (hottest: 81012).
+    // mission is already rewarded, but the daily popular-post boosts still run: up to five a day, one
+    // per post, and the world ranks three posts (hottest first: 81012, 81011, 81013).
     // The boost and the background comments interleave, so the writes are compared as a set.
     assert.deepEqual(h.requests.filter(isWrite).map(describe).sort(), [
         ...world.articles.slice(0, 5).map(article =>
             `POST /postie/v1.0/article/${article.article_id}/comment {"article_id":${article.article_id},"content":"<p>잘봤어요</p>","attached":{"media_ids":[]}}`),
-        'PUT /stadium-api/v1.0/boost/81012'
+        'PUT /stadium-api/v1.0/boost/81011', 'PUT /stadium-api/v1.0/boost/81012', 'PUT /stadium-api/v1.0/boost/81013'
     ].sort());
-    assert.deepEqual(world.audit.boosts, ['81012']);
+    assert.deepEqual(world.audit.boosts, ['81012', '81011', '81013']);
     assert.equal(world.audit.boostRewards, 0, 'the rewarded mission is not claimed again');
     assertFlakeSpendingWithinLimits(h, world, 30);
     assert.equal(h.requests.filter(isDraw).length + h.requests.filter(isPrizeApply).length, 0);
     assertNoRewardClaimedTwice(world);
     assertSummaryMatchesState(h);
     assert.ok(h.logs().includes('[info] 자동화 그룹 6개 실행'), 'setup, community, visits, boost, missionClaims, followups');
-    assert.ok(h.logs().includes('[info] 오늘의 인기글 부스트 (하루 1회)'));
+    assert.ok(h.logs().includes('[info] 오늘의 인기글 부스트: 오늘 0/5회, 이번에 최대 5회'));
+    assert.ok(h.logs().includes('[success] 부스트 3회 실행을 확인했습니다 (오늘 3/5)'));
     assert.deepEqual(h.tabs.map(({ url, active, closed }) => ({ url, active, closed })), [
         { url: 'https://reward.onstove.com/ko', active: false, closed: true },
         { url: 'https://store.onstove.com/', active: false, closed: true }

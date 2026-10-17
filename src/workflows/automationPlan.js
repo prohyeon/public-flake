@@ -1,4 +1,5 @@
 import { CONFIG } from '../config.js';
+import { dailyBoostLimit } from './boost.js';
 
 function task(id, kind, meta = {}) {
     return { id, kind, ...meta };
@@ -66,16 +67,17 @@ function getPrizeEntryMission(snapshot) {
         .find(isConfiguredPrizeMission);
 }
 
-// One boost a day: for the 0/1 mission, or (dailyBoost) for today's popular post even when the
-// mission is finished or absent. A pending attempt is scheduled only to be re-checked.
+// Boosts until today's limit (dailyBoosts) is used, even when the mission is finished or absent, and
+// always once for a 0/1 mission. A pending attempt is scheduled only to be re-checked.
 function shouldScheduleBoost(boost) {
     if (!CONFIG.boostMission.enabled || !isSectionKnown(boost)) return false;
-    if (boost.daily?.status === 'pending') return true;
+    const today = boost.dailyBoosts || [];
+    if (today.some(attempt => attempt.status === 'pending')) return true;
     if (!(boost.remainingCount > 0)) return false;
     const mission = boost.notAvailable ? null : boost.mission;
     const missionNeedsBoost = Boolean(mission) && mission.rewarded === false && mission.completed !== true &&
         mission.current === 0 && mission.required === 1;
-    return missionNeedsBoost || (CONFIG.boostMission.dailyBoost === true && !boost.daily);
+    return missionNeedsBoost || today.length < dailyBoostLimit();
 }
 
 function shouldSchedulePrizeEntry(snapshot) {

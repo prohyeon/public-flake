@@ -48,8 +48,10 @@ export const CONFIG = {
     },
     boostMission: {
         enabled: true,
-        // 미션이 없거나 이미 끝나도 하루(KST) 한 번 실시간 인기글에 부스트한다. false면 0/1 미션일 때만.
-        dailyBoost: true,
+        // 미션이 없거나 이미 끝나도 하루(KST) 이 횟수까지 실시간 인기글에 부스트한다(잔여 횟수 안에서,
+        // 글마다 1번). 0이면 오늘의 1등 미션이 0/1일 때만 1번 부스트한다.
+        dailyBoosts: 5,
+        boostDelay: 1000,
         rankingQueries: 5,
         queryDelay: 2000,
         maxRankingAge: 10 * 60 * 1000,

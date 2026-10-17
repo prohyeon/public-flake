@@ -1,7 +1,11 @@
+import { CONFIG } from '../config.js';
+
 function dailySuffix(status) {
-    if (status.daily?.status === 'confirmed') return ' · 오늘 부스트 완료';
-    if (status.daily?.status === 'pending') return ' · 오늘 부스트 확인 대기';
-    return '';
+    const today = status.dailyBoosts || [];
+    if (today.length === 0) return '';
+    const confirmed = today.filter(attempt => attempt.status === 'confirmed').length;
+    const pending = today.length > confirmed ? ' · 확인 대기' : '';
+    return ` · 오늘 부스트 ${confirmed}/${CONFIG.boostMission.dailyBoosts}${pending}`;
 }
 
 function renderSelectedArticle(selected, status) {
@@ -17,6 +21,8 @@ function renderSelectedArticle(selected, status) {
     link.style.color = '#93c5fd';
     link.textContent = `${article.title || article.articleId} · ${article.score}℃`;
     selected.appendChild(link);
+    const others = (status.dailyBoosts?.length || 0) - 1;
+    if (others > 0) selected.append(` 외 ${others}개`);
     selected.title = status.verificationPending ? '실행 결과 반영 확인 대기' : '오늘 자동화에서 선택한 글과 선택 당시 온도';
 }
 

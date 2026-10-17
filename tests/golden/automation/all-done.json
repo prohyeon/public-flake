@@ -1305,6 +1305,91 @@
     },
     {
       "method": "GET",
+      "url": "https://api.onstove.com/postie/v1.0/user/me?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "indie-web-my",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "x-device-type": "P01",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Origin": "https://profile.onstove.com",
+        "Referer": "https://profile.onstove.com/",
+        "caller-detail": "test-uuid"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/postie/v1.0/user/me?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "indie-web-my",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "x-device-type": "P01",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Origin": "https://profile.onstove.com",
+        "Referer": "https://profile.onstove.com/",
+        "caller-detail": "test-uuid"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/postie/v1.0/user/me?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "indie-web-my",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "x-device-type": "P01",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Origin": "https://profile.onstove.com",
+        "Referer": "https://profile.onstove.com/",
+        "caller-detail": "test-uuid"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/postie/v1.0/user/me?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "indie-web-my",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "x-device-type": "P01",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Origin": "https://profile.onstove.com",
+        "Referer": "https://profile.onstove.com/",
+        "caller-detail": "test-uuid"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/stadium-api/v1.0/article/81011/interaction/BOOST?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "lounge",
+        "X-UUID": "test-uuid",
+        "x-device-type": "P01",
+        "x-lang": "KO",
+        "x-nation": "KR",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://lounge.onstove.com",
+        "Referer": "https://lounge.onstove.com/"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "GET",
       "url": "https://api.onstove.com/stadium-api/v1.0/article/81012,81011,81013/interaction/BOOST?timestemp=1792112400000",
       "headers": {
         "Authorization": "Bearer test-suat",
@@ -1339,7 +1424,7 @@
     },
     {
       "method": "GET",
-      "url": "https://api.onstove.com/stadium-api/v1.0/boost/balance?timestemp=1792112400000",
+      "url": "https://api.onstove.com/stadium-api/v1.0/article/81013/interaction/BOOST?timestemp=1792112400000",
       "headers": {
         "Authorization": "Bearer test-suat",
         "caller-id": "lounge",
@@ -1493,6 +1578,159 @@
     {
       "method": "GET",
       "url": "https://api.onstove.com/stadium-api/v1.0/boost/balance?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "lounge",
+        "X-UUID": "test-uuid",
+        "x-device-type": "P01",
+        "x-lang": "KO",
+        "x-nation": "KR",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://lounge.onstove.com",
+        "Referer": "https://lounge.onstove.com/"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/stadium-api/v1.0/boost/balance?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "lounge",
+        "X-UUID": "test-uuid",
+        "x-device-type": "P01",
+        "x-lang": "KO",
+        "x-nation": "KR",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://lounge.onstove.com",
+        "Referer": "https://lounge.onstove.com/"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/stadium-api/v1.0/boost/balance?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "lounge",
+        "X-UUID": "test-uuid",
+        "x-device-type": "P01",
+        "x-lang": "KO",
+        "x-nation": "KR",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://lounge.onstove.com",
+        "Referer": "https://lounge.onstove.com/"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/stadium-api/v1.0/boost/balance?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "lounge",
+        "X-UUID": "test-uuid",
+        "x-device-type": "P01",
+        "x-lang": "KO",
+        "x-nation": "KR",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://lounge.onstove.com",
+        "Referer": "https://lounge.onstove.com/"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/stadium-api/v1.0/boost/balance?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "lounge",
+        "X-UUID": "test-uuid",
+        "x-device-type": "P01",
+        "x-lang": "KO",
+        "x-nation": "KR",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://lounge.onstove.com",
+        "Referer": "https://lounge.onstove.com/"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/stadium-api/v1.0/boost/balance?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "lounge",
+        "X-UUID": "test-uuid",
+        "x-device-type": "P01",
+        "x-lang": "KO",
+        "x-nation": "KR",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://lounge.onstove.com",
+        "Referer": "https://lounge.onstove.com/"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/stadium-api/v1.0/missions?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "lounge",
+        "X-UUID": "test-uuid",
+        "x-device-type": "P01",
+        "x-lang": "KO",
+        "x-nation": "KR",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://lounge.onstove.com",
+        "Referer": "https://lounge.onstove.com/"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/stadium-api/v1.0/missions?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "lounge",
+        "X-UUID": "test-uuid",
+        "x-device-type": "P01",
+        "x-lang": "KO",
+        "x-nation": "KR",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://lounge.onstove.com",
+        "Referer": "https://lounge.onstove.com/"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/stadium-api/v1.0/missions?timestemp=1792112400000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "lounge",
+        "X-UUID": "test-uuid",
+        "x-device-type": "P01",
+        "x-lang": "KO",
+        "x-nation": "KR",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://lounge.onstove.com",
+        "Referer": "https://lounge.onstove.com/"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/stadium-api/v1.0/missions?timestemp=1792112400000",
       "headers": {
         "Authorization": "Bearer test-suat",
         "caller-id": "lounge",
@@ -1896,7 +2134,41 @@
     },
     {
       "method": "PUT",
+      "url": "https://api.onstove.com/stadium-api/v1.0/boost/81011",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "lounge",
+        "X-UUID": "test-uuid",
+        "x-device-type": "P01",
+        "x-lang": "KO",
+        "x-nation": "KR",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://lounge.onstove.com",
+        "Referer": "https://lounge.onstove.com/"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "PUT",
       "url": "https://api.onstove.com/stadium-api/v1.0/boost/81012",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "lounge",
+        "X-UUID": "test-uuid",
+        "x-device-type": "P01",
+        "x-lang": "KO",
+        "x-nation": "KR",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://lounge.onstove.com",
+        "Referer": "https://lounge.onstove.com/"
+      },
+      "body": null,
+      "timeout": 10000
+    },
+    {
+      "method": "PUT",
+      "url": "https://api.onstove.com/stadium-api/v1.0/boost/81013",
       "headers": {
         "Authorization": "Bearer test-suat",
         "caller-id": "lounge",
@@ -1937,6 +2209,8 @@
     }
   ],
   "delays": [
+    1000,
+    1000,
     2000,
     2000,
     2000,
@@ -1998,7 +2272,9 @@
     "[info] 그룹 시작: visits",
     "[info] 마작 리워드 확인 중...",
     "[info] 백그라운드 작업 대기: community (1개)",
+    "[info] 부스트 대상: 후보 81011 (443℃)",
     "[info] 부스트 대상: 후보 81012 (966℃)",
+    "[info] 부스트 대상: 후보 81013 (354℃)",
     "[info] 수령 가능한 누적 보상이 없습니다",
     "[info] 수령 가능한 마작 누적 보상이 없습니다",
     "[info] 실시간 후보 조회 1/5",
@@ -2009,7 +2285,7 @@
     "[info] 오늘 날짜: 2026-10-16",
     "[info] 오늘 수령 가능한 마작 일일 리워드가 없습니다",
     "[info] 오늘 이미 완료되어 건너뜀: contentMissions, bannerMissions, surveyMissions",
-    "[info] 오늘의 인기글 부스트 (하루 1회)",
+    "[info] 오늘의 인기글 부스트: 오늘 0/5회, 이번에 최대 5회",
     "[info] 자동화 그룹 6개 실행",
     "[info] 초기 스냅샷 수집 중...",
     "[info] 초기 스냅샷: 글작성 완료, 룰렛 0회, 미션 완료 8/수령가능 0/미완료 3",
@@ -2058,7 +2334,7 @@
     "[success] 댓글 작성 완료: 880004",
     "[success] 댓글 작성 완료: 880005",
     "[success] 백그라운드 작업 완료: community (1/1) · 대기 0.0초 (comments 0.0초)",
-    "[success] 부스트 1회 실행을 확인했습니다",
+    "[success] 부스트 3회 실행을 확인했습니다 (오늘 3/5)",
     "[success] 스냅샷 비교: 글 확인, 미션 0개, 데일리 0개, 마작 0개, EXTRA 0개, 월간출석 +1 0/1 (오늘 이미 반영 1개)",
     "[success] 🎉 전체 자동화 완료!",
     "[success] 🎊 모든 작업이 완료되었습니다!",
@@ -2071,7 +2347,7 @@
   "sounds": 1,
   "alerts": [],
   "localStorage": {
-    "stove-boost-daily-v1:100": "{\"date\":\"2026-10-16\",\"status\":\"confirmed\",\"articleId\":\"81012\",\"title\":\"후보 81012\",\"score\":966,\"attemptedAt\":1792112400000,\"generatedAt\":1792112370000}",
+    "stove-boost-daily-v1:100": "{\"date\":\"2026-10-16\",\"boosts\":[{\"status\":\"confirmed\",\"articleId\":\"81012\",\"title\":\"후보 81012\",\"score\":966,\"attemptedAt\":1792112400000,\"generatedAt\":1792112370000},{\"status\":\"confirmed\",\"articleId\":\"81011\",\"title\":\"후보 81011\",\"score\":443,\"attemptedAt\":1792112400000,\"generatedAt\":1792112370000},{\"status\":\"confirmed\",\"articleId\":\"81013\",\"title\":\"후보 81013\",\"score\":354,\"attemptedAt\":1792112400000,\"generatedAt\":1792112370000}]}",
     "stove-community-quota-v1:100": "{\"date\":\"2026-10-16\",\"likes\":0,\"comments\":5}",
     "stove-monthly-attendance-v1:100": "{\"date\":\"2026-10-16\",\"counts\":{\"6001\":5}}"
   },

@@ -35,6 +35,7 @@ test('distributed dashboard only reads status; full automation queries five time
     let putBeforeCommentsFinish = false;
     let remaining = 5;
     let boostWrites = 0;
+    const boostedIds = new Set();
     let rewardWrites = 0;
     const timers = [];
     const nativeSetTimeout = window.setTimeout.bind(window);
@@ -84,10 +85,11 @@ test('distributed dashboard only reads status; full automation queries five time
         else if (path.endsWith('/recommend/articles/realtime-ranking')) value = { articles, generated_at: now };
         else if (path.startsWith('/stadium-api/') && path.endsWith('/interaction/BOOST')) {
             const ids = path.split('/')[4].split(',');
-            value = Object.fromEntries(ids.map(id => [id, { BOOST: id === '12' && boostWrites > 0 }]));
-        } else if (path === '/stadium-api/v1.0/boost/12' && config.method === 'PUT') {
+            value = Object.fromEntries(ids.map(id => [id, { BOOST: boostedIds.has(id) }]));
+        } else if (/^\/stadium-api\/v1\.0\/boost\/\d+$/.test(path) && config.method === 'PUT') {
             boostWrites++;
-            putBeforeCommentsFinish = comments < 5;
+            boostedIds.add(path.split('/').pop());
+            putBeforeCommentsFinish ||= comments < 5;
             remaining--;
             mission.details[0].current_count = 1;
             mission.is_completed = mission.details.every(detail => detail.current_count >= detail.required_count);
@@ -168,13 +170,15 @@ test('distributed dashboard only reads status; full automation queries five time
     await waitUntil(() => document.documentElement.dataset.stoveAutomationStatus === 'done' || /^\[SG_DONE\]/.test(document.title));
     assert.equal(calls.filter(call => call.path.endsWith('/realtime-ranking')).length, 5);
     assert.equal(putBeforeCommentsFinish, true, 'boost and slower comments overlap');
-    assert.equal(boostWrites, 1);
+    // Up to five boosts a day: the three ranked posts are each boosted once, hottest first.
+    assert.equal(boostWrites, 3);
+    assert.deepEqual([...boostedIds], ['12', '11', '13']);
     assert.equal(rewardWrites, 1);
     assert.equal(reviewWrites, 1);
     assert.equal(reviewVisits.length, 1);
     assert.match(document.getElementById('stove-status-review-event').textContent, /댓글 등록 완료/);
     assert.match(document.getElementById('stove-status-review-event').title, /지급 여부는 별도 확인/);
-    assert.match(document.getElementById('stove-status-boost').textContent, /1\/1.*잔여 4회/);
+    assert.equal(document.getElementById('stove-status-boost').textContent, '1/1 · 잔여 2회 · 오늘 부스트 3/5');
     assert.match(document.getElementById('stove-status-boost-reward').textContent, /3,000 F 수령 완료/);
     assert.match(document.getElementById('stove-log-content').textContent, /오늘의 1등 미션: 3000 FLAKE/);
     // Re-running full automation must not repeat the review comment or the already claimed boost reward.
@@ -182,7 +186,7 @@ test('distributed dashboard only reads status; full automation queries five time
     await waitUntil(() => document.documentElement.dataset.stoveAutomationStatus === 'done' || /^\[SG_DONE\]/.test(document.title));
     assert.equal(reviewWrites, 1);
     assert.equal(reviewVisits.length, 1);
-    assert.equal(boostWrites, 1);
+    assert.equal(boostWrites, 3, 'every ranked post is already boosted, so the re-run boosts nothing');
     assert.equal(rewardWrites, 1);
     assert.equal(comments, 5, "today's lounge comments are on the local record, so the re-run posts none");
     // 사전등록 캠페인 월(202610)에만 요청되며, 재실행은 '이미 참여'로 끝나 찜하기를 반복하지 않는다.
