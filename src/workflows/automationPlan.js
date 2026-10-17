@@ -66,6 +66,18 @@ function getPrizeEntryMission(snapshot) {
         .find(isConfiguredPrizeMission);
 }
 
+// One boost a day: for the 0/1 mission, or (dailyBoost) for today's popular post even when the
+// mission is finished or absent. A pending attempt is scheduled only to be re-checked.
+function shouldScheduleBoost(boost) {
+    if (!CONFIG.boostMission.enabled || !isSectionKnown(boost)) return false;
+    if (boost.daily?.status === 'pending') return true;
+    if (!(boost.remainingCount > 0)) return false;
+    const mission = boost.notAvailable ? null : boost.mission;
+    const missionNeedsBoost = Boolean(mission) && mission.rewarded === false && mission.completed !== true &&
+        mission.current === 0 && mission.required === 1;
+    return missionNeedsBoost || (CONFIG.boostMission.dailyBoost === true && !boost.daily);
+}
+
 function shouldSchedulePrizeEntry(snapshot) {
     if (!CONFIG.prizeEntry?.enabled || !isSectionKnown(snapshot?.missions)) return false;
 
@@ -116,11 +128,7 @@ export function buildAutomationPlan(snapshot = {}, options = {}) {
             missionTask('visits:bannerMissions', 'bannerMissions')
         ]),
         group('boost', 1, [
-            CONFIG.boostMission.enabled && isSectionKnown(snapshot.boost) &&
-            !snapshot.boost.notAvailable && snapshot.boost.mission?.rewarded === false &&
-            snapshot.boost.mission.completed !== true &&
-            snapshot.boost.mission.current === 0 && snapshot.boost.mission.required === 1 &&
-            snapshot.boost.remainingCount > 0
+            shouldScheduleBoost(snapshot.boost)
                 ? task('boost:boostMission', 'boostMission', { consumesBoost: true })
                 : null
         ]),

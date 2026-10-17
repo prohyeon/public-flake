@@ -23,7 +23,8 @@ export function boostFixture() {
     let remaining = 5;
     const deps = {
         now: () => BOOST_NOW,
-        storage: { getItem: key => records.get(key) ?? null, setItem: (key, value) => records.set(key, value) },
+        storage: { getItem: key => records.get(key) ?? null, setItem: (key, value) => records.set(key, value),
+            removeItem: key => records.delete(key) },
         withLock: async (key, work) => {
             if (locked) return { success: false, reason: 'alreadyRunning' };
             locked = true;

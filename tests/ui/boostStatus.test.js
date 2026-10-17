@@ -21,7 +21,7 @@ test('dashboard renders server progress, reward conditions, selected link and pe
     f.rankings[0].articles[1].title = '<img src=x onerror=alert(1)>';
     await executeBoostMission({}, f.deps);
     updateStatusUI({ boost: await checkBoostStatus({}, f.deps) });
-    assert.match(get('').textContent, /1\/1.*잔여 4회/);
+    assert.match(get('').textContent, /1\/1.*잔여 4회 · 오늘 부스트 완료$/);
     assert.match(get('-reward').textContent, /3,000 F 수령 가능/);
     assert.equal(get('-target').querySelector('a').href, 'https://lounge.onstove.com/view/12');
     assert.equal(get('-target').querySelector('img'), null);
@@ -40,4 +40,13 @@ test('dashboard renders server progress, reward conditions, selected link and pe
     assert.equal(get('-target').querySelector('a'), null, 'failed refresh removes stale target');
     updateStatusUI({ boost: { success: true, notAvailable: true, remainingCount: 5 } });
     assert.match(get('').textContent, /미션 없음/);
+    assert.equal(get('-target').textContent, '자동화 실행 후 표시');
+
+    // Without a mission the daily popular-post boost is still shown with its target.
+    const today = { date: '2026-10-01', status: 'pending', articleId: '12', title: '인기글', score: 966 };
+    updateStatusUI({ boost: { success: true, notAvailable: true, remainingCount: 4, daily: today,
+        selectedArticle: today, verificationPending: true } });
+    assert.equal(get('').textContent, '미션 없음 · 잔여 4회 · 오늘 부스트 확인 대기');
+    assert.equal(get('-target').querySelector('a').href, 'https://lounge.onstove.com/view/12');
+    assert.equal(get('-target').title, '실행 결과 반영 확인 대기');
 });

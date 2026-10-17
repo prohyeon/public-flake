@@ -49,7 +49,10 @@ test('review event is included once in full automation only when actionable and 
     assert.equal(findTask(buildRepairPlan({ reviewEventIncomplete: true }), 'reviewEvent'), undefined);
 });
 
-test('boost schedules a single serial task only for a known 0/1 mission with remaining charges', () => {
+test('boost schedules a single serial task only for a known 0/1 mission with remaining charges', t => {
+    // Mission-only behavior, as with dailyBoost off.
+    CONFIG.boostMission.dailyBoost = false;
+    t.after(() => { CONFIG.boostMission.dailyBoost = true; });
     const boost = { success: true, remainingCount: 5, mission: { current: 0, required: 1, rewarded: false } };
     const plan = buildAutomationPlan(baseSnapshot({ boost }));
     assert.equal(findTask(plan, 'boostMission').consumesBoost, true);
@@ -62,6 +65,28 @@ test('boost schedules a single serial task only for a known 0/1 mission with rem
     }
     assert.equal(findTask(buildRepairPlan({ boostIncomplete: true }), 'boostMission'), undefined,
         'automatic repair must never repeat an uncertain boost');
+});
+
+test('daily boost schedules one boost a day even when the mission is finished or absent', () => {
+    assert.equal(CONFIG.boostMission.dailyBoost, true);
+    const finished = { success: true, remainingCount: 5, mission: { current: 1, required: 1, rewarded: true, completed: true } };
+    for (const section of [
+        finished,
+        { success: true, notAvailable: true, remainingCount: 5 },
+        // A pending attempt is scheduled to be re-checked even without charges; it never boosts again.
+        { ...finished, remainingCount: 0, daily: { status: 'pending', articleId: '12' } }
+    ]) {
+        assert.ok(findTask(buildAutomationPlan(baseSnapshot({ boost: section })), 'boostMission'), JSON.stringify(section));
+    }
+    for (const section of [
+        { ...finished, daily: { status: 'confirmed', articleId: '12' } },
+        { ...finished, remainingCount: 0 },
+        { ...finished, success: false },
+        { ...finished, unknown: true },
+        undefined
+    ]) {
+        assert.equal(findTask(buildAutomationPlan(baseSnapshot({ boost: section })), 'boostMission'), undefined, JSON.stringify(section));
+    }
 });
 
 test('buildAutomationPlan separates safe parallel and serial flake-spending groups', () => {

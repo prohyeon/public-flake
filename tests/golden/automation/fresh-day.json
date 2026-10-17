@@ -3477,6 +3477,7 @@
   "sounds": 1,
   "alerts": [],
   "localStorage": {
+    "stove-boost-daily-v1:100": "{\"date\":\"2026-10-16\",\"status\":\"confirmed\",\"articleId\":\"81012\",\"title\":\"후보 81012\",\"score\":966,\"attemptedAt\":1792112400000,\"generatedAt\":1792112370000}",
     "stove-boost-v1:100:1": "{\"boost\":{\"status\":\"confirmed\",\"articleId\":\"81012\",\"title\":\"후보 81012\",\"score\":966,\"attemptedAt\":1792112400000,\"generatedAt\":1792112370000},\"reward\":{\"status\":\"confirmed\",\"attemptedAt\":1792112400000,\"amount\":3000}}",
     "stove-community-quota-v1:100": "{\"date\":\"2026-10-16\",\"likes\":10,\"comments\":5}",
     "stove-monthly-attendance-v1:100": "{\"date\":\"2026-10-16\",\"counts\":{\"6001\":5}}",

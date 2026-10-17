@@ -676,7 +676,7 @@ test('runAutomation same-day re-run: nothing is written again and finished work 
     assert.ok(h.logs().includes('[success] 스냅샷 비교: 글 확인, 미션 0개, 데일리 0개, 마작 0개, EXTRA 0개, 월간출석 +1 0/1 (오늘 이미 반영 1개)'));
 });
 
-test('runAutomation everything already done: comments are the only writes, success', async t => {
+test("runAutomation everything already done: comments and today's popular-post boost are the only writes", async t => {
     const h = useHarness(t);
     const world = useAutomationWorld(t, h, DONE_WORLD);
     h.window.localStorage.setItem(MONTHLY_RECORD_KEY, JSON.stringify({ date: '2026-10-16', counts: { 6001: 5 } }));
@@ -687,14 +687,22 @@ test('runAutomation everything already done: comments are the only writes, succe
     assert.equal(h.sounds.length, 1);
     assert.deepEqual(h.logs().filter(line => line.startsWith('[error]') || line.startsWith('[warning]')), []);
 
-    // Comments are not idempotent: five new comments are posted on every run.
-    assert.deepEqual(h.requests.filter(isWrite).map(describe), world.articles.slice(0, 5).map(article =>
-        `POST /postie/v1.0/article/${article.article_id}/comment {"article_id":${article.article_id},"content":"<p>잘봤어요</p>","attached":{"media_ids":[]}}`));
+    // No same-day record exists in this browser yet, so today's five comments are posted. The boost
+    // mission is already rewarded, but the daily popular-post boost still runs once (hottest: 81012).
+    // The boost and the background comments interleave, so the writes are compared as a set.
+    assert.deepEqual(h.requests.filter(isWrite).map(describe).sort(), [
+        ...world.articles.slice(0, 5).map(article =>
+            `POST /postie/v1.0/article/${article.article_id}/comment {"article_id":${article.article_id},"content":"<p>잘봤어요</p>","attached":{"media_ids":[]}}`),
+        'PUT /stadium-api/v1.0/boost/81012'
+    ].sort());
+    assert.deepEqual(world.audit.boosts, ['81012']);
+    assert.equal(world.audit.boostRewards, 0, 'the rewarded mission is not claimed again');
     assertFlakeSpendingWithinLimits(h, world, 30);
     assert.equal(h.requests.filter(isDraw).length + h.requests.filter(isPrizeApply).length, 0);
     assertNoRewardClaimedTwice(world);
     assertSummaryMatchesState(h);
-    assert.ok(h.logs().includes('[info] 자동화 그룹 5개 실행'), 'setup, community, visits, missionClaims, followups');
+    assert.ok(h.logs().includes('[info] 자동화 그룹 6개 실행'), 'setup, community, visits, boost, missionClaims, followups');
+    assert.ok(h.logs().includes('[info] 오늘의 인기글 부스트 (하루 1회)'));
     assert.deepEqual(h.tabs.map(({ url, active, closed }) => ({ url, active, closed })), [
         { url: 'https://reward.onstove.com/ko', active: false, closed: true },
         { url: 'https://store.onstove.com/', active: false, closed: true }

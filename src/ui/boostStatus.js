@@ -1,3 +1,25 @@
+function dailySuffix(status) {
+    if (status.daily?.status === 'confirmed') return ' · 오늘 부스트 완료';
+    if (status.daily?.status === 'pending') return ' · 오늘 부스트 확인 대기';
+    return '';
+}
+
+function renderSelectedArticle(selected, status) {
+    if (!status.selectedArticle) {
+        selected.textContent = '자동화 실행 후 표시';
+        return;
+    }
+    const article = status.selectedArticle;
+    const link = document.createElement('a');
+    link.href = `https://lounge.onstove.com/view/${article.articleId}`;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.style.color = '#93c5fd';
+    link.textContent = `${article.title || article.articleId} · ${article.score}℃`;
+    selected.appendChild(link);
+    selected.title = status.verificationPending ? '실행 결과 반영 확인 대기' : '오늘 자동화에서 선택한 글과 선택 당시 온도';
+}
+
 export function updateBoostStatus(status) {
     const progress = document.getElementById('stove-status-boost');
     const reward = document.getElementById('stove-status-boost-reward');
@@ -21,9 +43,9 @@ export function updateBoostStatus(status) {
         return;
     }
     if (status.notAvailable) {
-        progress.textContent = `미션 없음 · 잔여 ${status.remainingCount}회`;
+        progress.textContent = `미션 없음 · 잔여 ${status.remainingCount}회${dailySuffix(status)}`;
         reward.textContent = '-';
-        selected.textContent = '-';
+        renderSelectedArticle(selected, status);
         return;
     }
     const { mission } = status;
@@ -49,17 +71,6 @@ export function updateBoostStatus(status) {
     if (status.record?.boost && mission.current < mission.required) {
         progress.textContent += ' · 반영 확인 대기';
     }
-    if (status.selectedArticle) {
-        const article = status.selectedArticle;
-        const link = document.createElement('a');
-        link.href = `https://lounge.onstove.com/view/${article.articleId}`;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.style.color = '#93c5fd';
-        link.textContent = `${article.title || article.articleId} · ${article.score}℃`;
-        selected.appendChild(link);
-        selected.title = status.verificationPending ? '실행 결과 반영 확인 대기' : '마지막 자동화에서 선택한 글과 선택 당시 온도';
-    } else {
-        selected.textContent = '자동화 실행 후 표시';
-    }
+    progress.textContent += dailySuffix(status);
+    renderSelectedArticle(selected, status);
 }

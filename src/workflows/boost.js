@@ -52,6 +52,11 @@ export function boostRecordKey(userId, missionId) {
     return `stove-boost-v1:${userId}:${missionId}`;
 }
 
+// 오늘(KST) 이 계정이 자동화로 한 부스트. 미션이 없거나 이미 끝나도 하루 한 번 인기글에 부스트한다.
+export function boostDailyKey(userId) {
+    return `stove-boost-daily-v1:${userId}`;
+}
+
 function readRecord(storage, key) {
     if (!storage) throw new Error('부스트 실행 기록을 저장할 수 없습니다');
     const text = storage.getItem(key);
@@ -64,6 +69,18 @@ function readRecord(storage, key) {
         throw new Error('부스트 실행 기록을 확인할 수 없습니다');
     }
     return record;
+}
+
+function readDailyRecord(storage, key, today) {
+    if (!storage) throw new Error('부스트 실행 기록을 저장할 수 없습니다');
+    const text = storage.getItem(key);
+    if (!text) return null;
+    const record = JSON.parse(text);
+    if (!record || typeof record !== 'object' || typeof record.date !== 'string' ||
+        !/^\d+$/.test(String(record.articleId ?? '')) || !['pending', 'confirmed'].includes(record.status)) {
+        throw new Error('부스트 실행 기록을 확인할 수 없습니다');
+    }
+    return record.date === today ? record : null;
 }
 
 function services(deps) {
@@ -91,16 +108,22 @@ export async function checkBoostStatus(headers, deps = {}) {
         ]);
         const userId = profile?.value?.user_id;
         if (profile?.code !== 0 || !/^\d+$/.test(String(userId ?? ''))) throw new Error('부스트 계정을 확인할 수 없습니다');
+        const dailyKey = boostDailyKey(userId);
+        const daily = readDailyRecord(io.storage, dailyKey, day(io.now()));
         const mission = normalizeBoostMission(missions, io.now());
-        if (!mission) return { success: true, notAvailable: true, userId: String(userId), ...balance };
+        if (!mission) {
+            return { success: true, notAvailable: true, userId: String(userId), ...balance, dailyKey, daily,
+                verificationPending: daily?.status === 'pending', selectedArticle: daily };
+        }
         const key = boostRecordKey(userId, mission.id);
         const record = readRecord(io.storage, key);
+        const missionBoostToday = record.boost && Number.isFinite(record.boost.attemptedAt) &&
+            day(record.boost.attemptedAt) === day(io.now()) ? record.boost : null;
         return {
-            success: true, userId: String(userId), mission, ...balance, key, record,
+            success: true, userId: String(userId), mission, ...balance, key, record, dailyKey, daily,
             verificationPending: Boolean((record.boost && mission.current < mission.required) ||
-                (record.reward && !mission.rewarded)),
-            selectedArticle: record.boost && Number.isFinite(record.boost.attemptedAt) &&
-                day(record.boost.attemptedAt) === day(io.now()) ? record.boost : null
+                (record.reward && !mission.rewarded) || daily?.status === 'pending'),
+            selectedArticle: daily || missionBoostToday
         };
     } catch (error) {
         return { success: false, unknown: true, error: error.message };
@@ -116,16 +139,23 @@ function save(io, context, record) {
     io.storage.setItem(context.key, JSON.stringify(record));
 }
 
-async function locked(headers, deps, work) {
+function saveDaily(io, context, record) {
+    io.storage.setItem(context.dailyKey, JSON.stringify(record));
+}
+
+// The reward claim needs an active mission; the daily boost does not. Either way the work runs
+// under one lock per account (and mission), and the account must not change while it waits.
+async function locked(headers, deps, work, { requireMission = true } = {}) {
     const io = services(deps);
     if (!CONFIG.boostMission.enabled) return { success: true, skipped: true, reason: 'disabled' };
     try {
         const initial = requireStatus(await checkBoostStatus(headers, io));
         io.publish(initial);
-        if (initial.notAvailable) return { success: true, skipped: true, reason: 'noMission' };
-        return await io.withLock(initial.key, async () => {
+        if (initial.notAvailable && requireMission) return { success: true, skipped: true, reason: 'noMission' };
+        return await io.withLock(initial.key || initial.dailyKey, async () => {
             const context = requireStatus(await checkBoostStatus(headers, io));
-            if (context.notAvailable || context.key !== initial.key) throw new Error('부스트 계정 또는 미션이 변경되었습니다');
+            if (context.userId !== initial.userId || context.key !== initial.key ||
+                (context.notAvailable && requireMission)) throw new Error('부스트 계정 또는 미션이 변경되었습니다');
             io.publish(context);
             return work(context, io);
         });
@@ -136,45 +166,85 @@ async function locked(headers, deps, work) {
     }
 }
 
-async function verify(headers, context, io, articleId = null, reward = false) {
+/**
+ * Confirms one boost. The article's own BOOST flag is the proof; the mission's progress counts only
+ * when this attempt was the boost the 0/1 mission needed (an already finished mission proves
+ * nothing about today's boost).
+ */
+async function verifyBoost(headers, context, io, articleId, missionCounts) {
+    let latest = context;
+    for (let i = 0; i < CONFIG.boostMission.verifyAttempts; i++) {
+        if (i > 0) await io.delay(CONFIG.boostMission.verifyDelay);
+        latest = await checkBoostStatus(headers, io);
+        if (latest.success && (latest.userId !== context.userId ||
+            (missionCounts && (latest.notAvailable || latest.key !== context.key)))) {
+            return { confirmed: false, status: { success: false, unknown: true, error: '부스트 계정 또는 미션이 변경되었습니다' } };
+        }
+        if (missionCounts && latest.success && latest.mission.current >= latest.mission.required) {
+            return { confirmed: true, status: latest };
+        }
+        try {
+            const interactions = await io.getArticleBoostStatuses(headers, [articleId]);
+            if (interactions[articleId]?.BOOST === true) return { confirmed: true, status: latest };
+        } catch { /* A failed read never authorizes another boost. */ }
+    }
+    return { confirmed: false, status: latest };
+}
+
+async function verifyReward(headers, context, io) {
     let latest = context;
     for (let i = 0; i < CONFIG.boostMission.verifyAttempts; i++) {
         if (i > 0) await io.delay(CONFIG.boostMission.verifyDelay);
         latest = await checkBoostStatus(headers, io);
         if (latest.success && !latest.notAvailable && latest.key === context.key) {
-            if (reward ? latest.mission.rewarded : latest.mission.current >= latest.mission.required) {
-                return { confirmed: true, status: latest };
-            }
+            if (latest.mission.rewarded) return { confirmed: true, status: latest };
         } else if (latest.success) {
             return { confirmed: false, status: { success: false, unknown: true, error: '부스트 계정 또는 미션이 변경되었습니다' } };
-        }
-        if (articleId && !reward) {
-            try {
-                const interactions = await io.getArticleBoostStatuses(headers, [articleId]);
-                if (interactions[articleId]?.BOOST === true) return { confirmed: true, status: latest };
-            } catch { /* A failed read never authorizes another boost. */ }
         }
     }
     return { confirmed: false, status: latest };
 }
 
+function confirmAttempt(io, context, articleId) {
+    const { record, daily } = context;
+    if (daily?.articleId === articleId) saveDaily(io, context, { ...daily, status: 'confirmed' });
+    if (record?.boost?.articleId === articleId) {
+        record.boost.status = 'confirmed';
+        save(io, context, record);
+    }
+}
+
 export async function executeBoostMission(headers, deps = {}) {
     return locked(headers, deps, async (context, io) => {
-        const { mission, record } = context;
-        if (mission.rewarded || mission.completed || mission.current >= mission.required) {
-            return { success: true, skipped: true, reason: 'alreadyCompleted' };
-        }
-        if (record.boost) {
-            const result = await verify(headers, context, io, record.boost.articleId);
-            if (result.confirmed) { record.boost.status = 'confirmed'; save(io, context, record); }
+        const { mission, daily } = context;
+        const record = context.record || {};
+        // An attempt that is not confirmed yet is only ever re-checked, never repeated.
+        const missionWaiting = Boolean(mission && record.boost && mission.current < mission.required);
+        if (daily?.status === 'pending' || missionWaiting) {
+            const attempt = daily?.status === 'pending' ? daily : record.boost;
+            const missionCounts = missionWaiting && record.boost.articleId === attempt.articleId;
+            const result = await verifyBoost(headers, context, io, attempt.articleId, missionCounts);
+            if (result.confirmed) confirmAttempt(io, context, attempt.articleId);
             io.publish(result.status);
             io.log(result.confirmed ? '기존 부스트 실행을 확인했습니다' : '이전 부스트의 반영 확인 대기 중입니다. 추가 부스트는 하지 않습니다', result.confirmed ? 'success' : 'warning');
             return { success: result.confirmed, skipped: true, reason: 'previousAttempt' };
         }
-        if (mission.current !== 0 || mission.required !== 1 || context.remainingCount < 1) {
+        const missionNeedsBoost = Boolean(mission && !mission.rewarded && !mission.completed &&
+            mission.current === 0 && mission.required === 1);
+        const dailyNeedsBoost = CONFIG.boostMission.dailyBoost === true && !daily;
+        if (!missionNeedsBoost && !dailyNeedsBoost) {
+            if (daily) return { success: true, skipped: true, reason: 'alreadyBoostedToday' };
+            if (!mission || mission.rewarded || mission.completed || mission.current >= mission.required) {
+                return { success: true, skipped: true, reason: 'alreadyCompleted' };
+            }
             io.log('부스트 0/1 및 잔여 횟수 조건을 충족하지 않아 건너뜁니다', 'info');
             return { success: true, skipped: true, reason: 'notActionable' };
         }
+        if (context.remainingCount < 1) {
+            io.log('부스트 잔여 횟수가 없어 건너뜁니다', 'info');
+            return { success: true, skipped: true, reason: 'notActionable' };
+        }
+        if (!missionNeedsBoost) io.log('오늘의 인기글 부스트 (하루 1회)', 'info');
         let ranking;
         for (let i = 0; i < CONFIG.boostMission.rankingQueries; i++) {
             if (i > 0) await io.delay(CONFIG.boostMission.queryDelay);
@@ -194,10 +264,14 @@ export async function executeBoostMission(headers, deps = {}) {
         const interactions = await io.getArticleBoostStatuses(headers, candidates.map(article => article.article_id));
         const selected = candidates.find(article => interactions[article.article_id]?.BOOST === false);
         if (!selected) return { success: true, skipped: true, reason: 'alreadyBoosted' };
+        // Re-read right before writing: another tab, the site or a manual boost may have acted meanwhile.
         const fresh = requireStatus(await checkBoostStatus(headers, io));
-        if (fresh.notAvailable || fresh.key !== context.key) throw new Error('부스트 계정 또는 미션이 변경되었습니다');
-        if (fresh.mission.rewarded || fresh.mission.completed || fresh.mission.current !== 0 || fresh.mission.required !== 1 ||
-            fresh.remainingCount < 1 || fresh.record.boost) return { success: true, skipped: true, reason: 'stateChanged' };
+        if (fresh.userId !== context.userId || fresh.key !== context.key) throw new Error('부스트 계정 또는 미션이 변경되었습니다');
+        if (fresh.remainingCount < 1 || fresh.remainingCount < context.remainingCount || Boolean(fresh.daily) !== Boolean(daily) ||
+            (mission && (fresh.mission.current !== mission.current || fresh.mission.rewarded !== mission.rewarded ||
+                fresh.mission.completed !== mission.completed || Boolean(fresh.record.boost) !== Boolean(record.boost)))) {
+            return { success: true, skipped: true, reason: 'stateChanged' };
+        }
         // Date can roll over while polling; never boost yesterday's candidate.
         if (!getEligibleBoostCandidates([selected], fresh.userId, io.now()).length) {
             return { success: true, skipped: true, reason: 'candidateExpired' };
@@ -205,9 +279,18 @@ export async function executeBoostMission(headers, deps = {}) {
         if (io.now() - ranking.generatedAt > CONFIG.boostMission.maxRankingAge) {
             throw new Error('실행 직전 후보 집계가 만료되었습니다');
         }
-        record.boost = { status: 'pending', articleId: String(selected.article_id),
-            title: selected.title, score: selected.score, attemptedAt: io.now(), generatedAt: ranking.generatedAt };
-        save(io, context, record);
+        const articleId = String(selected.article_id);
+        const attempt = { status: 'pending', articleId, title: selected.title, score: selected.score,
+            attemptedAt: io.now(), generatedAt: ranking.generatedAt };
+        // Both records are written before the request, so a lost response can never cause a second boost.
+        if (dailyNeedsBoost) {
+            context.daily = { date: day(io.now()), ...attempt };
+            saveDaily(io, context, context.daily);
+        }
+        if (missionNeedsBoost) {
+            record.boost = { ...attempt };
+            save(io, context, record);
+        }
         io.log(`부스트 대상: ${selected.title} (${selected.score}℃)`, 'info');
         let accepted = false;
         try {
@@ -215,19 +298,22 @@ export async function executeBoostMission(headers, deps = {}) {
             accepted = true;
         } catch (error) {
             if (error.definiteFailure && error.code !== 81333) {
-                delete record.boost;
-                save(io, context, record);
+                if (dailyNeedsBoost) io.storage.removeItem(context.dailyKey);
+                if (missionNeedsBoost) {
+                    delete record.boost;
+                    save(io, context, record);
+                }
                 throw error;
             }
             io.log('부스트 응답이 불확실하여 서버 상태만 재확인합니다', 'warning');
         }
-        const result = await verify(headers, context, io, selected.article_id);
-        if (result.confirmed) { record.boost.status = 'confirmed'; save(io, context, record); }
-        // Re-read the saved record so pending confirmation is visible in the dashboard.
+        const result = await verifyBoost(headers, { ...context, record }, io, articleId, missionNeedsBoost);
+        if (result.confirmed) confirmAttempt(io, { ...context, record }, articleId);
+        // Re-read the saved records so a pending confirmation is visible in the dashboard.
         io.publish(await checkBoostStatus(headers, io));
         io.log(result.confirmed ? '부스트 1회 실행을 확인했습니다' : '부스트 상태 반영 대기 중입니다. 추가 부스트는 하지 않습니다', result.confirmed ? 'success' : 'warning');
         return { success: result.confirmed, accepted, boosted: result.confirmed, articleId: selected.article_id };
-    });
+    }, { requireMission: false });
 }
 
 export async function claimBoostMissionReward(headers, deps = {}) {
@@ -235,7 +321,7 @@ export async function claimBoostMissionReward(headers, deps = {}) {
         const { mission, record } = context;
         if (mission.rewarded) return { success: true, skipped: true, reason: 'alreadyRewarded' };
         if (record.reward) {
-            const result = await verify(headers, context, io, null, true);
+            const result = await verifyReward(headers, context, io);
             if (result.confirmed) { record.reward.status = 'confirmed'; save(io, context, record); }
             io.publish(await checkBoostStatus(headers, io));
             if (!result.confirmed) io.log('이전 보상 수령의 상태 확인 대기 중입니다. 중복 수령 요청은 하지 않습니다', 'warning');
@@ -262,7 +348,7 @@ export async function claimBoostMissionReward(headers, deps = {}) {
             }
             io.log('보상 수령 응답이 불확실하여 서버 상태만 재확인합니다', 'warning');
         }
-        const result = await verify(headers, context, io, null, true);
+        const result = await verifyReward(headers, context, io);
         if (result.confirmed) { record.reward.status = 'confirmed'; save(io, context, record); }
         io.publish(await checkBoostStatus(headers, io));
         if (!result.confirmed) io.log('보상 수령 상태 반영 대기 중입니다. 추가 수령 요청은 하지 않습니다', 'warning');

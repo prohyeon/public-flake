@@ -1,11 +1,15 @@
 import test, { beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { CONFIG } from '../../src/config.js';
 import { state } from '../../src/state.js';
 import { checkBoostStatus, executeBoostMission, claimBoostMissionReward, getEligibleBoostCandidates,
-    normalizeBoostMission, boostRecordKey } from '../../src/workflows/boost.js';
+    normalizeBoostMission, boostRecordKey, boostDailyKey } from '../../src/workflows/boost.js';
 import { boostFixture, boostCandidate, BOOST_NOW } from '../helpers/boostFixture.js';
 
-beforeEach(() => { state.earnings.boostMission = 0; });
+beforeEach(() => {
+    state.earnings.boostMission = 0;
+    CONFIG.boostMission.dailyBoost = true;
+});
 
 test('HAR-shaped unsorted candidates select the maximum score after exactly five reads, then claim once', async () => {
     const f = boostFixture();
@@ -71,7 +75,8 @@ test('no available candidates or all already boosted causes zero writes', async 
     }
 });
 
-test('completed, rewarded, exhausted and non-single-count missions never initiate a boost', async () => {
+test('with dailyBoost off, completed, rewarded, exhausted and non-single-count missions never initiate a boost', async () => {
+    CONFIG.boostMission.dailyBoost = false;
     for (const variant of ['completed', 'serverCompleted', 'rewarded', 'exhausted', 'differentCount']) {
         const f = boostFixture();
         if (variant === 'completed') f.mission.details[0].current_count = 1;
@@ -83,6 +88,88 @@ test('completed, rewarded, exhausted and non-single-count missions never initiat
         assert.equal(f.metrics.rankings, 0);
         assert.deepEqual(f.metrics.boosts, []);
     }
+});
+
+test('daily boost: a finished or absent mission still gets one popular-post boost per KST day', async () => {
+    for (const variant of ['completed', 'serverCompleted', 'rewarded', 'differentCount', 'noMission']) {
+        const f = boostFixture();
+        if (variant === 'completed') f.mission.details[0].current_count = 1;
+        if (variant === 'serverCompleted') f.mission.is_completed = true;
+        if (variant === 'rewarded') f.mission.is_rewarded = true;
+        if (variant === 'differentCount') f.mission.details[0].required_count = 2;
+        if (variant === 'noMission') f.deps.getBoostMissions = async () => [];
+        const result = await executeBoostMission({}, f.deps);
+        assert.equal(result.success, true, variant);
+        assert.deepEqual(f.metrics.boosts, ['12'], `${variant}: the hottest eligible post`);
+        const daily = JSON.parse(f.records.get(boostDailyKey('100')));
+        assert.deepEqual({ date: daily.date, status: daily.status, articleId: daily.articleId },
+            { date: '2026-10-01', status: 'confirmed', articleId: '12' });
+        assert.equal((await executeBoostMission({}, f.deps)).reason, 'alreadyBoostedToday', variant);
+        assert.deepEqual(f.metrics.boosts, ['12'], `${variant}: once per day`);
+        assert.equal(f.metrics.rankings, 5);
+        if (variant === 'rewarded') {
+            assert.equal(f.records.has(boostRecordKey('100', '1')), false, 'a finished mission keeps no new mission record');
+        }
+    }
+});
+
+test('daily boost: no charge left means no ranking read and no write', async () => {
+    const f = boostFixture();
+    f.mission.is_rewarded = true;
+    f.deps.getBoostBalance = async () => ({ remainingCount: 0 });
+    assert.equal((await executeBoostMission({}, f.deps)).reason, 'notActionable');
+    assert.equal(f.metrics.rankings, 0);
+    assert.deepEqual(f.metrics.boosts, []);
+});
+
+test("daily boost: yesterday's record does not block today's boost", async () => {
+    const f = boostFixture();
+    f.mission.is_rewarded = true;
+    f.records.set(boostDailyKey('100'), JSON.stringify({ date: '2026-09-30', status: 'confirmed', articleId: '11' }));
+    await executeBoostMission({}, f.deps);
+    assert.deepEqual(f.metrics.boosts, ['12']);
+});
+
+test('daily boost: with a finished mission only the post itself can confirm an uncertain boost', async () => {
+    const f = boostFixture();
+    f.mission.details[0].current_count = 1;
+    f.mission.is_rewarded = true;
+    // The request times out and the server never applies it: the post stays un-boosted.
+    f.deps.boostArticle = async (headers, id) => { f.metrics.boosts.push(String(id)); throw new Error('timeout'); };
+    const result = await executeBoostMission({}, f.deps);
+    assert.equal(result.success, false, 'the finished mission (1/1) proves nothing about today');
+    assert.equal(JSON.parse(f.records.get(boostDailyKey('100'))).status, 'pending');
+    assert.equal((await checkBoostStatus({}, f.deps)).verificationPending, true);
+    assert.equal((await executeBoostMission({}, f.deps)).reason, 'previousAttempt');
+    assert.deepEqual(f.metrics.boosts, ['12'], 'never a second boost while the first is unconfirmed');
+    assert.equal(f.metrics.rankings, 5);
+    // Once the post shows the boost, the pending attempt is confirmed without another write.
+    f.boosted.add('12');
+    assert.equal((await executeBoostMission({}, f.deps)).success, true);
+    assert.equal(JSON.parse(f.records.get(boostDailyKey('100'))).status, 'confirmed');
+    assert.deepEqual(f.metrics.boosts, ['12']);
+});
+
+test("daily boost: a definite rejection clears today's record so a later run may try again", async () => {
+    const f = boostFixture();
+    f.mission.is_rewarded = true;
+    f.deps.boostArticle = async () => {
+        const error = new Error('forbidden');
+        error.definiteFailure = true;
+        error.code = 40300;
+        throw error;
+    };
+    assert.equal((await executeBoostMission({}, f.deps)).success, false);
+    assert.equal(f.records.has(boostDailyKey('100')), false);
+});
+
+test('daily boost: a corrupt daily record fails closed', async () => {
+    const f = boostFixture();
+    f.mission.is_rewarded = true;
+    f.records.set(boostDailyKey('100'), '{"date":"2026-10-01","status":"maybe"}');
+    assert.equal((await executeBoostMission({}, f.deps)).success, false);
+    assert.equal(f.metrics.rankings, 0);
+    assert.deepEqual(f.metrics.boosts, []);
 });
 
 test('malformed counts, failed lookup and unknown identity fail closed', async () => {
@@ -231,4 +318,20 @@ test('active boost mission is selected by server dates, and empty or ended missi
     assert.equal(normalizeBoostMission([], BOOST_NOW), null);
     f.mission.end_dt = BOOST_NOW;
     assert.equal(normalizeBoostMission([f.mission], BOOST_NOW), null);
+});
+
+test('daily boost: an account change while confirming leaves the attempt pending', async () => {
+    const f = boostFixture();
+    f.mission.is_rewarded = true;
+    let userId = '100';
+    f.deps.getMyProfile = async () => ({ code: 0, value: { user_id: userId } });
+    const put = f.deps.boostArticle;
+    f.deps.boostArticle = async (...args) => {
+        const result = await put(...args);
+        userId = '101';
+        return result;
+    };
+    assert.equal((await executeBoostMission({}, f.deps)).success, false);
+    assert.equal(JSON.parse(f.records.get(boostDailyKey('100'))).status, 'pending');
+    assert.deepEqual(f.metrics.boosts, ['12']);
 });
