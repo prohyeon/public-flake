@@ -22,8 +22,10 @@ run('tests (bundle tests use a fresh build of src)', ['--test', 'tests/**/*.test
 const outDir = mkdtempSync(join(tmpdir(), 'stove-verify-'));
 try {
   run('release bundle comparison build', ['node_modules/vite/bin/vite.js', 'build', '--outDir', outDir, '--emptyOutDir', '--logLevel', 'warn']);
-  const fresh = readFileSync(join(outDir, 'stove-quest-automation.user.js'), 'utf8');
-  const committed = readFileSync('stove-quest-automation.user.js', 'utf8');
+  // git may check the bundle out with CRLF (core.autocrlf); the served blob keeps LF like the build.
+  const lf = text => text.replace(/\r\n/g, '\n');
+  const fresh = lf(readFileSync(join(outDir, 'stove-quest-automation.user.js'), 'utf8'));
+  const committed = lf(readFileSync('stove-quest-automation.user.js', 'utf8'));
   console.log(fresh === committed
     ? '\nℹ committed bundle matches src'
     : '\nℹ committed bundle differs from src (expected until the next release rebuilds it)');
