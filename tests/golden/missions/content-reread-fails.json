@@ -37,7 +37,7 @@
     "[info] 📰 컨텐츠 미션 시작...",
     "[info] 📝 총 1개 컨텐츠 미션 확인",
     "[info] ℹ️ 방문할 미완료 컨텐츠 미션이 없습니다",
-    "[error] ✗ 컨텐츠 미션 상태 재조회 실패"
+    "[error] 컨텐츠 미션 상태 재조회 실패"
   ],
   "titles": [],
   "sounds": 0,
@@ -70,6 +70,7 @@
       "dailyShop": 0,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 0,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

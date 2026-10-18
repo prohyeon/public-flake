@@ -394,7 +394,7 @@ test('visitRequiredPages: a tab failure is logged as a warning and the tabs open
         '[info] 🌐 필수 페이지 탭 열기...',
         '[info]   📋 리워드샵 페이지 방문 중...',
         '[info]   🏠 스토브 메인 페이지 방문 중...',
-        '[warning] ⚠️ 페이지 방문 중 오류: popup blocked'
+        '[warning] 페이지 방문 중 오류: popup blocked'
     ]);
 });
 

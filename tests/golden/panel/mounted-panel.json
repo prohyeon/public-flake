@@ -430,7 +430,7 @@
     "                <span>📝 로그</span>",
     "                <button id=\"stove-btn-copy-log\" class=\"stove-log-copy-btn\" title=\"로그 전체 복사\">📋</button>",
     "            </div>",
-    "            <div id=\"stove-log-content\"><div style=\"color: rgb(59, 130, 246); padding: 4px 0px;\">⏳ 자동화 패널이 준비되었습니다</div></div>",
+    "            <div id=\"stove-log-content\"><div style=\"color: rgb(59, 130, 246); padding: 4px 0px;\" data-type=\"info\">⏳ 자동화 패널이 준비되었습니다</div></div>",
     "        </div>",
     "    </div>"
   ]

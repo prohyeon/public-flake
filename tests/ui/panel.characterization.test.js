@@ -349,7 +349,7 @@ test('button wiring: every action button triggers its own workflow (first reques
     assert.equal(recordings['stove-btn-start'].title, '[SG_RUNNING] 전체 자동화 실행 중 | MY홈');
     assert.equal(recordings['stove-btn-point-cash-charge'].title, 'MY홈');
     assert.deepEqual(recordings['stove-btn-reward-shop'].tabs, [{ url: 'https://reward.onstove.com/ko', options: { active: true, insert: true } }]);
-    assert.deepEqual(recordings['stove-btn-reward-shop'].newLogs, ['⏳ 🏪 리워드샵 페이지를 새 탭에서 엽니다...', '✓ ✅ 리워드샵 탭이 열렸습니다!']);
+    assert.deepEqual(recordings['stove-btn-reward-shop'].newLogs, ['⏳ 🏪 리워드샵 페이지를 새 탭에서 엽니다...', '✅ 리워드샵 탭이 열렸습니다!']);
     assert.deepEqual(recordings['stove-btn-point-cash-charge'].requests[0].headers, {
         Authorization: 'Bearer test-suat',
         'caller-id': 'billuser',
@@ -376,7 +376,7 @@ test('copy-log button: copies the log text, shows ✓ and restores the icon afte
     // jsdom has no innerText, so the textContent fallback (entries concatenated without newlines) is copied.
     assert.deepEqual(m.clipboardWrites, [m.byId('stove-log-content').textContent]);
     assert.equal(m.clipboardWrites[0],
-        '⏳ 자동화 패널이 준비되었습니다⏳ 🏪 리워드샵 페이지를 새 탭에서 엽니다...✓ ✅ 리워드샵 탭이 열렸습니다!');
+        '⏳ 자동화 패널이 준비되었습니다⏳ 🏪 리워드샵 페이지를 새 탭에서 엽니다...✅ 리워드샵 탭이 열렸습니다!');
     assert.equal(button.textContent, '✓');
     assert.equal(m.timerDelays(1000).length, 1);
     assert.equal(m.runTimers(1000), 1);
@@ -433,7 +433,7 @@ test('maintenance mode: notice shown, six buttons disabled and inert, warning lo
     assert.equal(m.byId('stove-maintenance-notice').style.display, 'block');
     assert.equal(m.byId('stove-maintenance-notice').textContent.replace(/\s+/g, ' ').trim(),
         '🚧 점검 중 11월 플레이크 구조 확인중입니다, 업데이트 이후 사용할 수 있습니다');
-    assert.deepEqual(m.logs(), ['⚠️ ⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
+    assert.deepEqual(m.logs(), ['⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
     for (const id of MAINTENANCE_DISABLED_IDS) assert.equal(m.byId(id).disabled, true, `${id} is disabled`);
     assert.equal(m.byId('stove-btn-copy-log').disabled, false);
     // updatePointCashChargeButtonAvailability is not called: the template's title/status are untouched.
@@ -449,11 +449,11 @@ test('maintenance mode: notice shown, six buttons disabled and inert, warning lo
     assert.deepEqual(m.requests, []);
     assert.deepEqual(m.tabs, []);
     assert.equal(m.document.title, 'MY홈');
-    assert.deepEqual(m.logs(), ['⚠️ ⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
+    assert.deepEqual(m.logs(), ['⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
 
     m.byId('stove-btn-copy-log').click();
     await settle();
-    assert.deepEqual(m.clipboardWrites, ['⚠️ ⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
+    assert.deepEqual(m.clipboardWrites, ['⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
     assert.equal(m.byId('stove-btn-copy-log').textContent, '✓');
 });
 
@@ -479,7 +479,7 @@ test('maintenance mode: before CONFIG.maintenanceMode.startDate (2025-11-01) the
 
     const after = mountBundle(t, { source: maintenanceBundle, now: Date.parse('2025-11-02T03:00:00Z') });
     assert.equal(after.byId('stove-maintenance-notice').style.display, 'block');
-    assert.deepEqual(after.logs(), ['⚠️ ⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
+    assert.deepEqual(after.logs(), ['⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
 });
 
 test('init: while the document is loading, mounting waits for a single DOMContentLoaded', t => {
@@ -517,5 +517,5 @@ test('initializeUI: maintenance mode tolerates a missing notice element', async 
     const m = mountBundle(t, { source });
     assert.equal(m.byId('stove-maintenance-notice-renamed').style.display, 'none');
     for (const id of MAINTENANCE_DISABLED_IDS) assert.equal(m.byId(id).disabled, true);
-    assert.deepEqual(m.logs(), ['⚠️ ⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
+    assert.deepEqual(m.logs(), ['⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
 });

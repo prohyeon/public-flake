@@ -25,6 +25,7 @@ export function createInitialState() {
             dailyShop: 0,
             majak: 0,
             dailyMissions: 0,
+            visitMissions: 0,
             contentMissions: 0,
             weeklyMissions: 0,
             bannerMissions: 0,

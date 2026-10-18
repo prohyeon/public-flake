@@ -38,9 +38,9 @@
   "delays": [],
   "logs": [
     "[info] 룰렛 확인 중...",
-    "[success] ✓ 룰렛 참여 가능 횟수: 30/30 (현재: 0)",
+    "[success] 룰렛 참여 가능 횟수: 30/30 (현재: 0)",
     "[info] 룰렛 30회 실행 시작...",
-    "[warning] ⚠️ 룰렛 이벤트 기간이 아닙니다",
+    "[warning] 룰렛 이벤트 기간이 아닙니다",
     "[warning] 🛑 룰렛 프로세스를 중단합니다",
     "[info] [1차] 0/30 성공",
     "[success] ✅ 룰렛 실행 완료!"
@@ -76,6 +76,7 @@
       "dailyShop": 0,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 0,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

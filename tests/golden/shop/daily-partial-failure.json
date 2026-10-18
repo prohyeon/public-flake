@@ -97,10 +97,10 @@
   "logs": [
     "[info] 데일리 보상 확인 중...",
     "[info] 오늘 날짜: 2026-10-16",
-    "[success] ✓ 오늘 수령 가능한 보상: 3개",
-    "[success] ✓ 보상 수령 완료: 데일리 플레이크 (50 FLAKE)",
-    "[error] ✗ 보상 수령 실패 (item_no: 1002)",
-    "[error] ✗ 보상 수령 오류 (item_no: 1003): API Error: 500 Error",
+    "[success] 오늘 수령 가능한 보상: 3개",
+    "[success] 보상 수령 완료: 데일리 플레이크 (50 FLAKE)",
+    "[error] 보상 수령 실패 (item_no: 1002)",
+    "[error] 보상 수령 오류 (item_no: 1003): API Error: 500 Error",
     "[success] 💰 총 1개 보상 수령 완료: 50 FLAKE",
     "[success] ✅ 데일리 보상 처리 완료!"
   ],
@@ -135,6 +135,7 @@
       "dailyShop": 50,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 0,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

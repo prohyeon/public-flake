@@ -423,8 +423,8 @@
     "[info] 초기 스냅샷: 글작성 미완료, 룰렛 2회, 미션 완료 0/수령가능 4/미완료 7",
     "[info] 헤더 정보 추출 중...",
     "[info] 🚀 전체 자동화 시작",
-    "[success] ✓ 헤더 정보 추출 완료",
-    "[success] 게시글 0개 발견"
+    "[success] 게시글 0개 발견",
+    "[success] 헤더 정보 추출 완료"
   ],
   "titles": [
     "[SG_RUNNING] 전체 자동화 실행 중 | STOVE",
@@ -460,6 +460,7 @@
       "dailyShop": 0,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 0,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

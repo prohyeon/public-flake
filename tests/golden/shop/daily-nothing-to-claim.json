@@ -25,7 +25,7 @@
   "logs": [
     "[info] 데일리 보상 확인 중...",
     "[info] 오늘 날짜: 2026-10-16",
-    "[success] ✓ 오늘 수령 가능한 보상: 0개",
+    "[success] 오늘 수령 가능한 보상: 0개",
     "[info] 오늘 수령 가능한 데일리 보상이 없습니다",
     "[success] ✅ 데일리 보상 처리 완료!"
   ],
@@ -60,6 +60,7 @@
       "dailyShop": 0,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 0,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

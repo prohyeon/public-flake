@@ -592,6 +592,7 @@ export async function runAutomation() {
             (state.earnings.dailyShop || 0) +
             (state.earnings.majak || 0) +
             (state.earnings.dailyMissions || 0) +
+            (state.earnings.visitMissions || 0) +
             (state.earnings.contentMissions || 0) +
             (state.earnings.weeklyMissions || 0) +
             (state.earnings.bannerMissions || 0) +
@@ -618,6 +619,8 @@ export async function runAutomation() {
         log(`  👍 게시글 좋아요: ${articleLikeFlake} FLAKE (${state.progress.articleLikes}회 × 3)`, articleLikeFlake > 0 ? 'success' : 'info');
         log(`  💬 댓글 쓰기: ${commentFlake} FLAKE (${state.progress.comments}회 × 30)`, commentFlake > 0 ? 'success' : 'info');
         log(`  📋 데일리 미션: ${state.earnings.dailyMissions} FLAKE`, state.earnings.dailyMissions > 0 ? 'success' : 'info');
+        const visitMissionFlake = state.earnings.visitMissions || 0;
+        log(`  🚶 방문 미션: ${visitMissionFlake} FLAKE`, visitMissionFlake > 0 ? 'success' : 'info');
         log(`  📰 컨텐츠 미션: ${state.earnings.contentMissions} FLAKE`, state.earnings.contentMissions > 0 ? 'success' : 'info');
         log(`  📅 위클리 미션: ${state.earnings.weeklyMissions} FLAKE`, state.earnings.weeklyMissions > 0 ? 'success' : 'info');
         log(`  🎨 배너 미션: ${state.earnings.bannerMissions} FLAKE`, state.earnings.bannerMissions > 0 ? 'success' : 'info');
@@ -626,7 +629,7 @@ export async function runAutomation() {
         log(`  🔥 오늘의 1등 미션: ${state.earnings.boostMission} FLAKE`, state.earnings.boostMission > 0 ? 'success' : 'info');
         const prizeEntrySign = state.earnings.prizeEntry >= 0 ? '+' : '';
         log(`  🎁 경품 응모: ${prizeEntrySign}${state.earnings.prizeEntry} FLAKE`, state.earnings.prizeEntry >= 0 ? 'success' : 'warning');
-        log(`  🎰 룰렛 순수익: ${profitSign}${state.earnings.roulette} FLAKE`, state.earnings.roulette >= 0 ? 'success' : 'warning');
+        log(`  🎰 룰렛 순수익: ${state.earnings.roulette >= 0 ? '+' : ''}${state.earnings.roulette} FLAKE`, state.earnings.roulette >= 0 ? 'success' : 'warning');
         log(`  🎁 룰렛 EXTRA: ${state.earnings.rouletteExtra} FLAKE`, state.earnings.rouletteExtra > 0 ? 'success' : 'info');
         log(`  💝 데일리 보상: ${state.earnings.dailyShop} FLAKE`, state.earnings.dailyShop > 0 ? 'success' : 'info');
         log(`  🎁 데일리 누적 보상: ${dailyAccumulatedFlake} FLAKE`, dailyAccumulatedFlake > 0 ? 'success' : 'info');

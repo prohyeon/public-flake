@@ -98,10 +98,10 @@
   "logs": [
     "[info] 데일리 보상 확인 중...",
     "[info] 오늘 날짜: 2026-10-16",
-    "[success] ✓ 오늘 수령 가능한 보상: 3개",
-    "[success] ✓ 보상 수령 완료: 플레이크 50 (50 FLAKE)",
-    "[success] ✓ 보상 수령 완료: 인디 게임 할인 쿠폰 (0 FLAKE)",
-    "[success] ✓ 보상 수령 완료: COUPON (0 FLAKE)",
+    "[success] 오늘 수령 가능한 보상: 3개",
+    "[success] 보상 수령 완료: 플레이크 50 (50 FLAKE)",
+    "[success] 보상 수령 완료: 인디 게임 할인 쿠폰 (0 FLAKE)",
+    "[success] 보상 수령 완료: COUPON (0 FLAKE)",
     "[success] 💰 총 3개 보상 수령 완료: 50 FLAKE",
     "[success] ✅ 데일리 보상 처리 완료!"
   ],
@@ -136,6 +136,7 @@
       "dailyShop": 50,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 0,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

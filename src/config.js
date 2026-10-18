@@ -52,8 +52,12 @@ export const CONFIG = {
         // 글마다 1번). 0이면 오늘의 1등 미션이 0/1일 때만 1번 부스트한다.
         dailyBoosts: 5,
         boostDelay: 1000,
+        // 오늘 저장된 후보가 없을 때의 조회 횟수. 저장된 후보가 있으면 1번만 조회해 합친다.
         rankingQueries: 5,
         queryDelay: 2000,
+        rankingCacheMaxAge: 60 * 60 * 1000,
+        // 저장·부스트 여부 조회에 쓰는 후보 상한(온도 순). 부스트 여부는 한 요청에 id를 이어 붙여 조회한다.
+        rankingCacheSize: 20,
         maxRankingAge: 10 * 60 * 1000,
         verifyAttempts: 3,
         verifyDelay: 1000

@@ -53,9 +53,9 @@
     "[info] 📝 총 1개 미션 확인",
     "[info] 🌐 방문 미션 1개 탭 열기 시작...",
     "[info] 🌐 미션 61 방문 중...",
-    "[success] ✓ 미션 61 탭 열림",
+    "[success] 미션 61 탭 열림",
     "[success] ✅ 방문 미션 탭 열기 완료",
-    "[error] ✗ 미션 상태 재조회 실패"
+    "[error] 미션 상태 재조회 실패"
   ],
   "titles": [],
   "sounds": 0,
@@ -88,6 +88,7 @@
       "dailyShop": 0,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 0,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

@@ -48,6 +48,51 @@ export function getEligibleBoostCandidates(articles, userId, now = Date.now()) {
         .sort((a, b) => b.score - a.score || String(a.article_id).localeCompare(String(b.article_id)));
 }
 
+// Popular-post candidates seen today, shared by every account in this Chrome profile so the next
+// account needs one ranking query instead of rankingQueries. localStorage, not sessionStorage:
+// SGManager closes Chrome between accounts, which would drop a session store.
+export const BOOST_RANKING_CACHE_KEY = 'stove-boost-ranking-v1';
+
+function slimCandidate(article, seenAt) {
+    return {
+        article_id: article.article_id, title: article.title, score: article.score, datetime: article.datetime,
+        today_contest_agree: article.today_contest_agree, source: article.source, status: article.status,
+        coverage: article.coverage, profile: { id: article.profile?.id, badge: article.profile?.badge }, seenAt
+    };
+}
+
+// Cached candidates from today that are not older than rankingCacheMaxAge. The cache is only a hint:
+// anything unreadable is treated as empty.
+export function readRankingCache(storage, now) {
+    try {
+        const record = JSON.parse(storage?.getItem(BOOST_RANKING_CACHE_KEY) || 'null');
+        if (!record || record.date !== day(now) || !Array.isArray(record.articles)) return [];
+        return record.articles.filter(article => Number.isFinite(article?.seenAt) && article.seenAt <= now + 60000 &&
+            now - article.seenAt <= CONFIG.boostMission.rankingCacheMaxAge);
+    } catch {
+        return [];
+    }
+}
+
+// One entry per post; the most recent observation wins, since a post's temperature changes over time.
+export function mergeRankingCandidates(articles) {
+    const byId = new Map();
+    for (const article of articles) {
+        const id = String(article?.article_id ?? '');
+        const known = byId.get(id);
+        if (!known || article.seenAt >= known.seenAt) byId.set(id, article);
+    }
+    return [...byId.values()];
+}
+
+function saveRankingCache(storage, now, articles) {
+    // Own-post filtering is per account, so it happens when the cache is read, not here.
+    const kept = getEligibleBoostCandidates(articles, '', now).slice(0, CONFIG.boostMission.rankingCacheSize);
+    try {
+        storage.setItem(BOOST_RANKING_CACHE_KEY, JSON.stringify({ date: day(now), articles: kept }));
+    } catch { /* Losing the hint only costs the next account its extra queries. */ }
+}
+
 export function boostRecordKey(userId, missionId) {
     return `stove-boost-v1:${userId}:${missionId}`;
 }
@@ -298,8 +343,13 @@ export async function executeBoostMission(headers, deps = {}) {
         }
         const count = Math.min(wanted, context.remainingCount);
         if (limit > 0) io.log(`오늘의 인기글 부스트: 오늘 ${boosts.length}/${limit}회, 이번에 최대 ${count}회`, 'info');
+        // Every query's posts are merged with today's cached ones; the hottest eligible posts win.
+        const cached = readRankingCache(io.storage, io.now());
+        const queries = cached.length > 0 ? 1 : CONFIG.boostMission.rankingQueries;
+        if (cached.length > 0) io.log(`저장된 인기글 후보 ${cached.length}개와 합쳐 실시간 후보는 1번만 조회합니다`, 'info');
+        const seen = [...cached];
         let ranking;
-        for (let i = 0; i < CONFIG.boostMission.rankingQueries; i++) {
+        for (let i = 0; i < queries; i++) {
             if (i > 0) await io.delay(CONFIG.boostMission.queryDelay);
             const next = await io.getBoostRanking(headers);
             const age = io.now() - next.generatedAt;
@@ -307,11 +357,15 @@ export async function executeBoostMission(headers, deps = {}) {
                 (ranking && next.generatedAt < ranking.generatedAt)) throw new Error('실시간 후보 집계가 오래되었거나 역전되었습니다');
             const repeated = ranking?.generatedAt === next.generatedAt;
             ranking = next;
-            io.log(`실시간 후보 조회 ${i + 1}/${CONFIG.boostMission.rankingQueries}${repeated ? ' (같은 집계 시각)' : ''}`, 'info');
+            seen.push(...next.articles.map(article => slimCandidate(article, next.generatedAt)));
+            io.log(`실시간 후보 조회 ${i + 1}/${queries}${repeated ? ' (같은 집계 시각)' : ''}`, 'info');
         }
-        const candidates = getEligibleBoostCandidates(ranking.articles, context.userId, io.now());
+        const merged = mergeRankingCandidates(seen);
+        saveRankingCache(io.storage, io.now(), merged);
+        const candidates = getEligibleBoostCandidates(merged, context.userId, io.now())
+            .slice(0, CONFIG.boostMission.rankingCacheSize);
         if (candidates.length === 0) {
-            io.log('마지막 조회에 부스트 가능한 후보가 없습니다', 'warning');
+            io.log('조회한 후보 중 부스트 가능한 글이 없습니다', 'warning');
             return { success: true, skipped: true, reason: 'noCandidates' };
         }
         const interactions = await io.getArticleBoostStatuses(headers, candidates.map(article => article.article_id));

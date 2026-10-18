@@ -93,6 +93,7 @@ function expectedSummaryLogs({ progress, earnings }) {
         `[${level(likes)}]   👍 게시글 좋아요: ${likes} FLAKE (${progress.articleLikes}회 × 3)`,
         `[${level(comments)}]   💬 댓글 쓰기: ${comments} FLAKE (${progress.comments}회 × 30)`,
         `[${level(earnings.dailyMissions)}]   📋 데일리 미션: ${earnings.dailyMissions} FLAKE`,
+        `[${level(earnings.visitMissions || 0)}]   🚶 방문 미션: ${earnings.visitMissions || 0} FLAKE`,
         `[${level(earnings.contentMissions)}]   📰 컨텐츠 미션: ${earnings.contentMissions} FLAKE`,
         `[${level(earnings.weeklyMissions)}]   📅 위클리 미션: ${earnings.weeklyMissions} FLAKE`,
         `[${level(earnings.bannerMissions)}]   🎨 배너 미션: ${earnings.bannerMissions} FLAKE`,
@@ -100,8 +101,7 @@ function expectedSummaryLogs({ progress, earnings }) {
         `[${level(earnings.surveyMissions)}]   📊 설문조사: ${earnings.surveyMissions} FLAKE`,
         `[${level(earnings.boostMission)}]   🔥 오늘의 1등 미션: ${earnings.boostMission} FLAKE`,
         `[${earnings.prizeEntry >= 0 ? 'success' : 'warning'}]   🎁 경품 응모: ${earnings.prizeEntry >= 0 ? '+' : ''}${earnings.prizeEntry} FLAKE`,
-        // Quirk kept on purpose: the roulette line reuses the TOTAL's sign (see the roulette-loss test).
-        `[${earnings.roulette >= 0 ? 'success' : 'warning'}]   🎰 룰렛 순수익: ${sign}${earnings.roulette} FLAKE`,
+        `[${earnings.roulette >= 0 ? 'success' : 'warning'}]   🎰 룰렛 순수익: ${earnings.roulette >= 0 ? '+' : ''}${earnings.roulette} FLAKE`,
         `[${level(earnings.rouletteExtra)}]   🎁 룰렛 EXTRA: ${earnings.rouletteExtra} FLAKE`,
         `[${level(earnings.dailyShop)}]   💝 데일리 보상: ${earnings.dailyShop} FLAKE`,
         `[${level(earnings.dailyAccumulated)}]   🎁 데일리 누적 보상: ${earnings.dailyAccumulated} FLAKE`,
@@ -116,7 +116,8 @@ function assertSummaryMatchesState(h) {
     const logs = h.logs();
     const start = logs.indexOf('[success] 💰 최종 FLAKE 수익 요약') - 1;
     assert.ok(start >= 0, 'summary block is printed');
-    assert.deepEqual(logs.slice(start, start + 22), expectedSummaryLogs(state));
+    const expected = expectedSummaryLogs(state);
+    assert.deepEqual(logs.slice(start, start + expected.length), expected);
 }
 
 // Group lines end with their elapsed time (src/workflows/runTiming.js). Behavior checks compare the
@@ -474,7 +475,7 @@ for (const [name, cookies, message] of [
         assert.deepEqual(h.logs(), [
             '[info] 🚀 전체 자동화 시작',
             '[info] 헤더 정보 추출 중...',
-            `[error] ✗ 오류 발생: ${message}`,
+            `[error] 오류 발생: ${message}`,
             '[info] ',
             '[info] ⏱ 단계별 소요 시간 · 총 0.0초'
         ]);
@@ -518,7 +519,7 @@ test('runAutomation: a failed article list ends with the error signal only after
     // The run waited for the before-snapshot: its deepest read chain (event → article → member →
     // comment list) completed although the list failed after one request.
     assert.ok(h.requests.some(request => pathOf(request.url) === '/cwms/v1.1/article/14523486/comment/list'));
-    assert.ok(h.logs().includes('[error] ✗ 오류 발생: API Error: 503 Error'));
+    assert.ok(h.logs().includes('[error] 오류 발생: API Error: 503 Error'));
     assert.equal(state.isRunning, false);
 });
 
@@ -583,8 +584,8 @@ test('runAutomation fresh day: every task runs once, no repair, done signal, sou
     assertSummaryMatchesState(h);
     assert.deepEqual(state.earnings, {
         roulette: 150, rouletteExtra: 1000, dailyShop: 10, majak: 20,
-        // Single-visit rewards (missions 1001/1002, 20 FLAKE) are claimed but never added to earnings.
-        dailyMissions: 0, contentMissions: 20, weeklyMissions: 100, bannerMissions: 15,
+        // Single-visit rewards (missions 1001/1002, 20 FLAKE) are counted on their own line.
+        dailyMissions: 0, visitMissions: 20, contentMissions: 20, weeklyMissions: 100, bannerMissions: 15,
         attendanceMissions: 30, surveyMissions: 5, prizeEntry: -200, dailyAccumulated: 100,
         boostMission: 3000
     });
@@ -601,7 +602,7 @@ test('runAutomation fresh day: every task runs once, no repair, done signal, sou
         '[info] ',
         '[success] 🎊 모든 작업이 완료되었습니다!',
         '[info] 🔒 열린 탭 4개 닫는 중...',
-        '[success] ✓ 모든 탭 닫힘',
+        '[success] 모든 탭 닫힘',
         '[info] ',
         '[info] ⏱ 단계별 소요 시간 · 총 0.0초',
         '[info]   준비: 초기 스냅샷 0.0초 · 월간 출석 기록 0.0초 · 게시글 목록 0.0초',
@@ -757,8 +758,8 @@ test('runAutomation partial failure: repair pass, "확인 필요" warning and er
         '[warning] 복구 완료: repairSafe (2/3)',
         '[warning] 복구 후 비교: 글 미완료, 미션 0개, 데일리 0개, 마작 0개, EXTRA 0개, 월간출석 +1 1/1',
         '[warning] 사전등록 확인 필요: luvplace: API Error: 500 Error',
-        // Roulette lost 100 FLAKE but the line borrows the positive total's '+' sign.
-        '[warning]   🎰 룰렛 순수익: +-100 FLAKE'
+        // Roulette lost 100 FLAKE: its own sign, not the positive total's.
+        '[warning]   🎰 룰렛 순수익: -100 FLAKE'
     ]) {
         assert.ok(logs.includes(line), `missing log: ${line}`);
     }
@@ -884,7 +885,7 @@ test('runAutomation: roulette event closed mid-day (7019) stops drawing and repo
 
     assert.deepEqual(h.titles, [RUNNING_TITLE, '[SG_ERROR] 룰렛 미완료 | STOVE']);
     assert.equal(h.requests.filter(isDraw).length, 1, 'the first 7019 answer stops the roulette');
-    assert.ok(h.logs().includes('[warning] ⚠️ 룰렛 이벤트 기간이 아닙니다'));
+    assert.ok(h.logs().includes('[warning] 룰렛 이벤트 기간이 아닙니다'));
     assert.ok(h.logs().includes('[warning] 전체 자동화 종료 · 확인 필요: 룰렛 미완료'));
     assert.equal(state.completed.roulette, false, 'final flag comes from the snapshot, not from the roulette task');
     assert.equal(world.audit.prizeApplies, 1, 'prize entry still runs after the roulette stops');
@@ -900,7 +901,7 @@ test('runAutomation: roulette disabled still schedules the draw task, which only
     assert.deepEqual(h.titles, [RUNNING_TITLE, DONE_TITLE]);
     assert.equal(h.requests.filter(isDraw).length, 0);
     assert.equal(world.audit.draws, 0);
-    assert.ok(h.logs().includes('[warning] ⚠️ 룰렛 기능이 비활성화되어 있습니다'));
+    assert.ok(h.logs().includes('[warning] 룰렛 기능이 비활성화되어 있습니다'));
     assert.ok(h.logs().map(withoutElapsed).includes('[success] 그룹 완료: flakeSpending (3/3)'), 'draw, EXTRA and prize tasks are all planned');
     assert.equal(state.completed.roulette, true);
     assert.equal(state.earnings.roulette, 0);
@@ -923,7 +924,7 @@ test('runAutomation: a non-numeric reward amount turns the total into a warning 
     assert.equal(state.earnings.weeklyMissions, '0N/A', 'string concatenation, not addition');
     for (const line of [
         '[success]   ✓ "주간 출석 5회": +N/A FLAKE',
-        '[warning] ⚠️ 수익 계산 오류 발생 - 일부 값이 유효하지 않음',
+        '[warning] 수익 계산 오류 발생 - 일부 값이 유효하지 않음',
         '[info]   📅 위클리 미션: 0N/A FLAKE',
         '[success]   📊 총 순수익: +0 FLAKE'
     ]) {

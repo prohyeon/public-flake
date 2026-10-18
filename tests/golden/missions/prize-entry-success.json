@@ -59,11 +59,11 @@
   "logs": [
     "[info] 🎁 경품 응모 시작...",
     "[info]   ✓ 경품 응모 미션 확인: 359 (INCOMPLETE)",
-    "[info] ⏳ 경품 응모 진행 중... (스토브 5,000 포인트, 비용: 500 FLAKE)",
+    "[info] 경품 응모 진행 중... (스토브 5,000 포인트, 비용: 500 FLAKE)",
     "[success]   ✓ 경품 응모 완료! (응모 번호: 3)",
     "[info]   💰 잔여 FLAKE: 12000",
     "[info]   📅 응모 날짜 기록: 2026-10-16 (KST)",
-    "[info] ⏳ 경품 응모 미션 보상 확인 중...",
+    "[info] 경품 응모 미션 보상 확인 중...",
     "[success]   ✓ 미션 보상 수령 완료: +600 FLAKE",
     "[success] ✅ 경품 응모 완료! 순수익: +100 FLAKE",
     "[success] ✅ 경품 응모 처리 완료!"
@@ -101,6 +101,7 @@
       "dailyShop": 0,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 0,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,
