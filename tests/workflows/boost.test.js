@@ -117,6 +117,24 @@ test('a cache from another day, an expired one or an unreadable one means a full
     }
 });
 
+test('a status read prunes the cache: another day, expired entries and broken records are removed', async () => {
+    const entry = (id, seenAt) => ({ ...boostCandidate(id, 100), seenAt });
+    const maxAge = CONFIG.boostMission.rankingCacheMaxAge;
+    const cases = [
+        [JSON.stringify({ date: '2026-09-30', articles: [entry(11, BOOST_NOW)] }), undefined],
+        [JSON.stringify({ date: '2026-10-01', articles: [entry(11, BOOST_NOW - maxAge - 1)] }), undefined],
+        ['{not json', undefined],
+        [JSON.stringify({ date: '2026-10-01', articles: [entry(11, BOOST_NOW - maxAge - 1), entry(12, BOOST_NOW)] }), ['12']]
+    ];
+    for (const [text, kept] of cases) {
+        const f = boostFixture();
+        f.records.set(BOOST_RANKING_CACHE_KEY, text);
+        assert.equal((await checkBoostStatus({}, f.deps)).success, true);
+        const left = f.records.get(BOOST_RANKING_CACHE_KEY);
+        assert.deepEqual(left && JSON.parse(left).articles.map(article => article.article_id), kept);
+    }
+});
+
 test('readRankingCache and mergeRankingCandidates', () => {
     assert.deepEqual(readRankingCache(null, BOOST_NOW), []);
     assert.deepEqual(readRankingCache({ getItem: () => { throw new Error('blocked'); } }, BOOST_NOW), []);

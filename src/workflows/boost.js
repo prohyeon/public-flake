@@ -62,13 +62,23 @@ function slimCandidate(article, seenAt) {
 }
 
 // Cached candidates from today that are not older than rankingCacheMaxAge. The cache is only a hint:
-// anything unreadable is treated as empty.
+// anything unreadable is treated as empty. Every read also prunes it, so a cache from another day,
+// expired entries or a broken record never stay behind in localStorage.
 export function readRankingCache(storage, now) {
     try {
-        const record = JSON.parse(storage?.getItem(BOOST_RANKING_CACHE_KEY) || 'null');
-        if (!record || record.date !== day(now) || !Array.isArray(record.articles)) return [];
-        return record.articles.filter(article => Number.isFinite(article?.seenAt) && article.seenAt <= now + 60000 &&
-            now - article.seenAt <= CONFIG.boostMission.rankingCacheMaxAge);
+        const text = storage?.getItem(BOOST_RANKING_CACHE_KEY);
+        if (!text) return [];
+        let record = null;
+        try { record = JSON.parse(text); } catch { /* removed below */ }
+        const fresh = record?.date === day(now) && Array.isArray(record.articles)
+            ? record.articles.filter(article => Number.isFinite(article?.seenAt) && article.seenAt <= now + 60000 &&
+                now - article.seenAt <= CONFIG.boostMission.rankingCacheMaxAge)
+            : [];
+        if (fresh.length === 0) storage.removeItem(BOOST_RANKING_CACHE_KEY);
+        else if (fresh.length < record.articles.length) {
+            storage.setItem(BOOST_RANKING_CACHE_KEY, JSON.stringify({ ...record, articles: fresh }));
+        }
+        return fresh;
     } catch {
         return [];
     }
@@ -170,6 +180,8 @@ export async function checkBoostStatus(headers, deps = {}) {
         if (profile?.code !== 0 || !/^\d+$/.test(String(userId ?? ''))) throw new Error('부스트 계정을 확인할 수 없습니다');
         const dailyKey = boostDailyKey(userId);
         const dailyBoosts = readDailyRecord(io.storage, dailyKey, day(io.now()))?.boosts || [];
+        // Every run reads this status (snapshot, dashboard) even when no boost is scheduled: prune here.
+        readRankingCache(io.storage, io.now());
         const dailyPending = dailyBoosts.some(attempt => attempt.status === 'pending');
         // The dashboard shows today's first (hottest) boosted post, plus how many more.
         const firstDaily = dailyBoosts[0] || null;
@@ -309,6 +321,8 @@ async function reviewPendingBoosts(headers, context, io, boosts, record) {
 
 export async function executeBoostMission(headers, deps = {}) {
     return locked(headers, deps, async (initialContext, io) => {
+        // Read (and prune) the shared candidate cache on every run, also when this run boosts nothing.
+        const cached = readRankingCache(io.storage, io.now());
         let context = initialContext;
         let record = context.record || {};
         let boosts = context.dailyBoosts.map(attempt => ({ ...attempt }));
@@ -344,7 +358,6 @@ export async function executeBoostMission(headers, deps = {}) {
         const count = Math.min(wanted, context.remainingCount);
         if (limit > 0) io.log(`오늘의 인기글 부스트: 오늘 ${boosts.length}/${limit}회, 이번에 최대 ${count}회`, 'info');
         // Every query's posts are merged with today's cached ones; the hottest eligible posts win.
-        const cached = readRankingCache(io.storage, io.now());
         const queries = cached.length > 0 ? 1 : CONFIG.boostMission.rankingQueries;
         if (cached.length > 0) io.log(`저장된 인기글 후보 ${cached.length}개와 합쳐 실시간 후보는 1번만 조회합니다`, 'info');
         const seen = [...cached];
