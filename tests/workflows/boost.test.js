@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { CONFIG } from '../../src/config.js';
 import { state } from '../../src/state.js';
 import { checkBoostStatus, executeBoostMission, claimBoostMissionReward, getEligibleBoostCandidates,
-    normalizeBoostMission, boostRecordKey, boostDailyKey } from '../../src/workflows/boost.js';
+    normalizeBoostMission, boostRecordKey, boostDailyKey, BOOST_RANKING_CACHE_KEY, readRankingCache,
+    mergeRankingCandidates } from '../../src/workflows/boost.js';
 import { boostFixture, boostCandidate, BOOST_NOW } from '../helpers/boostFixture.js';
 
 // Most cases check the safety of a single boost, so they run with a one-per-day limit; the
@@ -42,13 +43,86 @@ test('HAR-shaped unsorted candidates select the maximum score after exactly five
     assert.equal(final.remainingCount, 4);
 });
 
-test('only the final ranking is used; an earlier hotter or disappeared candidate is not selected', async () => {
+test('every ranking read is merged; a hotter post seen only in an earlier read is selected', async () => {
     const f = boostFixture();
     f.rankings.splice(0, 1, ...Array.from({ length: 4 }, () => ({ generatedAt: BOOST_NOW - 1000,
         articles: [boostCandidate(11, 5000)] })), { generatedAt: BOOST_NOW,
         articles: [boostCandidate(12, 200), boostCandidate(13, 300)] });
     await executeBoostMission({}, f.deps);
-    assert.deepEqual(f.metrics.boosts, ['13']);
+    assert.deepEqual(f.metrics.boosts, ['11']);
+});
+
+test('a post seen in several reads keeps its latest temperature', async () => {
+    const f = boostFixture();
+    f.rankings.splice(0, 1, { generatedAt: BOOST_NOW - 2000, articles: [boostCandidate(11, 5000), boostCandidate(12, 400)] },
+        { generatedAt: BOOST_NOW, articles: [boostCandidate(11, 100), boostCandidate(12, 400)] });
+    await executeBoostMission({}, f.deps);
+    assert.deepEqual(f.metrics.boosts, ['12']);
+});
+
+// The next account runs in the same Chrome profile: same storage, its own user and boost flags.
+function nextAccount(previous, userId = '300') {
+    const f = boostFixture();
+    f.deps.storage = previous.deps.storage;
+    f.deps.getMyProfile = async () => ({ code: 0, value: { user_id: userId } });
+    return f;
+}
+
+test('the next account merges the cached candidates with a single ranking read', async () => {
+    const first = boostFixture();
+    first.rankings.splice(0, 1, { generatedAt: BOOST_NOW, articles: [boostCandidate(11, 5000), boostCandidate(12, 400)] });
+    await executeBoostMission({}, first.deps);
+    assert.equal(first.metrics.rankings, 5);
+    assert.deepEqual(first.metrics.boosts, ['11']);
+    const cache = JSON.parse(first.records.get(BOOST_RANKING_CACHE_KEY));
+    assert.equal(cache.date, '2026-10-01');
+    assert.deepEqual(cache.articles.map(article => article.article_id), ['11', '12']);
+
+    CONFIG.boostMission.dailyBoosts = 2;
+    const second = nextAccount(first);
+    second.rankings.splice(0, 1, { generatedAt: BOOST_NOW, articles: [boostCandidate(13, 600)] });
+    await executeBoostMission({}, second.deps);
+    assert.equal(second.metrics.rankings, 1);
+    assert.deepEqual(second.metrics.delays.filter(ms => ms === CONFIG.boostMission.queryDelay), []);
+    assert.deepEqual(second.metrics.boosts, ['11', '13'], 'cached 5000℃ first, then the new 600℃ post');
+    assert.deepEqual(JSON.parse(first.records.get(BOOST_RANKING_CACHE_KEY)).articles.map(article => article.article_id),
+        ['11', '13', '12'], 'the merged list is kept for the account after');
+});
+
+test('cached candidates exclude the posts of the account reading them', async () => {
+    const first = boostFixture();
+    first.rankings.splice(0, 1, { generatedAt: BOOST_NOW, articles: [boostCandidate(11, 5000, { profile: { id: '300' } }),
+        boostCandidate(12, 400)] });
+    await executeBoostMission({}, first.deps);
+    assert.deepEqual(first.metrics.boosts, ['11']);
+    const second = nextAccount(first, '300');
+    await executeBoostMission({}, second.deps);
+    assert.deepEqual(second.metrics.boosts, ['12']);
+});
+
+test('a cache from another day, an expired one or an unreadable one means a full set of reads', async () => {
+    const stale = [
+        JSON.stringify({ date: '2026-09-30', articles: [{ ...boostCandidate(11, 5000), seenAt: BOOST_NOW }] }),
+        JSON.stringify({ date: '2026-10-01', articles: [{ ...boostCandidate(11, 5000),
+            seenAt: BOOST_NOW - CONFIG.boostMission.rankingCacheMaxAge - 1 }] }),
+        '{not json'
+    ];
+    for (const text of stale) {
+        const f = boostFixture();
+        f.records.set(BOOST_RANKING_CACHE_KEY, text);
+        assert.equal((await executeBoostMission({}, f.deps)).success, true);
+        assert.equal(f.metrics.rankings, 5);
+        assert.deepEqual(f.metrics.boosts, ['12'], 'the stale post is not boosted');
+        assert.ok(!f.records.get(BOOST_RANKING_CACHE_KEY).includes('"11","title":"후보 11","score":5000'));
+    }
+});
+
+test('readRankingCache and mergeRankingCandidates', () => {
+    assert.deepEqual(readRankingCache(null, BOOST_NOW), []);
+    assert.deepEqual(readRankingCache({ getItem: () => { throw new Error('blocked'); } }, BOOST_NOW), []);
+    const merged = mergeRankingCandidates([{ article_id: '1', score: 9, seenAt: 1 }, { article_id: '1', score: 3, seenAt: 2 },
+        { article_id: '2', score: 5, seenAt: 1 }]);
+    assert.deepEqual(merged, [{ article_id: '1', score: 3, seenAt: 2 }, { article_id: '2', score: 5, seenAt: 1 }]);
 });
 
 test('eligibility excludes own, past KST day, future, non-consenting, official and private posts', () => {
