@@ -1,6 +1,6 @@
 export const CONFIG = {
-    version: '2.13.0',
-    lastUpdated: '2026-10-17',
+    version: '2.13.1',
+    lastUpdated: '2026-10-18',
     debug: false,
     // 미션·이벤트별 중복 방지 기록(stove-boost-v1:*, stove-review-v1:*)은 마지막 시도 후 이 일수가
     // 지나면 지운다. 지금 진행 중인 미션·이벤트의 기록은 지우지 않는다.

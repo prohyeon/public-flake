@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      2.13.0
+// @version      2.13.1
 // @author       prohyeon
 // @description  STOVE 자동화 (게시글 추천, 댓글, 글쓰기, 인기글 부스트 하루 5회, 게임 리뷰 이벤트 댓글, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -19,9 +19,12 @@
   'use strict';
 
   const CONFIG = {
-    version: "2.13.0",
-    lastUpdated: "2026-10-17",
+    version: "2.13.1",
+    lastUpdated: "2026-10-18",
     debug: false,
+    // 미션·이벤트별 중복 방지 기록(stove-boost-v1:*, stove-review-v1:*)은 마지막 시도 후 이 일수가
+    // 지나면 지운다. 지금 진행 중인 미션·이벤트의 기록은 지우지 않는다.
+    storageRetentionDays: 7,
     maintenanceMode: {
       enabled: false,
       startDate: "2025-11-01",
@@ -72,8 +75,12 @@
       // 글마다 1번). 0이면 오늘의 1등 미션이 0/1일 때만 1번 부스트한다.
       dailyBoosts: 5,
       boostDelay: 1e3,
+      // 오늘 저장된 후보가 없을 때의 조회 횟수. 저장된 후보가 있으면 1번만 조회해 합친다.
       rankingQueries: 5,
       queryDelay: 2e3,
+      rankingCacheMaxAge: 60 * 60 * 1e3,
+      // 저장·부스트 여부 조회에 쓰는 후보 상한(온도 순). 부스트 여부는 한 요청에 id를 이어 붙여 조회한다.
+      rankingCacheSize: 20,
       maxRankingAge: 10 * 60 * 1e3,
       verifyAttempts: 3,
       verifyDelay: 1e3
@@ -146,15 +153,31 @@
       pointMallId: "STOVE_MILEAGE"
     }
   };
+  const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+  const ICONS = { success: "✓", error: "✗", info: "⏳", warning: "⚠️" };
+  const LEADING_ICONS = ["✓", "✗", "⏳", "⚠️", "✅", "❌"];
+  function decodeHtmlEntities(text) {
+    return String(text).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, name) => {
+      if (name[0] === "#") {
+        const code = name[1].toLowerCase() === "x" ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+        return code > 0 && code <= 1114111 ? String.fromCodePoint(code) : match;
+      }
+      return ENTITIES[name.toLowerCase()] ?? match;
+    });
+  }
+  function formatLogEntry(message, type = "info") {
+    const text = decodeHtmlEntities(message);
+    return LEADING_ICONS.some((icon) => text.startsWith(icon)) ? text : `${ICONS[type]} ${text}`;
+  }
   function log(message, type = "info") {
     const logContent = document.getElementById("stove-log-content");
     if (!logContent) return;
-    const icons = { success: "✓", error: "✗", info: "⏳", warning: "⚠️" };
     const colors = { success: "#10b981", error: "#ef4444", info: "#3b82f6", warning: "#f59e0b" };
     const entry = document.createElement("div");
     entry.style.color = colors[type];
     entry.style.padding = "4px 0";
-    entry.textContent = `${icons[type]} ${message}`;
+    entry.dataset.type = type;
+    entry.textContent = formatLogEntry(message, type);
     logContent.appendChild(entry);
     const logSection = document.querySelector(".stove-log-section");
     if (logSection) {
@@ -411,6 +434,7 @@
         dailyShop: 0,
         majak: 0,
         dailyMissions: 0,
+        visitMissions: 0,
         contentMissions: 0,
         weeklyMissions: 0,
         bannerMissions: 0,
@@ -1508,6 +1532,36 @@
     if (!Number.isFinite(amount) || amount <= 0) throw new Error("수령한 플레이크 금액을 확인할 수 없습니다");
     return amount;
   }
+  const DAY = 24 * 60 * 60 * 1e3;
+  function pruneOldRecords(storage, prefix, { now, timestamps, keep = () => false }) {
+    try {
+      if (!storage || typeof storage.key !== "function") return [];
+      const keys = [];
+      for (let i = 0; i < storage.length; i++) {
+        const key = storage.key(i);
+        if (typeof key === "string" && key.startsWith(prefix)) keys.push(key);
+      }
+      const maxAge = CONFIG.storageRetentionDays * DAY;
+      const removed = [];
+      for (const key of keys) {
+        if (keep(key)) continue;
+        let record = null;
+        try {
+          record = JSON.parse(storage.getItem(key));
+        } catch {
+        }
+        const times = record && typeof record === "object" ? timestamps(record).filter(Number.isFinite) : [];
+        const newest = times.length > 0 ? Math.max(...times) : -Infinity;
+        if (now - newest > maxAge) {
+          storage.removeItem(key);
+          removed.push(key);
+        }
+      }
+      return removed;
+    } catch {
+      return [];
+    }
+  }
   const KST_OFFSET = 9 * 60 * 60 * 1e3;
   const BOOST_ACTION = "ARTICLE_BOOST_ADD";
   const day$1 = (timestamp) => new Date(timestamp + KST_OFFSET).toISOString().slice(0, 10);
@@ -1537,6 +1591,57 @@
       var _a, _b;
       return /^\d+$/.test(String((article == null ? void 0 : article.article_id) ?? "")) && Number.isFinite(article.score) && article.score >= 0 && Number.isFinite(article.datetime) && article.datetime <= now && day$1(article.datetime) === day$1(now) && article.today_contest_agree === true && article.source === "postoffice" && article.status === "PUBLISHED" && article.coverage === "PUBLIC" && /^\d+$/.test(String(((_a = article.profile) == null ? void 0 : _a.id) ?? "")) && String(article.profile.id) !== String(userId) && !["OFFICIAL", "BOT"].includes((_b = article.profile) == null ? void 0 : _b.badge);
     }).sort((a, b) => b.score - a.score || String(a.article_id).localeCompare(String(b.article_id)));
+  }
+  const BOOST_RANKING_CACHE_KEY = "stove-boost-ranking-v1";
+  function slimCandidate(article, seenAt) {
+    var _a, _b;
+    return {
+      article_id: article.article_id,
+      title: article.title,
+      score: article.score,
+      datetime: article.datetime,
+      today_contest_agree: article.today_contest_agree,
+      source: article.source,
+      status: article.status,
+      coverage: article.coverage,
+      profile: { id: (_a = article.profile) == null ? void 0 : _a.id, badge: (_b = article.profile) == null ? void 0 : _b.badge },
+      seenAt
+    };
+  }
+  function readRankingCache(storage, now) {
+    try {
+      const text = storage == null ? void 0 : storage.getItem(BOOST_RANKING_CACHE_KEY);
+      if (!text) return [];
+      let record = null;
+      try {
+        record = JSON.parse(text);
+      } catch {
+      }
+      const fresh = (record == null ? void 0 : record.date) === day$1(now) && Array.isArray(record.articles) ? record.articles.filter((article) => Number.isFinite(article == null ? void 0 : article.seenAt) && article.seenAt <= now + 6e4 && now - article.seenAt <= CONFIG.boostMission.rankingCacheMaxAge) : [];
+      if (fresh.length === 0) storage.removeItem(BOOST_RANKING_CACHE_KEY);
+      else if (fresh.length < record.articles.length) {
+        storage.setItem(BOOST_RANKING_CACHE_KEY, JSON.stringify({ ...record, articles: fresh }));
+      }
+      return fresh;
+    } catch {
+      return [];
+    }
+  }
+  function mergeRankingCandidates(articles) {
+    const byId = /* @__PURE__ */ new Map();
+    for (const article of articles) {
+      const id2 = String((article == null ? void 0 : article.article_id) ?? "");
+      const known = byId.get(id2);
+      if (!known || article.seenAt >= known.seenAt) byId.set(id2, article);
+    }
+    return [...byId.values()];
+  }
+  function saveRankingCache(storage, now, articles) {
+    const kept = getEligibleBoostCandidates(articles, "", now).slice(0, CONFIG.boostMission.rankingCacheSize);
+    try {
+      storage.setItem(BOOST_RANKING_CACHE_KEY, JSON.stringify({ date: day$1(now), articles: kept }));
+    } catch {
+    }
   }
   function boostRecordKey(userId, missionId) {
     return `stove-boost-v1:${userId}:${missionId}`;
@@ -1613,9 +1718,18 @@
       if ((profile == null ? void 0 : profile.code) !== 0 || !/^\d+$/.test(String(userId ?? ""))) throw new Error("부스트 계정을 확인할 수 없습니다");
       const dailyKey = boostDailyKey(userId);
       const dailyBoosts = ((_b = readDailyRecord(io.storage, dailyKey, day$1(io.now()))) == null ? void 0 : _b.boosts) || [];
+      readRankingCache(io.storage, io.now());
       const dailyPending = dailyBoosts.some((attempt) => attempt.status === "pending");
       const firstDaily = dailyBoosts[0] || null;
       const mission = normalizeBoostMission(missions, io.now());
+      pruneOldRecords(io.storage, "stove-boost-v1:", {
+        now: io.now(),
+        timestamps: (record2) => {
+          var _a2, _b2;
+          return [(_a2 = record2.boost) == null ? void 0 : _a2.attemptedAt, (_b2 = record2.reward) == null ? void 0 : _b2.attemptedAt];
+        },
+        keep: (key2) => Boolean(mission) && key2.endsWith(`:${mission.id}`)
+      });
       if (!mission) {
         return {
           success: true,
@@ -1747,6 +1861,7 @@
   }
   async function executeBoostMission(headers, deps = {}) {
     return locked(headers, deps, async (initialContext, io) => {
+      const cached = readRankingCache(io.storage, io.now());
       let context = initialContext;
       let record = context.record || {};
       let boosts = context.dailyBoosts.map((attempt) => ({ ...attempt }));
@@ -1779,19 +1894,25 @@
       }
       const count = Math.min(wanted, context.remainingCount);
       if (limit > 0) io.log(`오늘의 인기글 부스트: 오늘 ${boosts.length}/${limit}회, 이번에 최대 ${count}회`, "info");
+      const queries = cached.length > 0 ? 1 : CONFIG.boostMission.rankingQueries;
+      if (cached.length > 0) io.log(`저장된 인기글 후보 ${cached.length}개와 합쳐 실시간 후보는 1번만 조회합니다`, "info");
+      const seen = [...cached];
       let ranking;
-      for (let i = 0; i < CONFIG.boostMission.rankingQueries; i++) {
+      for (let i = 0; i < queries; i++) {
         if (i > 0) await io.delay(CONFIG.boostMission.queryDelay);
         const next = await io.getBoostRanking(headers);
         const age = io.now() - next.generatedAt;
         if (age > CONFIG.boostMission.maxRankingAge || age < -6e4 || ranking && next.generatedAt < ranking.generatedAt) throw new Error("실시간 후보 집계가 오래되었거나 역전되었습니다");
         const repeated = (ranking == null ? void 0 : ranking.generatedAt) === next.generatedAt;
         ranking = next;
-        io.log(`실시간 후보 조회 ${i + 1}/${CONFIG.boostMission.rankingQueries}${repeated ? " (같은 집계 시각)" : ""}`, "info");
+        seen.push(...next.articles.map((article) => slimCandidate(article, next.generatedAt)));
+        io.log(`실시간 후보 조회 ${i + 1}/${queries}${repeated ? " (같은 집계 시각)" : ""}`, "info");
       }
-      const candidates = getEligibleBoostCandidates(ranking.articles, context.userId, io.now());
+      const merged = mergeRankingCandidates(seen);
+      saveRankingCache(io.storage, io.now(), merged);
+      const candidates = getEligibleBoostCandidates(merged, context.userId, io.now()).slice(0, CONFIG.boostMission.rankingCacheSize);
       if (candidates.length === 0) {
-        io.log("마지막 조회에 부스트 가능한 후보가 없습니다", "warning");
+        io.log("조회한 후보 중 부스트 가능한 글이 없습니다", "warning");
         return { success: true, skipped: true, reason: "noCandidates" };
       }
       const interactions = await io.getArticleBoostStatuses(headers, candidates.map((article) => article.article_id));
@@ -2117,6 +2238,11 @@
     try {
       if (!CONFIG.reviewEvent.enabled) ;
       const event = selectReviewEvent(await io.getReviewEvents(headers), io.now());
+      pruneOldRecords(io.storage, "stove-review-v1:", {
+        now: io.now(),
+        timestamps: (record2) => [record2.attemptedAt],
+        keep: (key2) => Boolean(event) && key2.endsWith(`:${event.articleId}`)
+      });
       if (!event) return { success: true, reason: "noEvent", actionable: false };
       if (event.window !== "active") return { success: true, event, reason: event.window, actionable: false };
       const article = await io.getReviewArticle(headers, event.articleId);
@@ -4287,6 +4413,11 @@
     var _a, _b;
     return ((_a = result == null ? void 0 : result.value) == null ? void 0 : _a.status) || (result == null ? void 0 : result.status) || ((_b = result == null ? void 0 : result.missionInfo) == null ? void 0 : _b.status) || null;
   }
+  function claimedRewardAmount(result) {
+    var _a;
+    const amount = Number((result == null ? void 0 : result.reward_amount) ?? ((_a = result == null ? void 0 : result.value) == null ? void 0 : _a.reward_amount));
+    return Number.isFinite(amount) && amount > 0 ? amount : 0;
+  }
   function isRewardClaimResult(result) {
     var _a;
     const status = getMissionResultStatus(result);
@@ -4300,7 +4431,7 @@
     try {
       log("[SINGLE 미션] 자동 참여 시작", "info");
       if (targeted) {
-        log(`[SINGLE 미션] Target missionNo filter active: ${targetMissionNos.length}`, "info");
+        log(`[SINGLE 미션] 처리 대상 미션: ${targetMissionNos.length}개`, "info");
       }
       const allMissions = await io.getAllDailyMissions(headers);
       if (!allMissions || allMissions.length === 0) {
@@ -4344,12 +4475,20 @@
       log(`[SINGLE 미션] ${singleMissions.length}개 발견`, "info");
       let participated = 0;
       let completed = 0;
+      let earned = 0;
+      const claimReward = async (mission) => {
+        const claimResult = await io.receiveMissionReward(headers, mission.mission_no, mission.component_no);
+        if (!isRewardClaimResult(claimResult)) return;
+        completed++;
+        const amount = claimedRewardAmount(claimResult);
+        earned += amount;
+        log(`[SINGLE 미션] 🎁 "${mission.title}" 보상 수령 (+${amount} FLAKE)`, "success");
+      };
       for (const mission of singleMissions) {
         try {
           log(`[SINGLE 미션] "${mission.title}" 참여 중...`, "info");
           if (mission.status === "RECEIVABLE") {
-            const claimResult = await io.receiveMissionReward(headers, mission.mission_no, mission.component_no);
-            if (isRewardClaimResult(claimResult)) completed++;
+            await claimReward(mission);
             await io.delay(1e3);
             continue;
           }
@@ -4361,11 +4500,11 @@
             const status = result.value.status;
             if (status === "RECEIVABLE") {
               log(`[SINGLE 미션] ✅ "${mission.title}" 참여 완료 (수령 가능)`, "success");
-              const claimResult = await io.receiveMissionReward(headers, mission.mission_no, mission.component_no);
-              if (isRewardClaimResult(claimResult)) completed++;
+              await claimReward(mission);
               participated++;
             } else if (status === "COMPLETE" || status === "COMPLETED") {
               log(`[SINGLE 미션] 🎁 "${mission.title}" 보상 수령 완료 (+${mission.reward_amount} 플레이크)`, "success");
+              earned += claimedRewardAmount(result.value);
               completed++;
             } else {
               log(`[SINGLE 미션] ⚠️ "${mission.title}" 참여 실패 (상태: ${status})`, "warning");
@@ -4373,16 +4512,14 @@
           } else {
             log(`[SINGLE 미션] ⚠️ "${mission.title}" 응답 없음`, "warning");
           }
-          if (!(result == null ? void 0 : result.value)) {
-            const claimResult = await io.receiveMissionReward(headers, mission.mission_no, mission.component_no);
-            if (isRewardClaimResult(claimResult)) completed++;
-          }
+          if (!(result == null ? void 0 : result.value)) await claimReward(mission);
           await io.delay(1e3);
         } catch (error) {
           log(`[SINGLE 미션] ❌ "${mission.title}" 오류: ${error.message}`, "error");
         }
       }
-      log(`[SINGLE 미션] 총 참여: ${participated}개, 즉시 완료: ${completed}개, 스킵: ${skippedMissions.length}개`, "success");
+      state.earnings.visitMissions = (state.earnings.visitMissions || 0) + earned;
+      log(`[SINGLE 미션] 총 참여: ${participated}개, 즉시 완료: ${completed}개, 스킵: ${skippedMissions.length}개, 보상: ${earned} FLAKE`, "success");
       return { success: true, participated, completed, skipped: skippedMissions.length, total: singleMissions.length, targeted, targetMissionNos };
     } catch (error) {
       log(`[SINGLE 미션] 오류: ${error.message}`, "error");
@@ -5028,7 +5165,7 @@
       const articleLikeFlake = state.progress.articleLikes * 3;
       const commentFlake = state.progress.comments * 30;
       const questActivityFlake = articleWriteFlake + articleLikeFlake + commentFlake;
-      let totalEarnings = (questActivityFlake || 0) + (state.earnings.roulette || 0) + (state.earnings.rouletteExtra || 0) + (state.earnings.dailyShop || 0) + (state.earnings.majak || 0) + (state.earnings.dailyMissions || 0) + (state.earnings.contentMissions || 0) + (state.earnings.weeklyMissions || 0) + (state.earnings.bannerMissions || 0) + (state.earnings.attendanceMissions || 0) + (state.earnings.surveyMissions || 0) + (state.earnings.prizeEntry || 0) + (state.earnings.boostMission || 0) + (dailyAccumulatedFlake || 0);
+      let totalEarnings = (questActivityFlake || 0) + (state.earnings.roulette || 0) + (state.earnings.rouletteExtra || 0) + (state.earnings.dailyShop || 0) + (state.earnings.majak || 0) + (state.earnings.dailyMissions || 0) + (state.earnings.visitMissions || 0) + (state.earnings.contentMissions || 0) + (state.earnings.weeklyMissions || 0) + (state.earnings.bannerMissions || 0) + (state.earnings.attendanceMissions || 0) + (state.earnings.surveyMissions || 0) + (state.earnings.prizeEntry || 0) + (state.earnings.boostMission || 0) + (dailyAccumulatedFlake || 0);
       if (isNaN(totalEarnings)) {
         log("⚠️ 수익 계산 오류 발생 - 일부 값이 유효하지 않음", "warning");
         totalEarnings = 0;
@@ -5044,6 +5181,8 @@
       log(`  👍 게시글 좋아요: ${articleLikeFlake} FLAKE (${state.progress.articleLikes}회 × 3)`, articleLikeFlake > 0 ? "success" : "info");
       log(`  💬 댓글 쓰기: ${commentFlake} FLAKE (${state.progress.comments}회 × 30)`, commentFlake > 0 ? "success" : "info");
       log(`  📋 데일리 미션: ${state.earnings.dailyMissions} FLAKE`, state.earnings.dailyMissions > 0 ? "success" : "info");
+      const visitMissionFlake = state.earnings.visitMissions || 0;
+      log(`  🚶 방문 미션: ${visitMissionFlake} FLAKE`, visitMissionFlake > 0 ? "success" : "info");
       log(`  📰 컨텐츠 미션: ${state.earnings.contentMissions} FLAKE`, state.earnings.contentMissions > 0 ? "success" : "info");
       log(`  📅 위클리 미션: ${state.earnings.weeklyMissions} FLAKE`, state.earnings.weeklyMissions > 0 ? "success" : "info");
       log(`  🎨 배너 미션: ${state.earnings.bannerMissions} FLAKE`, state.earnings.bannerMissions > 0 ? "success" : "info");
@@ -5052,7 +5191,7 @@
       log(`  🔥 오늘의 1등 미션: ${state.earnings.boostMission} FLAKE`, state.earnings.boostMission > 0 ? "success" : "info");
       const prizeEntrySign = state.earnings.prizeEntry >= 0 ? "+" : "";
       log(`  🎁 경품 응모: ${prizeEntrySign}${state.earnings.prizeEntry} FLAKE`, state.earnings.prizeEntry >= 0 ? "success" : "warning");
-      log(`  🎰 룰렛 순수익: ${profitSign}${state.earnings.roulette} FLAKE`, state.earnings.roulette >= 0 ? "success" : "warning");
+      log(`  🎰 룰렛 순수익: ${state.earnings.roulette >= 0 ? "+" : ""}${state.earnings.roulette} FLAKE`, state.earnings.roulette >= 0 ? "success" : "warning");
       log(`  🎁 룰렛 EXTRA: ${state.earnings.rouletteExtra} FLAKE`, state.earnings.rouletteExtra > 0 ? "success" : "info");
       log(`  💝 데일리 보상: ${state.earnings.dailyShop} FLAKE`, state.earnings.dailyShop > 0 ? "success" : "info");
       log(`  🎁 데일리 누적 보상: ${dailyAccumulatedFlake} FLAKE`, dailyAccumulatedFlake > 0 ? "success" : "info");
