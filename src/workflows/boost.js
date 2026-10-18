@@ -4,6 +4,7 @@ import { getMyProfile } from '../api/profile.js';
 import { getBoostMissions, getBoostBalance, getBoostRanking, getArticleBoostStatuses,
     boostArticle, receiveBoostMissionReward } from '../api/boost.js';
 import { delay } from '../utils/time.js';
+import { pruneOldRecords } from '../utils/storageCleanup.js';
 import { log } from '../ui/logger.js';
 import { updateStatusUI } from '../ui/status.js';
 
@@ -186,6 +187,10 @@ export async function checkBoostStatus(headers, deps = {}) {
         // The dashboard shows today's first (hottest) boosted post, plus how many more.
         const firstDaily = dailyBoosts[0] || null;
         const mission = normalizeBoostMission(missions, io.now());
+        // Records of other (ended) missions, for any account in this profile, go after storageRetentionDays.
+        pruneOldRecords(io.storage, 'stove-boost-v1:', { now: io.now(),
+            timestamps: record => [record.boost?.attemptedAt, record.reward?.attemptedAt],
+            keep: key => Boolean(mission) && key.endsWith(`:${mission.id}`) });
         if (!mission) {
             return { success: true, notAvailable: true, userId: String(userId), ...balance, dailyKey, dailyBoosts,
                 verificationPending: dailyPending, selectedArticle: firstDaily };

@@ -2,6 +2,7 @@ import { CONFIG } from '../config.js';
 import { getReviewEvents, getReviewArticle, getReviewMember, canWriteReviewComment,
     getReviewCommentPage, postReviewSticker } from '../api/reviewEvent.js';
 import { delay } from '../utils/time.js';
+import { pruneOldRecords } from '../utils/storageCleanup.js';
 import { openTabInBackground, closeTab } from '../utils/tabs.js';
 import { log } from '../ui/logger.js';
 import { updateStatusUI } from '../ui/status.js';
@@ -99,6 +100,9 @@ export async function checkReviewEventStatus(headers, deps = {}) {
     try {
         if (!CONFIG.reviewEvent.enabled) return { success: true, reason: 'disabled', actionable: false };
         const event = selectReviewEvent(await io.getReviewEvents(headers), io.now());
+        // Records of other (ended) events, for any account in this profile, go after storageRetentionDays.
+        pruneOldRecords(io.storage, 'stove-review-v1:', { now: io.now(), timestamps: record => [record.attemptedAt],
+            keep: key => Boolean(event) && key.endsWith(`:${event.articleId}`) });
         if (!event) return { success: true, reason: 'noEvent', actionable: false };
         if (event.window !== 'active') return { success: true, event, reason: event.window, actionable: false };
         const article = await io.getReviewArticle(headers, event.articleId);
