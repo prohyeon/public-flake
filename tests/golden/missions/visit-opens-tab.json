@@ -16,7 +16,7 @@
   "delays": [],
   "logs": [
     "[info] 🌐 라운지 방문 방문 중...",
-    "[success] ✓ 라운지 방문 탭 열림"
+    "[success] 라운지 방문 탭 열림"
   ],
   "titles": [],
   "sounds": 0,
@@ -49,6 +49,7 @@
       "dailyShop": 0,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 0,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

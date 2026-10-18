@@ -24,7 +24,7 @@
   "delays": [],
   "logs": [
     "[info] 데일리 보상 확인 중...",
-    "[warning] ⚠️ 데일리 보상 정보를 가져올 수 없습니다",
+    "[warning] 데일리 보상 정보를 가져올 수 없습니다",
     "[success] ✅ 데일리 보상 처리 완료!"
   ],
   "titles": [],
@@ -58,6 +58,7 @@
       "dailyShop": 0,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 0,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

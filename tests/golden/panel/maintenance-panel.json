@@ -430,7 +430,7 @@
     "                <span>📝 로그</span>",
     "                <button id=\"stove-btn-copy-log\" class=\"stove-log-copy-btn\" title=\"로그 전체 복사\">📋</button>",
     "            </div>",
-    "            <div id=\"stove-log-content\"><div style=\"color: rgb(245, 158, 11); padding: 4px 0px;\">⚠️ ⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다</div></div>",
+    "            <div id=\"stove-log-content\"><div style=\"color: rgb(245, 158, 11); padding: 4px 0px;\" data-type=\"warning\">⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다</div></div>",
     "        </div>",
     "    </div>"
   ]

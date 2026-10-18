@@ -20,7 +20,7 @@
   "delays": [],
   "logs": [
     "[info] 룰렛 EXTRA 확인 중...",
-    "[error] ✗ 룰렛 EXTRA 확인 실패: API Error: 500 Error",
+    "[error] 룰렛 EXTRA 확인 실패: API Error: 500 Error",
     "[success] ✅ 룰렛 EXTRA 처리 완료!"
   ],
   "titles": [],
@@ -54,6 +54,7 @@
       "dailyShop": 0,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 0,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

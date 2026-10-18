@@ -93,7 +93,7 @@ test('runRouletteDraws sends no draw when the server count is above maxDraws', a
 
     assert.equal(await runRouletteDraws(TEST_HEADERS), 0);
     assert.deepEqual(writes(h), []);
-    assert.ok(h.logs().includes('[success] ✓ 룰렛 참여 가능 횟수: 0/30 (현재: 35)'));
+    assert.ok(h.logs().includes('[success] 룰렛 참여 가능 횟수: 0/30 (현재: 35)'));
 });
 
 test('runRouletteDraws does nothing over HTTP when roulette is disabled', async t => {
@@ -126,7 +126,7 @@ test('runRouletteDraws honors a lowered CONFIG.roulette.maxDraws and treats a mi
     // A draw without gift_info still counts as a success worth 0 FLAKE.
     assert.equal(net, 1250 - 5 * 100);
     assert.equal(state.earnings.roulette, 750);
-    assert.ok(h.logs().includes('[success] ✓ 룰렛 2/5 완료: 알 수 없음 (0 FLAKE)'));
+    assert.ok(h.logs().includes('[success] 룰렛 2/5 완료: 알 수 없음 (0 FLAKE)'));
     assertGolden('roulette/draws-limited-by-config-max-draws', h.snapshot());
 });
 
@@ -155,7 +155,7 @@ test('runRouletteDraws retries a thrown or non-JSON draw after retryDelay and st
     assert.equal(net, 400);
     assert.equal(state.earnings.roulette, 400);
     assert.deepEqual(h.delays, [1000, 1000, 200, 200]);
-    assert.ok(h.logs().includes('[error] ✗ 룰렛 1/1 API 오류 (코드: undefined)'));
+    assert.ok(h.logs().includes('[error] 룰렛 1/1 API 오류 (코드: undefined)'));
     assertGolden('roulette/draws-retry-then-success', h.snapshot());
 });
 
@@ -214,7 +214,7 @@ test('runRouletteDraws stops after a round that did not raise the participation 
 
     assert.equal(participationGets(h).length, 2);
     assert.equal(drawPosts(h).length, CONFIG.roulette.maxRetries + 1);
-    assert.ok(h.logs().includes('[warning] ⚠️ 직전 라운드 후 참여 횟수가 늘지 않아 룰렛을 중단합니다 (현재: 29)'));
+    assert.ok(h.logs().includes('[warning] 직전 라운드 후 참여 횟수가 늘지 않아 룰렛을 중단합니다 (현재: 29)'));
     assert.equal(state.earnings.roulette, 0);
     assert.equal(state.completed.roulette, true);
     assertGolden('roulette/draws-persistent-error-code-stops', h.snapshot());
@@ -236,7 +236,7 @@ test('runRouletteDraws never re-sends a code-0 draw without value; the next roun
     assert.equal(drawPosts(h).length, 3);
     assert.equal(participationGets(h).length, 3);
     assert.equal(net, 300 - 2 * CONFIG.roulette.drawCost);
-    assert.ok(h.logs().includes('[warning] ⚠️ 룰렛 2/3 결과를 확인할 수 없어 참여 횟수를 다시 확인합니다'));
+    assert.ok(h.logs().includes('[warning] 룰렛 2/3 결과를 확인할 수 없어 참여 횟수를 다시 확인합니다'));
     assert.ok(!h.logs().some(line => line.includes('재시도')));
     assertGolden('roulette/draws-code0-without-value-rechecks-count', h.snapshot());
 });
@@ -304,7 +304,7 @@ test('runRouletteDraws logs a failure and completes when the participation reque
 
     assert.deepEqual(writes(h), []);
     assert.equal(state.completed.roulette, true);
-    assert.ok(h.logs().includes('[error] ✗ 룰렛 실행 실패: API Error: 500 Error'));
+    assert.ok(h.logs().includes('[error] 룰렛 실행 실패: API Error: 500 Error'));
     assertGolden('roulette/draws-participation-http-error', h.snapshot());
 });
 
@@ -423,8 +423,8 @@ test('claimRouletteExtraRewards reports "Unknown error" for an error without mes
 
     assert.deepEqual(writes(h), []);
     assert.deepEqual(h.logs().filter(line => line.startsWith('[warning]')), [
-        '[warning] ⚠️ 룰렛 EXTRA API 오류: Unknown error',
-        '[warning] ⚠️ 룰렛 EXTRA API 오류: Unknown error'
+        '[warning] 룰렛 EXTRA API 오류: Unknown error',
+        '[warning] 룰렛 EXTRA API 오류: Unknown error'
     ]);
 });
 
@@ -499,7 +499,7 @@ test('claimRouletteExtraRewards defaults missing current_cnt/current_cycle to 0 
     assert.equal(await claimRouletteExtraRewards(TEST_HEADERS), 0);
 
     assert.deepEqual(h.calls().slice(1), [`POST ${extraClaimUrl()} {"gift_no":700,"current_cycle":0}`]);
-    assert.ok(h.logs().includes('[success] ✓ EXTRA 수령 완료: undefined (0 FLAKE)'));
+    assert.ok(h.logs().includes('[success] EXTRA 수령 완료: undefined (0 FLAKE)'));
     assert.equal(state.earnings.rouletteExtra, 0);
 });
 

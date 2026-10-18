@@ -64,7 +64,7 @@ const EXCHANGE_SUCCESS_LOGS = [
     '[info] 💱 7700 포인트 교환 준비 중...',
     '[info]   💎 현재 보유: 250,000 FLAKE',
     '[info]   ✓ 필요 플레이크: 192,500 FLAKE',
-    '[success] ✓ 7,700 포인트 교환 완료 (-192,500 FLAKE)',
+    '[success] 7,700 포인트 교환 완료 (-192,500 FLAKE)',
     '[info]   💰 잔여 FLAKE: 57,500'
 ];
 
@@ -98,7 +98,7 @@ test('exchange: refuses without any write when the balance is one FLAKE short', 
         '[info] 💱 7700 포인트 교환 준비 중...',
         '[info]   💎 현재 보유: 192,499 FLAKE',
         '[info]   ✓ 필요 플레이크: 192,500 FLAKE',
-        '[error] ✗ 플레이크 부족: 192,499 / 192,500 FLAKE'
+        '[error] 플레이크 부족: 192,499 / 192,500 FLAKE'
     ]);
     assertGolden('api/point-exchange-workflow-insufficient', h.snapshot());
 });
@@ -146,12 +146,12 @@ test('exchange: rate lookup failures are reported with mapped messages and no wr
     ]);
     assert.deepEqual(writes(h), []);
     assert.deepEqual(h.logs().filter(line => line.startsWith('[error]')), [
-        '[error] ✗ 전환 비율 조회 실패: 최저 전환 금액보다 작습니다',
-        '[error] ✗ 전환 비율 조회 실패: rate down',
-        '[error] ✗ 전환 비율 조회 실패: 알 수 없는 오류',
-        '[error] ✗ 전환 비율 조회 실패: 알 수 없는 오류',
-        '[error] ✗ 전환 비율 조회 실패: 알 수 없는 오류',
-        '[error] ✗ 전환 비율 조회 실패: 포인트 적립 월간 한도를 초과했습니다'
+        '[error] 전환 비율 조회 실패: 최저 전환 금액보다 작습니다',
+        '[error] 전환 비율 조회 실패: rate down',
+        '[error] 전환 비율 조회 실패: 알 수 없는 오류',
+        '[error] 전환 비율 조회 실패: 알 수 없는 오류',
+        '[error] 전환 비율 조회 실패: 알 수 없는 오류',
+        '[error] 전환 비율 조회 실패: 포인트 적립 월간 한도를 초과했습니다'
     ]);
 });
 
@@ -185,7 +185,7 @@ test('exchange: failure codes map to messages; each attempt is a single POST, ne
     ]);
     assert.ok(results.every(result => result.success === false));
     assert.equal(writes(h).length, failures.length);
-    assert.equal(h.logs().at(-1), '[error] ✗ 포인트 교환 실패: 알 수 없는 오류');
+    assert.equal(h.logs().at(-1), '[error] 포인트 교환 실패: 알 수 없는 오류');
 });
 
 test('exchange: success without amounts falls back to the plan; residue_flake is the second residue source', async t => {
@@ -193,7 +193,7 @@ test('exchange: success without amounts falls back to the plan; residue_flake is
 
     assert.deepEqual(await exchangeConfiguredPoints(TEST_HEADERS),
         { success: true, pointAmount: 7700, spentFlake: 192500, exchangedAmount: 7700, residueFlake: null });
-    assert.equal(h.logs().at(-1), '[success] ✓ 7,700 포인트 교환 완료 (-192,500 FLAKE)', 'no residue line without a residue');
+    assert.equal(h.logs().at(-1), '[success] 7,700 포인트 교환 완료 (-192,500 FLAKE)', 'no residue line without a residue');
     assert.equal((await exchangeConfiguredPoints(TEST_HEADERS)).residueFlake, 100);
     assert.equal(h.logs().at(-1), '[info]   💰 잔여 FLAKE: 100');
     assert.equal((await exchangeConfiguredPoints(TEST_HEADERS)).residueFlake, 0);
@@ -243,7 +243,7 @@ test('all-in-one: exchange then charge -> exactly two writes, success notice, or
         ...EXCHANGE_SUCCESS_LOGS,
         '[info] 💳 7,700 포인트로 7,700 캐시 충전 준비 중...',
         '[info]   💰 현재 포인트: 7,700 P',
-        '[success] ✓ 7700 캐시 충전 완료 (주문번호: 2605101202375031)'
+        '[success] 7700 캐시 충전 완료 (주문번호: 2605101202375031)'
     ]);
 
     const notice = h.document.getElementById('stove-success-notice');
@@ -276,7 +276,7 @@ test('all-in-one: a failed point-balance lookup leaves the FLAKE already exchang
         { success: false, reason: 'pointBalanceLookupFailed', message: '알 수 없는 오류' }
     ]);
     assert.deepEqual(writes(h), [EXCHANGE_WRITE, EXCHANGE_WRITE, EXCHANGE_WRITE]);
-    assert.equal(h.logs().at(-1), '[error] ✗ 포인트 잔액 조회 실패: 알 수 없는 오류');
+    assert.equal(h.logs().at(-1), '[error] 포인트 잔액 조회 실패: 알 수 없는 오류');
 });
 
 test('all-in-one: insufficient points after the exchange skips the charge', async t => {
@@ -284,7 +284,7 @@ test('all-in-one: insufficient points after the exchange skips the charge', asyn
     assert.deepEqual(await runPointCashChargeAllInOne(TEST_HEADERS),
         { success: false, reason: 'insufficientPoints', availablePoints: 7699, requiredPoints: 7700 });
     assert.deepEqual(writes(h), [EXCHANGE_WRITE]);
-    assert.deepEqual(h.logs().slice(-2), ['[info]   💰 현재 포인트: 7,699 P', '[error] ✗ 포인트 부족: 7,699 / 7,700 P']);
+    assert.deepEqual(h.logs().slice(-2), ['[info]   💰 현재 포인트: 7,699 P', '[error] 포인트 부족: 7,699 / 7,700 P']);
 });
 
 test('all-in-one: an unknown point balance does not block the charge', async t => {
@@ -302,11 +302,11 @@ test('all-in-one: charge failures are reported once without a notice; a missing 
     assert.deepEqual(await runPointCashChargeAllInOne(TEST_HEADERS),
         { success: false, reason: 'cashChargeFailed', message: 'denied', code: 9 });
     assert.equal(h.document.getElementById('stove-success-notice'), null);
-    assert.equal(h.logs().at(-1), '[error] ✗ 로스트아크 캐시 충전 실패: denied');
+    assert.equal(h.logs().at(-1), '[error] 로스트아크 캐시 충전 실패: denied');
 
     assert.deepEqual(await runPointCashChargeAllInOne(TEST_HEADERS),
         { success: true, pointAmount: 7700, chargedCash: 7700, orderNo: null });
-    assert.equal(h.logs().at(-1), '[success] ✓ 7700 캐시 충전 완료');
+    assert.equal(h.logs().at(-1), '[success] 7700 캐시 충전 완료');
     assert.deepEqual(writes(h), [EXCHANGE_WRITE, CHARGE_WRITE, EXCHANGE_WRITE, CHARGE_WRITE, EXCHANGE_WRITE, CHARGE_WRITE]);
 });
 
@@ -368,7 +368,7 @@ test('runPointExchange: locks the panel while charging, then releases it', async
     assert.equal(h.document.getElementById('stove-btn-point-cash-charge-status').textContent, '192,500 플레이크 부족');
     assert.deepEqual(state.pointCashCharge, { availableFlake: 0, hasRequiredFlake: false });
     assert.deepEqual(writes(h), [EXCHANGE_WRITE, CHARGE_WRITE]);
-    assert.equal(h.logs().at(-1), '[success] ✓ 7700 캐시 충전 완료 (주문번호: 2605101202375031)');
+    assert.equal(h.logs().at(-1), '[success] 7700 캐시 충전 완료 (주문번호: 2605101202375031)');
 });
 
 test('runPointExchange: refuses to start while another run is active', async t => {
@@ -376,7 +376,7 @@ test('runPointExchange: refuses to start while another run is active', async t =
     state.isRunning = true;
     await runPointExchange();
     assert.deepEqual(h.requests, []);
-    assert.deepEqual(h.logs(), ['[warning] ⚠️ 이미 실행 중입니다']);
+    assert.deepEqual(h.logs(), ['[warning] 이미 실행 중입니다']);
     assert.equal(state.isRunning, true, 'the other run keeps its lock');
     assert.equal(h.document.getElementById('stove-btn-start').disabled, false, 'buttons are not touched');
 });
@@ -385,7 +385,7 @@ test('runPointExchange: a missing login is logged, makes no request and releases
     const h = setup(t, { harness: { cookies: { sgs_da_uuid: 'test-uuid' } } });
     await runPointExchange();
     assert.deepEqual(h.requests, []);
-    assert.deepEqual(h.logs(), ['[error] ✗ 올인원 충전 오류: Authorization token (SUAT) not found']);
+    assert.deepEqual(h.logs(), ['[error] 올인원 충전 오류: Authorization token (SUAT) not found']);
     assert.equal(state.isRunning, false);
     assert.equal(h.document.getElementById('stove-btn-start').disabled, false);
 });
@@ -394,7 +394,7 @@ test('runPointExchange: thrown workflow errors are logged and nothing is written
     const h = setup(t, { rate: { code: 0, value: { ...RATE_OK.value, to_amount: 3 } } });
     await runPointExchange();
     assert.deepEqual(writes(h), []);
-    assert.equal(h.logs().at(-1), '[error] ✗ 올인원 충전 오류: Point exchange amount must resolve to a whole flake amount');
+    assert.equal(h.logs().at(-1), '[error] 올인원 충전 오류: Point exchange amount must resolve to a whole flake amount');
     assert.equal(state.isRunning, false);
 });
 
@@ -402,7 +402,7 @@ test('runPointExchange: an HTTP error on the charge is logged after the exchange
     const h = setup(t, { charge: httpError(500) });
     await runPointExchange();
     assert.deepEqual(writes(h), [EXCHANGE_WRITE, CHARGE_WRITE]);
-    assert.equal(h.logs().at(-1), '[error] ✗ 올인원 충전 오류: API Error: 500 Error');
+    assert.equal(h.logs().at(-1), '[error] 올인원 충전 오류: API Error: 500 Error');
     assert.equal(h.document.getElementById('stove-success-notice'), null);
     assert.equal(state.isRunning, false);
 });

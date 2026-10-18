@@ -35,11 +35,11 @@
   "delays": [],
   "logs": [
     "[info] 📅 출석 미션 시작...",
-    "[warning] ⚠️ 출석 미션 componentNo가 로드되지 않음",
+    "[warning] 출석 미션 componentNo가 로드되지 않음",
     "[info] 📅 출석 미션 시작...",
-    "[warning] ⚠️ 출석 미션 데이터를 찾을 수 없습니다",
+    "[warning] 출석 미션 데이터를 찾을 수 없습니다",
     "[info] 📅 출석 미션 시작...",
-    "[error] ✗ 출석 미션 오류: API Error: 500 Error",
+    "[error] 출석 미션 오류: API Error: 500 Error",
     "[success] ✅ 출석 미션 처리 완료!",
     "[info] ⏭️ 출석 미션이 비활성화되어 있습니다"
   ],
@@ -74,6 +74,7 @@
       "dailyShop": 0,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 0,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

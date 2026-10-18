@@ -60,12 +60,13 @@
   ],
   "logs": [
     "[info] [SINGLE 미션] 자동 참여 시작",
-    "[info] [SINGLE 미션] Target missionNo filter active: 2",
+    "[info] [SINGLE 미션] 처리 대상 미션: 2개",
     "[info] [SINGLE 미션] ⏭️ \"미션 623\" 스킵 (방문형 자동 참여 대상 아님)",
     "[info] [SINGLE 미션] 1개 발견",
     "[info] [SINGLE 미션] \"미션 622\" 참여 중...",
     "[success] [SINGLE 미션] ✅ \"미션 622\" 참여 완료 (수령 가능)",
-    "[success] [SINGLE 미션] 총 참여: 1개, 즉시 완료: 1개, 스킵: 1개"
+    "[success] [SINGLE 미션] 🎁 \"미션 622\" 보상 수령 (+10 FLAKE)",
+    "[success] [SINGLE 미션] 총 참여: 1개, 즉시 완료: 1개, 스킵: 1개, 보상: 10 FLAKE"
   ],
   "titles": [],
   "sounds": 0,
@@ -98,6 +99,7 @@
       "dailyShop": 0,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 10,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

@@ -21,7 +21,7 @@
   "logs": [
     "[info] 📋 데일리 미션 시작...",
     "[info] 📝 총 1개 미션 확인",
-    "[error] ✗ 데일리 미션 오류: m.button_url?.trim is not a function",
+    "[error] 데일리 미션 오류: m.button_url?.trim is not a function",
     "[success] ✅ 데일리 미션 처리 완료!"
   ],
   "titles": [],
@@ -55,6 +55,7 @@
       "dailyShop": 0,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 0,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

@@ -69,12 +69,12 @@
   "logs": [
     "[info] 마작 리워드 확인 중...",
     "[info] 오늘 날짜: 2026-10-16",
-    "[success] ✓ 오늘 수령 가능한 마작 리워드: 1개",
-    "[success] ✓ 마작 리워드 수령 완료: 데일리 플레이크 (10 FLAKE)",
+    "[success] 오늘 수령 가능한 마작 리워드: 1개",
+    "[success] 마작 리워드 수령 완료: 데일리 플레이크 (10 FLAKE)",
     "[success] 🀄 총 1개 마작 일일 리워드 수령 완료",
     "[info] ",
     "[info] 📋 일일 리워드 수령 후 누적 출석 정보 재조회 중...",
-    "[error] ✗ 마작 리워드 확인 실패: API Error: 500 Error",
+    "[error] 마작 리워드 확인 실패: API Error: 500 Error",
     "[success] ✅ 마작 리워드 처리 완료!"
   ],
   "titles": [],
@@ -108,6 +108,7 @@
       "dailyShop": 0,
       "majak": 10,
       "dailyMissions": 0,
+      "visitMissions": 0,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

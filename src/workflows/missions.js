@@ -676,6 +676,12 @@ function getMissionResultStatus(result) {
     return result?.value?.status || result?.status || result?.missionInfo?.status || null;
 }
 
+// FLAKE confirmed by a claim (or an already completed participation) response; anything else counts as 0.
+function claimedRewardAmount(result) {
+    const amount = Number(result?.reward_amount ?? result?.value?.reward_amount);
+    return Number.isFinite(amount) && amount > 0 ? amount : 0;
+}
+
 function isRewardClaimResult(result) {
     const status = getMissionResultStatus(result);
     return COMPLETE_STATUSES.has(status) ||
@@ -692,7 +698,7 @@ export async function autoParticipateVisitMissions(headers, options = {}) {
         log('[SINGLE 미션] 자동 참여 시작', 'info');
 
         if (targeted) {
-            log(`[SINGLE 미션] Target missionNo filter active: ${targetMissionNos.length}`, 'info');
+            log(`[SINGLE 미션] 처리 대상 미션: ${targetMissionNos.length}개`, 'info');
         }
 
         const allMissions = await io.getAllDailyMissions(headers);
@@ -746,13 +752,21 @@ export async function autoParticipateVisitMissions(headers, options = {}) {
 
         let participated = 0;
         let completed = 0;
+        let earned = 0;
+        const claimReward = async mission => {
+            const claimResult = await io.receiveMissionReward(headers, mission.mission_no, mission.component_no);
+            if (!isRewardClaimResult(claimResult)) return;
+            completed++;
+            const amount = claimedRewardAmount(claimResult);
+            earned += amount;
+            log(`[SINGLE 미션] 🎁 "${mission.title}" 보상 수령 (+${amount} FLAKE)`, 'success');
+        };
 
         for (const mission of singleMissions) {
             try {
                 log(`[SINGLE 미션] "${mission.title}" 참여 중...`, 'info');
                 if (mission.status === 'RECEIVABLE') {
-                    const claimResult = await io.receiveMissionReward(headers, mission.mission_no, mission.component_no);
-                    if (isRewardClaimResult(claimResult)) completed++;
+                    await claimReward(mission);
                     await io.delay(1000);
                     continue;
                 }
@@ -767,11 +781,11 @@ export async function autoParticipateVisitMissions(headers, options = {}) {
                     const status = result.value.status;
                     if (status === 'RECEIVABLE') {
                         log(`[SINGLE 미션] ✅ "${mission.title}" 참여 완료 (수령 가능)`, 'success');
-                        const claimResult = await io.receiveMissionReward(headers, mission.mission_no, mission.component_no);
-                        if (isRewardClaimResult(claimResult)) completed++;
+                        await claimReward(mission);
                         participated++;
                     } else if (status === 'COMPLETE' || status === 'COMPLETED') {
                         log(`[SINGLE 미션] 🎁 "${mission.title}" 보상 수령 완료 (+${mission.reward_amount} 플레이크)`, 'success');
+                        earned += claimedRewardAmount(result.value);
                         completed++;
                     } else {
                         log(`[SINGLE 미션] ⚠️ "${mission.title}" 참여 실패 (상태: ${status})`, 'warning');
@@ -780,10 +794,7 @@ export async function autoParticipateVisitMissions(headers, options = {}) {
                     log(`[SINGLE 미션] ⚠️ "${mission.title}" 응답 없음`, 'warning');
                 }
 
-                if (!result?.value) {
-                    const claimResult = await io.receiveMissionReward(headers, mission.mission_no, mission.component_no);
-                    if (isRewardClaimResult(claimResult)) completed++;
-                }
+                if (!result?.value) await claimReward(mission);
 
                 await io.delay(1000);
             } catch (error) {
@@ -791,7 +802,9 @@ export async function autoParticipateVisitMissions(headers, options = {}) {
             }
         }
 
-        log(`[SINGLE 미션] 총 참여: ${participated}개, 즉시 완료: ${completed}개, 스킵: ${skippedMissions.length}개`, 'success');
+        // Accumulates: the repair group may run this step a second time in the same automation run.
+        state.earnings.visitMissions = (state.earnings.visitMissions || 0) + earned;
+        log(`[SINGLE 미션] 총 참여: ${participated}개, 즉시 완료: ${completed}개, 스킵: ${skippedMissions.length}개, 보상: ${earned} FLAKE`, 'success');
         return { success: true, participated, completed, skipped: skippedMissions.length, total: singleMissions.length, targeted, targetMissionNos };
 
     } catch (error) {

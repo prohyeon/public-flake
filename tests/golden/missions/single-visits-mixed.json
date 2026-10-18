@@ -212,10 +212,13 @@
     "[info] [SINGLE 미션] 3개 발견",
     "[info] [SINGLE 미션] \"미션 601\" 참여 중...",
     "[success] [SINGLE 미션] ✅ \"미션 601\" 참여 완료 (수령 가능)",
+    "[success] [SINGLE 미션] 🎁 \"미션 601\" 보상 수령 (+10 FLAKE)",
     "[info] [SINGLE 미션] \"미션 602\" 참여 중...",
+    "[success] [SINGLE 미션] 🎁 \"미션 602\" 보상 수령 (+20 FLAKE)",
     "[info] [SINGLE 미션] \"미션 603\" 참여 중...",
     "[success] [SINGLE 미션] ✅ \"미션 603\" 참여 완료 (수령 가능)",
-    "[success] [SINGLE 미션] 총 참여: 2개, 즉시 완료: 3개, 스킵: 3개"
+    "[success] [SINGLE 미션] 🎁 \"미션 603\" 보상 수령 (+10 FLAKE)",
+    "[success] [SINGLE 미션] 총 참여: 2개, 즉시 완료: 3개, 스킵: 3개, 보상: 40 FLAKE"
   ],
   "titles": [],
   "sounds": 0,
@@ -248,6 +251,7 @@
       "dailyShop": 0,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 40,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

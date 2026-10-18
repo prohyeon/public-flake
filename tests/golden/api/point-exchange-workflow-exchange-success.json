@@ -45,7 +45,7 @@
     "[info] 💱 7700 포인트 교환 준비 중...",
     "[info]   💎 현재 보유: 250,000 FLAKE",
     "[info]   ✓ 필요 플레이크: 192,500 FLAKE",
-    "[success] ✓ 7,700 포인트 교환 완료 (-192,500 FLAKE)",
+    "[success] 7,700 포인트 교환 완료 (-192,500 FLAKE)",
     "[info]   💰 잔여 FLAKE: 57,500"
   ],
   "titles": [],
@@ -79,6 +79,7 @@
       "dailyShop": 0,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 0,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

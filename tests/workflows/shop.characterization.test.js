@@ -131,7 +131,7 @@ test('claimDailyShopRewards marks dailyShop completed even when the reward list 
     assert.equal(state.earnings.dailyShop, 0);
     assert.equal(state.completed.dailyShop, true);
     assert.deepEqual(writes(h), []);
-    assert.ok(h.logs().includes('[error] ✗ 데일리 보상 확인 실패: API Error: 500 Error'));
+    assert.ok(h.logs().includes('[error] 데일리 보상 확인 실패: API Error: 500 Error'));
     assertGolden('shop/daily-fetch-http-error', h.snapshot());
 });
 
@@ -283,7 +283,7 @@ test('claimMajakDailyShopRewards keeps the daily FLAKE in earnings when the re-r
     assert.equal(state.earnings.majak, 10);
     assert.equal(state.completed.majak, true);
     assert.deepEqual(writeUrls(h), [dailyClaimUrl('flake', 3001)]);
-    assert.ok(h.logs().includes('[error] ✗ 마작 리워드 확인 실패: API Error: 500 Error'));
+    assert.ok(h.logs().includes('[error] 마작 리워드 확인 실패: API Error: 500 Error'));
     assertGolden('shop/majak-refetch-http-error-keeps-daily-earnings', h.snapshot());
 });
 
@@ -312,7 +312,7 @@ test('claimMajakDailyShopRewards: failed daily claim skips the re-read; accumula
     assert.equal(writes(h).length, 4);
     assertNoDuplicateClaims(h);
     assert.deepEqual(h.delays, [200, 200, 200]);
-    assert.ok(h.logs().includes('[error] ✗ 마작 누적 보상 수령 실패 (item_no: 4003, 코드: N/A)'));
+    assert.ok(h.logs().includes('[error] 마작 누적 보상 수령 실패 (item_no: 4003, 코드: N/A)'));
     assertGolden('shop/majak-claim-failures', h.snapshot());
 });
 
@@ -427,7 +427,7 @@ test('claimDailyAccumulatedRewards counts a FLAKE reward without flake_amount as
 
     assert.equal(await claimDailyAccumulatedRewards(TEST_HEADERS), 0);
     assert.deepEqual(writeUrls(h), [accumulateClaimUrl('flake', 2001)]);
-    assert.ok(h.logs().includes('[success] ✓ FLAKE 보상 수령 완료 (5일): 누적 5일 플레이크 (0 FLAKE)'));
+    assert.ok(h.logs().includes('[success] FLAKE 보상 수령 완료 (5일): 누적 5일 플레이크 (0 FLAKE)'));
 });
 
 test('claimDailyAccumulatedRewards claims reached rewards, skipping already-owned game coupons', async t => {
@@ -521,9 +521,9 @@ test('claimDailyAccumulatedRewards logs each failure kind and continues with the
     ]);
     assertNoDuplicateClaims(h);
     const logs = h.logs();
-    assert.ok(logs.includes('[error] ✗ 보상 수령 실패: 5일 플레이크 (코드: 9001, 메시지: 이미 수령한 보상)'));
-    assert.ok(logs.includes('[error] ✗ 보상 수령 실패: 아이템 상자 (코드: 9002, 메시지: legacy msg field)'));
-    assert.ok(logs.includes('[error] ✗ 보상 수령 실패: 인디 게임 C (코드: N/A, 메시지: N/A)'));
+    assert.ok(logs.includes('[error] 보상 수령 실패: 5일 플레이크 (코드: 9001, 메시지: 이미 수령한 보상)'));
+    assert.ok(logs.includes('[error] 보상 수령 실패: 아이템 상자 (코드: 9002, 메시지: legacy msg field)'));
+    assert.ok(logs.includes('[error] 보상 수령 실패: 인디 게임 C (코드: N/A, 메시지: N/A)'));
     assertGolden('shop/accumulated-claim-failures', h.snapshot());
 });
 
@@ -557,7 +557,7 @@ test('claimDailyAccumulatedRewards formats large FLAKE amounts with toLocaleStri
 
     assert.equal(await claimDailyAccumulatedRewards(TEST_HEADERS), 1500);
     assert.ok(h.logs().includes(
-        `[success] ✓ FLAKE 보상 수령 완료 (25일): 개근 보상 (${(1500).toLocaleString()} FLAKE)`));
+        `[success] FLAKE 보상 수령 완료 (25일): 개근 보상 (${(1500).toLocaleString()} FLAKE)`));
 });
 
 // ---------------------------------------------------------------------------------------------

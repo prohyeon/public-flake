@@ -126,9 +126,10 @@
     "[warning] [SINGLE 미션] ⚠️ \"미션 612\" 참여 실패 (상태: INCOMPLETE)",
     "[info] [SINGLE 미션] \"미션 613\" 참여 중...",
     "[warning] [SINGLE 미션] ⚠️ \"미션 613\" 응답 없음",
+    "[success] [SINGLE 미션] 🎁 \"미션 613\" 보상 수령 (+3 FLAKE)",
     "[info] [SINGLE 미션] \"미션 614\" 참여 중...",
     "[error] [SINGLE 미션] ❌ \"미션 614\" 오류: API Error: 500 Error",
-    "[success] [SINGLE 미션] 총 참여: 0개, 즉시 완료: 2개, 스킵: 0개"
+    "[success] [SINGLE 미션] 총 참여: 0개, 즉시 완료: 2개, 스킵: 0개, 보상: 3 FLAKE"
   ],
   "titles": [],
   "sounds": 0,
@@ -161,6 +162,7 @@
       "dailyShop": 0,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 3,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

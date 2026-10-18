@@ -252,11 +252,13 @@ export function installHarness(options = {}) {
 
     function logs() {
         return [...document.querySelectorAll('#stove-log-content > div')].map(entry => {
+            // The logger tags each entry with its type and drops the type icon when the message
+            // already starts with an icon of its own, so the type comes from the tag.
             const text = entry.textContent;
-            const icon = [...LOG_ICON_TYPES.keys()].find(prefix => text.startsWith(`${prefix} `));
-            return icon
-                ? `[${LOG_ICON_TYPES.get(icon)}] ${text.slice(icon.length + 1)}`
-                : `[?] ${text}`;
+            const type = entry.dataset.type;
+            const icon = [...LOG_ICON_TYPES.keys()].find(prefix => LOG_ICON_TYPES.get(prefix) === type);
+            if (!icon) return `[?] ${text}`;
+            return `[${type}] ${text.startsWith(`${icon} `) ? text.slice(icon.length + 1) : text}`;
         });
     }
 

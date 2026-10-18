@@ -24,7 +24,7 @@
   "delays": [],
   "logs": [
     "[info] 🎁 데일리 누적 보상 수령 시작...",
-    "[error] ✗ 데일리 누적 보상 처리 실패: API Error: 500 Error"
+    "[error] 데일리 누적 보상 처리 실패: API Error: 500 Error"
   ],
   "titles": [],
   "sounds": 0,
@@ -57,6 +57,7 @@
       "dailyShop": 0,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 0,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,

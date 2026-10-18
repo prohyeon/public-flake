@@ -29,7 +29,7 @@
     "[info] 💱 7700 포인트 교환 준비 중...",
     "[info]   💎 현재 보유: 192,499 FLAKE",
     "[info]   ✓ 필요 플레이크: 192,500 FLAKE",
-    "[error] ✗ 플레이크 부족: 192,499 / 192,500 FLAKE"
+    "[error] 플레이크 부족: 192,499 / 192,500 FLAKE"
   ],
   "titles": [],
   "sounds": 0,
@@ -62,6 +62,7 @@
       "dailyShop": 0,
       "majak": 0,
       "dailyMissions": 0,
+      "visitMissions": 0,
       "contentMissions": 0,
       "weeklyMissions": 0,
       "bannerMissions": 0,
