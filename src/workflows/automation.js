@@ -276,6 +276,14 @@ export async function runAutomation() {
     const timing = createRunTiming();
     const allTabs = [];
 
+    // Bring the log panel into view so the run's progress is visible from the start.
+    const logSection = document.querySelector('.stove-log-section');
+    if (logSection) {
+        const rect = logSection.getBoundingClientRect();
+        const offsetTop = window.pageYOffset + rect.top - (window.innerHeight * 0.3) + (rect.height / 2);
+        window.scrollTo({ top: offsetTop, behavior: 'smooth' });
+    }
+
     try {
         log('🚀 전체 자동화 시작', 'info');
         log('헤더 정보 추출 중...', 'info');

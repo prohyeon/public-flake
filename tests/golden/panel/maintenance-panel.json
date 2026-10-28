@@ -251,7 +251,7 @@
     "        </style>",
     "        <div class=\"stove-panel-header\">",
     "            <span class=\"stove-panel-title\">STOVE 퀘스트 자동화</span>",
-    "            <span class=\"stove-panel-version\">v3.0.0 · 2026-10-28</span>",
+    "            <span class=\"stove-panel-version\">v3.0.1 · 2026-10-28</span>",
     "        </div>",
     "        <div id=\"stove-maintenance-notice\" class=\"stove-maintenance-notice\" style=\"display: block;\">",
     "            <div class=\"stove-maintenance-title\">점검 중</div>",

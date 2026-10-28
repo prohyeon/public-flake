@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      3.0.0
+// @version      3.0.1
 // @author       prohyeon
 // @description  STOVE 자동화 (미션, 설문 투표, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -19,7 +19,7 @@
   'use strict';
 
   const CONFIG = {
-    version: "3.0.0",
+    version: "3.0.1",
     lastUpdated: "2026-10-28",
     debug: false,
     maintenanceMode: {
@@ -3521,6 +3521,12 @@
     resetRunProgress();
     const timing = createRunTiming();
     const allTabs = [];
+    const logSection = document.querySelector(".stove-log-section");
+    if (logSection) {
+      const rect = logSection.getBoundingClientRect();
+      const offsetTop = window.pageYOffset + rect.top - window.innerHeight * 0.3 + rect.height / 2;
+      window.scrollTo({ top: offsetTop, behavior: "smooth" });
+    }
     try {
       log("🚀 전체 자동화 시작", "info");
       log("헤더 정보 추출 중...", "info");
