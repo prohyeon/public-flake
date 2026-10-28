@@ -26,9 +26,9 @@
   "tabs": [],
   "delays": [],
   "logs": [
-    "[info] 💱 7700 포인트 교환 준비 중...",
-    "[info]   💎 현재 보유: 192,499 FLAKE",
-    "[info]   ✓ 필요 플레이크: 192,500 FLAKE",
+    "[info] 7700 포인트 교환 준비 중...",
+    "[info]   현재 보유: 192,499 FLAKE",
+    "[info]   필요 플레이크: 192,500 FLAKE",
     "[error] 플레이크 부족: 192,499 / 192,500 FLAKE"
   ],
   "titles": [],
@@ -38,11 +38,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -55,7 +50,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -69,8 +63,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": null,

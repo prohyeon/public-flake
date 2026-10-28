@@ -1,21 +1,19 @@
 // Characterization of the dashboard renderers: src/ui/status.js (updateStatusUI), src/ui/progress.js,
 // src/ui/logger.js and src/ui/notifications.js, rendered into a copy of the real panel markup.
-process.env.TZ = 'Asia/Seoul'; // toLocaleTimeString-based text in boost/special force cells
+process.env.TZ = 'Asia/Seoul';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { useHarness } from '../helpers/gmHarness.js';
 import { assertGolden } from '../helpers/golden.js';
-import { STATUS_PANEL_BODY, panelSnapshot, boostMission } from '../fixtures/status.js';
-import { CONFIG } from '../../src/config.js';
+import { STATUS_PANEL_BODY, panelSnapshot } from '../fixtures/status.js';
 import { state } from '../../src/state.js';
 import { updateStatusUI } from '../../src/ui/status.js';
 import * as progressModule from '../../src/ui/progress.js';
-import { log } from '../../src/ui/logger.js';
+import { log, timingText } from '../../src/ui/logger.js';
 import { showSuccessNotice } from '../../src/ui/notifications.js';
-import { normalizeBoostMission } from '../../src/workflows/boost.js';
 
-const { updateProgress, setButtonState } = progressModule;
+const { setButtonState } = progressModule;
 const nativeSetTimeout = globalThis.setTimeout;
 const tick = (ms = 10) => new Promise(resolve => nativeSetTimeout(resolve, ms));
 // Polls with real timers (the harness setTimeout fires callbacks at 0ms, but still asynchronously).
@@ -43,9 +41,9 @@ function category(missions) {
 const m = (title, status, extra = {}) => ({ mission_no: title.length, title, status, ...extra });
 
 const ALL_LOADING = {
-    articleWrite: { loading: true }, dailyMission: { loading: true }, roulette: { loading: true },
+    dailyMission: { loading: true }, roulette: { loading: true },
     dailyShop: { loading: true }, majakShop: { loading: true }, survey: { loading: true },
-    boost: { loading: true }, reviewEvent: { loading: true }, totalFlake: { loading: true }, monthlyFlake: { loading: true }
+    totalFlake: { loading: true }, monthlyFlake: { loading: true }
 };
 
 // ---------------------------------------------------------------- updateStatusUI
@@ -53,15 +51,13 @@ const ALL_LOADING = {
 test('updateStatusUI: loading state shows a spinner in every dashboard cell', async t => {
     const h = panel(t);
     updateStatusUI(ALL_LOADING);
-    assert.equal(cell(h, 'article'), '<span style="color: #3b82f6">⏳ 확인 중...</span>');
-    assert.equal(cell(h, 'mission-daily'), '<span style="color: #3b82f6">⏳</span>');
+    assert.equal(cell(h, 'mission-daily'), '<span style="color: #3b82f6">확인 중</span>');
     assertGolden('status/ui-loading', panelSnapshot(h.document));
 });
 
 test('updateStatusUI: first-render success variants, mission tooltips and number formatting', async t => {
     const h = panel(t);
     updateStatusUI({
-        articleWrite: { success: true, hasWrittenToday: true, todayCount: 2 },
         dailyMission: { success: true, categories: {
             daily: category([m('방문', 'COMPLETE'), m('좋아요', 'COMPLETED')]),
             weekly: category([m('주간 댓글', 'RECEIVABLE'), m('주간 글쓰기', 'INCOMPLETE')]),
@@ -72,15 +68,12 @@ test('updateStatusUI: first-render success variants, mission tooltips and number
         dailyShop: { success: true, received: true, notReceived: false },
         majakShop: { success: true, received: false, notReceived: true },
         survey: { success: true, completed: 1, receivable: 2, total: 4, allCompleted: false },
-        boost: { success: true, userId: '100', mission: normalizeBoostMission([boostMission()], Date.parse('2026-10-16T01:00:00Z')),
-            remainingCount: 5, nextChargeAt: null, record: {} },
-        reviewEvent: { success: true, reason: 'noEvent', actionable: false },
         totalFlake: 1234567,
         monthlyFlake: 12345
     });
 
-    assert.equal(cell(h, 'mission-daily'), '<span style="color: #10b981">✅ 완료</span>');
-    assert.equal(cell(h, 'mission-weekly'), '<span style="color: #f59e0b">🎁 1개</span>');
+    assert.equal(cell(h, 'mission-daily'), '<span style="color: #10b981">완료</span>');
+    assert.equal(cell(h, 'mission-weekly'), '<span style="color: #f59e0b">보상 1개</span>');
     assert.equal(cell(h, 'mission-content'), '<span style="color: #6b7280">받을 보상 없음</span>');
     // The "N일중" figure is milestone_per_cnt (7), not the milestone_total_cnt goal (28).
     assert.equal(cell(h, 'mission-attendance'), '<span style="color: #6b7280">7일중 3일출석</span>');
@@ -100,7 +93,6 @@ test('updateStatusUI: re-render replaces tooltips, but a category that disappear
         attendance: category([m('출석 보상', 'RECEIVABLE')])
     } } });
     updateStatusUI({
-        articleWrite: { success: true, hasWrittenToday: false, todayCount: 0 },
         dailyMission: { success: true, categories: {
             daily: category([m('방문', 'COMPLETE'), m('좋아요', 'INCOMPLETE'), m('댓글', 'INCOMPLETE')]),
             content: { ...category([]), total: 0 },
@@ -117,7 +109,7 @@ test('updateStatusUI: re-render replaces tooltips, but a category that disappear
     assert.equal(cell(h, 'mission-daily'), '<span style="color: #6b7280">1/3</span>');
     assert.equal(cell(h, 'mission-weekly'), '<span style="color: #6b7280">-</span>');
     assert.equal(cell(h, 'mission-content'), '<span style="color: #6b7280">-</span>');
-    assert.equal(cell(h, 'mission-attendance'), '<span style="color: #f59e0b">🎁 1개</span>');
+    assert.equal(cell(h, 'mission-attendance'), '<span style="color: #f59e0b">보상 1개</span>');
     const tooltips = panelSnapshot(h.document).tooltips;
     assert.equal(tooltips.daily.length, 1, 'tooltip replaced, not duplicated');
     assert.match(tooltips.weekly[0], /주간 댓글/, 'stale weekly tooltip from the previous render is left in place');
@@ -129,15 +121,15 @@ test('updateStatusUI: shop, survey and attendance fallbacks render the expected 
     const h = panel(t);
     const cases = [
         [{ dailyShop: { success: true, received: false, notReceived: false } }, 'daily', '<span style="color: #6b7280">-</span>'],
-        [{ dailyShop: { success: true, received: false, notReceived: true } }, 'daily', '<span style="color: #f59e0b">📦 보상 받지 않음</span>'],
-        [{ majakShop: { success: true, received: false, notReceived: false, noRewardToday: true } }, 'majak', '<span style="color: #9ca3af">⚠️ 오늘 보상 없음</span>'],
+        [{ dailyShop: { success: true, received: false, notReceived: true } }, 'daily', '<span style="color: #f59e0b">보상 미수령</span>'],
+        [{ majakShop: { success: true, received: false, notReceived: false, noRewardToday: true } }, 'majak', '<span style="color: #9ca3af">오늘 보상 없음</span>'],
         [{ majakShop: { success: true, received: false, notReceived: false } }, 'majak', '<span style="color: #6b7280">-</span>'],
         [{ survey: { success: true, notAvailable: true } }, 'survey', '<span style="color: #6b7280">비활성화</span>'],
         [{ survey: { success: true, noMissions: true } }, 'survey', '<span style="color: #6b7280">미션 없음</span>'],
         [{ survey: { success: true, completed: 1, receivable: 0, total: 3, allCompleted: false } }, 'survey', '<span style="color: #6b7280">1/3</span>'],
         [{ survey: { success: true, completed: 0, receivable: 0, total: 3, allCompleted: false } }, 'survey', '<span style="color: #6b7280">-</span>'],
         [{ dailyMission: { success: true, categories: { attendance: category([m('출석', 'INCOMPLETE')]) } } }, 'mission-attendance', '<span style="color: #6b7280">-</span>'],
-        [{ dailyMission: { success: true, categories: { daily: category([m('a', 'RECEIVABLE'), m('b', 'RECEIVABLE')]) } } }, 'mission-daily', '<span style="color: #f59e0b">🎁 2개</span>'],
+        [{ dailyMission: { success: true, categories: { daily: category([m('a', 'RECEIVABLE'), m('b', 'RECEIVABLE')]) } } }, 'mission-daily', '<span style="color: #f59e0b">보상 2개</span>'],
         [{ totalFlake: 0, monthlyFlake: 0 }, 'total-flake', '<span style="color: #10b981">0 F</span>'],
         [{ totalFlake: 0, monthlyFlake: 0 }, 'monthly-flake', '<span style="color: #10b981">+0 F</span>']
     ];
@@ -151,17 +143,16 @@ test('updateStatusUI: failed checks render the failure marker in every cell', as
     const h = panel(t);
     const failed = { success: false, error: '확인 실패' };
     updateStatusUI({
-        articleWrite: failed, dailyMission: failed, roulette: failed, dailyShop: failed, majakShop: failed,
-        survey: failed, boost: failed, reviewEvent: failed, totalFlake: { error: true }, monthlyFlake: { error: true }
+        dailyMission: failed, roulette: failed, dailyShop: failed, majakShop: failed,
+        survey: failed, totalFlake: { error: true }, monthlyFlake: { error: true }
     });
-    assert.equal(cell(h, 'article'), '<span style="color: #ef4444">❌ 확인 실패</span>');
-    assert.equal(cell(h, 'mission-weekly'), '<span style="color: #ef4444">❌</span>');
+    assert.equal(cell(h, 'mission-weekly'), '<span style="color: #ef4444">실패</span>');
     assertGolden('status/ui-failures', panelSnapshot(h.document));
 
     // success without categories is treated as a failure for the four mission cells
     updateStatusUI({ dailyMission: { success: true } });
     for (const id of ['daily', 'weekly', 'content', 'attendance']) {
-        assert.equal(cell(h, `mission-${id}`), '<span style="color: #ef4444">❌</span>');
+        assert.equal(cell(h, `mission-${id}`), '<span style="color: #ef4444">실패</span>');
     }
 });
 
@@ -194,73 +185,6 @@ test('updateStatusUI: without the panel elements it is a no-op', async t => {
     });
     updateStatusUI({ dailyMission: { success: false } });
     assert.equal(h.document.body.innerHTML, '<div id="stove-log-content"></div>');
-});
-
-// ---------------------------------------------------------------- updateProgress
-
-function progressView(h) {
-    const fill = h.document.querySelector('.stove-progress-fill');
-    const text = h.document.getElementById('stove-progress-text');
-    return {
-        width: fill.style.width,
-        text: text.textContent,
-        opacity: text.style.opacity,
-        likes: h.document.getElementById('stove-article-likes').textContent,
-        comments: h.document.getElementById('stove-comments').textContent,
-        newArticle: h.document.getElementById('stove-new-article').textContent
-    };
-}
-
-test('updateProgress: counts quest progress plus roulette/daily shop/majak as 3 extra tasks', async t => {
-    const h = panel(t);
-    const views = [];
-
-    updateProgress();
-    views.push(progressView(h)); // 0/19 -> hidden label
-
-    state.progress.articleLikes = 1;
-    updateProgress('article-likes', 1, 10);
-    views.push(progressView(h)); // 1/19 = 5% -> still hidden
-
-    state.progress.articleLikes = 3;
-    state.progress.comments = 2;
-    updateProgress('comments', 2, 5);
-    views.push(progressView(h)); // 5/19 = 26%
-
-    state.progress = { articleLikes: 10, comments: 5, newArticle: 1 };
-    state.completed.roulette = true;
-    state.completed.dailyShop = true;
-    updateProgress('new-article', 1, 1);
-    views.push(progressView(h)); // 18/19 = 95%
-
-    state.completed.majak = true;
-    state.completed.dailyMissions = true; // not part of the bar
-    updateProgress();
-    views.push(progressView(h)); // 100%
-
-    assert.deepEqual(views, [
-        { width: '0%', text: '', opacity: '0', likes: '0/10', comments: '0/5', newArticle: '0/1' },
-        { width: '5%', text: '', opacity: '0', likes: '1/10', comments: '0/5', newArticle: '0/1' },
-        { width: '26%', text: '26%', opacity: '1', likes: '1/10', comments: '2/5', newArticle: '0/1' },
-        { width: '95%', text: '95%', opacity: '1', likes: '1/10', comments: '2/5', newArticle: '1/1' },
-        { width: '100%', text: '100%', opacity: '1', likes: '1/10', comments: '2/5', newArticle: '1/1' }
-    ]);
-});
-
-test('updateProgress: the label appears at exactly 10% and uses CONFIG.targets', async t => {
-    const h = panel(t);
-    CONFIG.targets.articleLikes = 2;
-    CONFIG.targets.comments = 4;
-    CONFIG.targets.newArticle = 1; // 7 quest tasks + 3 = 10
-    state.completed.majak = true;
-    updateProgress('unknown-task', 9, 9);
-    assert.deepEqual(progressView(h), { width: '10%', text: '10%', opacity: '1', likes: '0/10', comments: '0/5', newArticle: '0/1' });
-});
-
-test('updateProgress: tolerates a page without progress elements', async t => {
-    useHarness(t, { body: '<div></div>' });
-    state.progress.comments = 5;
-    assert.doesNotThrow(() => updateProgress('comments', 5, 5));
 });
 
 // ---------------------------------------------------------------- setButtonState
@@ -308,7 +232,7 @@ test('setButtonState: an unknown (null) flake balance is treated as 0 F, so idle
 
 // ---------------------------------------------------------------- log
 
-test('log: appends an icon-prefixed, colored entry per call (info by default)', async t => {
+test('log: appends a colored entry per call (info by default)', async t => {
     const h = panel(t);
     const section = h.document.querySelector('.stove-log-section');
     Object.defineProperty(section, 'scrollHeight', { configurable: true, get: () => 480 });
@@ -324,13 +248,13 @@ test('log: appends an icon-prefixed, colored entry per call (info by default)', 
     const entries = [...h.document.querySelectorAll('#stove-log-content > div')]
         .map(entry => ({ text: entry.textContent, color: entry.style.color, padding: entry.style.padding }));
     assert.deepEqual(entries, [
-        { text: '⏳ 기본', color: 'rgb(59, 130, 246)', padding: '4px 0px' },
-        { text: '✓ 성공', color: 'rgb(16, 185, 129)', padding: '4px 0px' },
-        { text: '✗ 실패', color: 'rgb(239, 68, 68)', padding: '4px 0px' },
-        { text: '⚠️ 경고', color: 'rgb(245, 158, 11)', padding: '4px 0px' },
-        { text: 'undefined 알 수 없음', color: '', padding: '4px 0px' }
+        { text: '기본', color: 'rgb(96, 165, 250)', padding: '' },
+        { text: '성공', color: 'rgb(52, 211, 153)', padding: '' },
+        { text: '실패', color: 'rgb(248, 113, 113)', padding: '' },
+        { text: '경고', color: 'rgb(251, 191, 36)', padding: '' },
+        { text: '알 수 없음', color: '', padding: '' }
     ]);
-    assert.deepEqual(h.logs(), ['[info] 기본', '[success] 성공', '[error] 실패', '[warning] 경고', '[?] undefined 알 수 없음']);
+    assert.deepEqual(h.logs(), ['[info] 기본', '[success] 성공', '[error] 실패', '[warning] 경고', '[debug] 알 수 없음']);
     assert.deepEqual(scrolls, [480, 480, 480, 480, 480]);
 });
 
@@ -343,6 +267,18 @@ test('log: text is inserted as text, and nothing happens without a log container
     h.document.getElementById('stove-log-content').remove();
     assert.doesNotThrow(() => log('사라짐', 'error'));
     assert.equal(h.document.body.textContent, '');
+});
+
+test('log: timing lines are tagged, and timing text sits in its own span for the panel to hide', async t => {
+    const h = panel(t);
+    log('소요 시간 · 총 1.0초', 'info', { timing: true });
+    log(`그룹 완료: setup (3/3)${timingText(' · 0.5초')}`, 'success');
+
+    const [summary, group] = [...h.document.querySelectorAll('#stove-log-content > div')];
+    assert.equal(summary.dataset.timing, 'true');
+    assert.equal(group.dataset.timing, undefined);
+    assert.equal(group.querySelector('.log-timing').textContent, ' · 0.5초');
+    assert.equal(group.textContent, '그룹 완료: setup (3/3) · 0.5초');
 });
 
 // ---------------------------------------------------------------- showSuccessNotice

@@ -109,13 +109,13 @@
     6000
   ],
   "logs": [
-    "[info] 💱 7700 포인트 교환 준비 중...",
-    "[info]   💎 현재 보유: 250,000 FLAKE",
-    "[info]   ✓ 필요 플레이크: 192,500 FLAKE",
+    "[info] 7700 포인트 교환 준비 중...",
+    "[info]   현재 보유: 250,000 FLAKE",
+    "[info]   필요 플레이크: 192,500 FLAKE",
     "[success] 7,700 포인트 교환 완료 (-192,500 FLAKE)",
-    "[info]   💰 잔여 FLAKE: 57,500",
-    "[info] 💳 7,700 포인트로 7,700 캐시 충전 준비 중...",
-    "[info]   💰 현재 포인트: 7,700 P",
+    "[info]   잔여 FLAKE: 57,500",
+    "[info] 7,700 포인트로 7,700 캐시 충전 준비 중...",
+    "[info]   현재 포인트: 7,700 P",
     "[success] 7700 캐시 충전 완료 (주문번호: 2605101202375031)"
   ],
   "titles": [],
@@ -125,11 +125,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -142,7 +137,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -156,8 +150,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": null,

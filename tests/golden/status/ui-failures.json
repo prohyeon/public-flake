@@ -1,22 +1,15 @@
 {
   "values": {
-    "stove-status-article": "<span class=\"stove-status-value\" id=\"stove-status-article\"><span style=\"color: #ef4444\">❌ 확인 실패</span></span>",
-    "stove-status-mission-daily": "<span class=\"stove-status-value\" id=\"stove-status-mission-daily\"><span style=\"color: #ef4444\">❌</span></span>",
-    "stove-status-mission-weekly": "<span class=\"stove-status-value\" id=\"stove-status-mission-weekly\"><span style=\"color: #ef4444\">❌</span></span>",
-    "stove-status-mission-content": "<span class=\"stove-status-value\" id=\"stove-status-mission-content\"><span style=\"color: #ef4444\">❌</span></span>",
-    "stove-status-mission-attendance": "<span class=\"stove-status-value\" id=\"stove-status-mission-attendance\"><span style=\"color: #ef4444\">❌</span></span>",
-    "stove-status-roulette": "<span class=\"stove-status-value\" id=\"stove-status-roulette\"><span style=\"color: #ef4444\">❌ 확인 실패</span></span>",
-    "stove-status-boost": "<span class=\"stove-status-value\" id=\"stove-status-boost\" title=\"확인 실패\" style=\"color: rgb(239, 68, 68);\">⚠️ 확인 실패</span>",
-    "stove-status-boost-reward": "<span class=\"stove-status-value\" id=\"stove-status-boost-reward\" title=\"확인 실패\" style=\"color: rgb(239, 68, 68);\">⚠️ 확인 실패</span>",
-    "stove-status-boost-target": "<span class=\"stove-status-value\" id=\"stove-status-boost-target\" title=\"확인 실패\" style=\"color: rgb(239, 68, 68);\">⚠️ 확인 실패</span>",
-    "stove-status-review-event": "<span class=\"stove-status-value\" id=\"stove-status-review-event\" title=\"확인 실패\" style=\"color: rgb(239, 68, 68);\">⚠️ 확인 필요</span>",
-    "stove-status-review-period": "<span class=\"stove-status-value\" id=\"stove-status-review-period\" title=\"\" style=\"color: rgb(156, 163, 175);\">-</span>",
-    "stove-status-review-target": "<span class=\"stove-status-value\" id=\"stove-status-review-target\" title=\"\" style=\"color: rgb(156, 163, 175);\">-</span>",
-    "stove-status-daily": "<span class=\"stove-status-value\" id=\"stove-status-daily\"><span style=\"color: #ef4444\">❌ 확인 실패</span></span>",
-    "stove-status-majak": "<span class=\"stove-status-value\" id=\"stove-status-majak\"><span style=\"color: #ef4444\">❌ 확인 실패</span></span>",
-    "stove-status-survey": "<span class=\"stove-status-value\" id=\"stove-status-survey\"><span style=\"color: #ef4444\">❌ 확인 실패</span></span>",
-    "stove-status-total-flake": "<span class=\"stove-status-value\" id=\"stove-status-total-flake\"><span style=\"color: #ef4444\">❌ 확인 실패</span></span>",
-    "stove-status-monthly-flake": "<span class=\"stove-status-value\" id=\"stove-status-monthly-flake\"><span style=\"color: #ef4444\">❌ 확인 실패</span></span>"
+    "stove-status-mission-daily": "<span class=\"stove-status-value\" id=\"stove-status-mission-daily\"><span style=\"color: #ef4444\">실패</span></span>",
+    "stove-status-mission-weekly": "<span class=\"stove-status-value\" id=\"stove-status-mission-weekly\"><span style=\"color: #ef4444\">실패</span></span>",
+    "stove-status-mission-content": "<span class=\"stove-status-value\" id=\"stove-status-mission-content\"><span style=\"color: #ef4444\">실패</span></span>",
+    "stove-status-mission-attendance": "<span class=\"stove-status-value\" id=\"stove-status-mission-attendance\"><span style=\"color: #ef4444\">실패</span></span>",
+    "stove-status-roulette": "<span class=\"stove-status-value\" id=\"stove-status-roulette\"><span style=\"color: #ef4444\">확인 실패</span></span>",
+    "stove-status-daily": "<span class=\"stove-status-value\" id=\"stove-status-daily\"><span style=\"color: #ef4444\">확인 실패</span></span>",
+    "stove-status-majak": "<span class=\"stove-status-value\" id=\"stove-status-majak\"><span style=\"color: #ef4444\">확인 실패</span></span>",
+    "stove-status-survey": "<span class=\"stove-status-value\" id=\"stove-status-survey\"><span style=\"color: #ef4444\">확인 실패</span></span>",
+    "stove-status-total-flake": "<span class=\"stove-status-value\" id=\"stove-status-total-flake\"><span style=\"color: #ef4444\">확인 실패</span></span>",
+    "stove-status-monthly-flake": "<span class=\"stove-status-value\" id=\"stove-status-monthly-flake\"><span style=\"color: #ef4444\">확인 실패</span></span>"
   },
   "tooltips": {
     "daily": [],

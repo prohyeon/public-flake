@@ -4,7 +4,6 @@ import { delay, getTodayString } from '../utils/time.js';
 import { getDailyShopRewards, claimDailyReward, getMajakDailyShopRewards, claimMajakAccumulatedReward, claimDailyAccumulatedReward } from '../api/shop.js';
 import { checkGameOwnership } from '../api/missions.js';
 import { log } from '../ui/logger.js';
-import { updateProgress } from '../ui/progress.js';
 
 const REWARD_SHOP_URL = 'https://reward.onstove.com/ko';
 
@@ -19,7 +18,6 @@ function services(deps = {}) {
         getTodayString,
         delay,
         log,
-        updateProgress,
         ...deps
     };
 }
@@ -84,7 +82,6 @@ export async function claimDailyShopRewards(headers, deps = {}) {
                 io.log('오늘 수령 가능한 데일리 보상이 없습니다', 'info');
                 state.earnings.dailyShop = 0;
                 state.completed.dailyShop = true;
-                io.updateProgress();
                 io.log('✅ 데일리 보상 처리 완료!', 'success');
                 return 0;
             }
@@ -104,7 +101,6 @@ export async function claimDailyShopRewards(headers, deps = {}) {
 
     state.earnings.dailyShop = dailyFlakeEarned;
     state.completed.dailyShop = true;
-    io.updateProgress();
     io.log('✅ 데일리 보상 처리 완료!', 'success');
     return dailyFlakeEarned;
 }
@@ -204,7 +200,6 @@ export async function claimMajakDailyShopRewards(headers, deps = {}) {
 
     state.earnings.majak = majakFlakeEarned;
     state.completed.majak = true;
-    io.updateProgress();
     io.log('✅ 마작 리워드 처리 완료!', 'success');
     return majakFlakeEarned;
 }

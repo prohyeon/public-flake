@@ -206,18 +206,18 @@
   ],
   "logs": [
     "[info] [SINGLE 미션] 자동 참여 시작",
-    "[info] [SINGLE 미션] ⏭️ \"경품 응모하기\" 스킵 (경품 응모 전용 단계에서 처리)",
-    "[info] [SINGLE 미션] ⏭️ \"스토브 앱 로그인\" 스킵 (스토브 앱 로그인 필요)",
-    "[info] [SINGLE 미션] ⏭️ \"기타 미션\" 스킵 (방문형 자동 참여 대상 아님)",
+    "[info] [SINGLE 미션] \"경품 응모하기\" 스킵 (경품 응모 전용 단계에서 처리)",
+    "[info] [SINGLE 미션] \"스토브 앱 로그인\" 스킵 (스토브 앱 로그인 필요)",
+    "[info] [SINGLE 미션] \"기타 미션\" 스킵 (방문형 자동 참여 대상 아님)",
     "[info] [SINGLE 미션] 3개 발견",
     "[info] [SINGLE 미션] \"미션 601\" 참여 중...",
-    "[success] [SINGLE 미션] ✅ \"미션 601\" 참여 완료 (수령 가능)",
-    "[success] [SINGLE 미션] 🎁 \"미션 601\" 보상 수령 (+10 FLAKE)",
+    "[success] [SINGLE 미션] \"미션 601\" 참여 완료 (수령 가능)",
+    "[success] [SINGLE 미션] \"미션 601\" 보상 수령 (+10 FLAKE)",
     "[info] [SINGLE 미션] \"미션 602\" 참여 중...",
-    "[success] [SINGLE 미션] 🎁 \"미션 602\" 보상 수령 (+20 FLAKE)",
+    "[success] [SINGLE 미션] \"미션 602\" 보상 수령 (+20 FLAKE)",
     "[info] [SINGLE 미션] \"미션 603\" 참여 중...",
-    "[success] [SINGLE 미션] ✅ \"미션 603\" 참여 완료 (수령 가능)",
-    "[success] [SINGLE 미션] 🎁 \"미션 603\" 보상 수령 (+10 FLAKE)",
+    "[success] [SINGLE 미션] \"미션 603\" 참여 완료 (수령 가능)",
+    "[success] [SINGLE 미션] \"미션 603\" 보상 수령 (+10 FLAKE)",
     "[success] [SINGLE 미션] 총 참여: 2개, 즉시 완료: 3개, 스킵: 3개, 보상: 40 FLAKE"
   ],
   "titles": [],
@@ -227,11 +227,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -244,7 +239,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -258,8 +252,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": 226,

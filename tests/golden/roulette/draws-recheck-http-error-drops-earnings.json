@@ -81,7 +81,7 @@
     "[success] 룰렛 2/2 완료: 300 플레이크 (300 FLAKE)",
     "[info] [1차] 2/2 성공",
     "[error] 룰렛 실행 실패: API Error: 500 Error",
-    "[success] ✅ 룰렛 실행 완료!"
+    "[success] 룰렛 실행 완료!"
   ],
   "titles": [],
   "sounds": 0,
@@ -90,11 +90,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": true,
       "dailyShop": false,
@@ -107,7 +102,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -121,8 +115,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": null,

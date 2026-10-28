@@ -102,8 +102,8 @@
     "[success] 보상 수령 완료: 플레이크 50 (50 FLAKE)",
     "[success] 보상 수령 완료: 인디 게임 할인 쿠폰 (0 FLAKE)",
     "[success] 보상 수령 완료: COUPON (0 FLAKE)",
-    "[success] 💰 총 3개 보상 수령 완료: 50 FLAKE",
-    "[success] ✅ 데일리 보상 처리 완료!"
+    "[success] 총 3개 보상 수령 완료: 50 FLAKE",
+    "[success] 데일리 보상 처리 완료!"
   ],
   "titles": [],
   "sounds": 0,
@@ -112,11 +112,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": true,
@@ -129,7 +124,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -143,8 +137,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": null,

@@ -99,16 +99,16 @@
     "[success] 룰렛 참여 가능 횟수: 2/30 (현재: 28)",
     "[info] 룰렛 2회 실행 시작...",
     "[error] 룰렛 1/2 실패: API Error: 500 Error",
-    "[warning] 🔄 룰렛 1/2 재시도 (1/3)...",
+    "[warning] 룰렛 1/2 재시도 (1/3)...",
     "[error] 룰렛 1/2 실패: API Error: 500 Error",
-    "[warning] 🔄 룰렛 1/2 재시도 (2/3)...",
+    "[warning] 룰렛 1/2 재시도 (2/3)...",
     "[error] 룰렛 1/2 실패: API Error: 500 Error",
-    "[warning] 🔄 룰렛 1/2 재시도 (3/3)...",
+    "[warning] 룰렛 1/2 재시도 (3/3)...",
     "[error] 룰렛 1/2 실패: API Error: 500 Error",
-    "[error] ❌ 룰렛 1/2 최대 재시도 횟수 초과",
-    "[warning] 🛑 룰렛 프로세스를 중단합니다",
+    "[error] 룰렛 1/2 최대 재시도 횟수 초과",
+    "[warning] 룰렛 프로세스를 중단합니다",
     "[info] [1차] 0/2 성공",
-    "[success] ✅ 룰렛 실행 완료!"
+    "[success] 룰렛 실행 완료!"
   ],
   "titles": [],
   "sounds": 0,
@@ -117,11 +117,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": true,
       "dailyShop": false,
@@ -134,7 +129,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -148,8 +142,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": null,

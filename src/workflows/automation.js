@@ -4,19 +4,14 @@ import { state, resetRunProgress } from '../state.js';
 import { delay } from '../utils/time.js';
 import { extractHeaders } from '../utils/auth.js';
 import { playCompletionSound } from '../utils/audio.js';
-import { getArticleList, likeArticle, createArticle, checkArticleLikeStatus } from '../api/articles.js';
 import { getMissionComponentIds } from '../api/missions.js';
 import { getRouletteEventIds, getPrizeInfo } from '../api/roulette.js';
-import { log } from '../ui/logger.js';
-import { updateProgress, setButtonState } from '../ui/progress.js';
+import { log, timingText } from '../ui/logger.js';
+import { setButtonState } from '../ui/progress.js';
 import { captureAutomationSnapshot, compareSnapshots, getSnapshotSummary } from './snapshot.js';
 import { buildAutomationPlan, buildRepairPlan } from './automationPlan.js';
 import { runTaskGroups, flattenTaskResults, waitForBackgroundTasks } from './taskRunner.js';
 import { createRunTiming, formatSeconds } from './runTiming.js';
-import { createCommunityQuota } from './communityQuota.js';
-import { postCommentsSerially } from './comments.js';
-import { executeBoostMission, claimBoostMissionReward } from './boost.js';
-import { executeReviewEvent } from './reviewEvent.js';
 import { runRouletteDraws, claimRouletteExtraRewards } from './roulette.js';
 import { claimDailyShopRewards, claimMajakDailyShopRewards, claimDailyAccumulatedRewards } from './shop.js';
 import {
@@ -24,7 +19,7 @@ import {
     executeBannerMissions, executeAttendanceMissions, executeSurveyMissions,
     executePrizeEntry, autoParticipateVisitMissions
 } from './missions.js';
-import { visitRequiredPages, checkAllStatus, checkArticleWriteStatus } from './status.js';
+import { visitRequiredPages, checkAllStatus } from './status.js';
 import { closeTab, openTabInBackground } from '../utils/tabs.js';
 import { AUTOMATION_SIGNAL, setAutomationSignal } from '../utils/automationSignal.js';
 import {
@@ -41,13 +36,6 @@ function taskServices(deps = {}) {
         getMissionComponentIds,
         getRouletteEventIds,
         getPrizeInfo,
-        checkArticleWriteStatus,
-        createArticle,
-        checkArticleLikeStatus,
-        likeArticle,
-        postCommentsSerially,
-        executeBoostMission,
-        executeReviewEvent,
         autoParticipateVisitMissions,
         executeDailyMissions,
         executeContentMissions,
@@ -63,17 +51,12 @@ function taskServices(deps = {}) {
         claimMajakDailyShopRewards,
         delay,
         log,
-        updateProgress,
         ...deps
     };
 }
 
-export function createAutomationTaskHandlers({
-    headers, articles = [], allTabs = [], deps = {}, commentTask: startedCommentTask, quota
-}) {
+export function createAutomationTaskHandlers({ headers, allTabs = [], deps = {} }) {
     const io = taskServices(deps);
-    // runAutomation starts the comment chain alongside the before-snapshot; reuse it when given.
-    let commentTask = startedCommentTask;
     // Tabs opened by a task stay open until the whole run ends, then runAutomation closes them.
     const collectTabs = tabs => {
         if (tabs?.length) allTabs.push(...tabs);
@@ -92,76 +75,6 @@ export function createAutomationTaskHandlers({
             return events;
         },
 
-        articleWrite: async () => {
-            const writeStatus = await io.checkArticleWriteStatus(headers);
-
-            if (writeStatus.success && writeStatus.hasWrittenToday) {
-                return { skipped: true, reason: 'alreadyWritten', writeStatus };
-            }
-
-            try {
-                const articleId = await io.createArticle(headers, '출석', '출석');
-                if (articleId) {
-                    state.progress.newArticle++;
-                    io.updateProgress('new-article', state.progress.newArticle, CONFIG.targets.newArticle);
-                    return { articleId };
-                }
-                return { error: true, message: 'Article creation returned no article id' };
-            } catch (e) {
-                io.log(`새글 작성 실패: ${e.message}`, 'error');
-                io.log('새글 작성 실패했지만 자동화를 계속 진행합니다', 'warning');
-                return { error: true, message: e.message };
-            }
-        },
-
-        articleLikes: async () => {
-            const targetArticleLikes = quota ? quota.remaining('likes') : CONFIG.targets.articleLikes;
-            const candidateCount = Math.min(targetArticleLikes * 3, articles.length);
-            const candidateArticles = articles.slice(0, candidateCount);
-            const candidateArticleIds = candidateArticles.map(a => a.article_id);
-
-            if (candidateArticleIds.length === 0) {
-                return { attempted: 0, liked: 0, errors: [] };
-            }
-
-            const articleLikeStatuses = await io.checkArticleLikeStatus(headers, candidateArticleIds);
-            const unlikedArticles = candidateArticles.filter(article =>
-                articleLikeStatuses[article.article_id]?.LIKE !== true
-            );
-            const articlesToLike = unlikedArticles.slice(0, targetArticleLikes);
-            const errors = [];
-            let liked = 0;
-
-            for (let i = 0; i < articlesToLike.length; i++) {
-                const articleId = articlesToLike[i].article_id;
-                try {
-                    await io.likeArticle(headers, articleId);
-                    state.progress.articleLikes++;
-                    liked++;
-                    quota?.add('likes');
-                    io.updateProgress('article-likes', state.progress.articleLikes, CONFIG.targets.articleLikes);
-                    io.log(`게시글 ${articleId} 좋아요 완료 (${state.progress.articleLikes}/${targetArticleLikes})`, 'success');
-                } catch (e) {
-                    errors.push({ articleId, message: e.message });
-                    io.log(`게시글 ${articleId} 좋아요 실패: ${e.message}`, 'error');
-                }
-                if (i < articlesToLike.length - 1) await io.delay(CONFIG.delays.betweenActions);
-            }
-
-            return { attempted: articlesToLike.length, liked, errors };
-        },
-
-        comments: () => {
-            if (!commentTask) commentTask = io.postCommentsSerially({ headers, articles });
-            return commentTask;
-        },
-        boostMission: async () => io.executeBoostMission(headers),
-        reviewEvent: async () => {
-            // Preserve the existing comment interval across the two community APIs.
-            const comments = await commentTask;
-            if (comments?.attempted > 0) await io.delay(CONFIG.delays.afterComment);
-            return io.executeReviewEvent(headers);
-        },
 
         singleVisits: async (task) => io.autoParticipateVisitMissions(headers, task),
 
@@ -202,7 +115,6 @@ export function bindTaskHandlers(plan = {}, handlers = {}) {
 
 function hasSafeRepairableItems(diff = {}) {
     return Boolean(
-        diff.articleStillMissing ||
         (diff.incompleteMissionNos || []).length > 0 ||
         diff.unclaimedDailyShop > 0 ||
         diff.unclaimedMajakShop > 0 ||
@@ -268,20 +180,19 @@ function isFailedTask(result) {
 }
 
 export function getAutomationOutcome({ snapshot, diff, plan, groupResults = [],
-    boostRewardResult, preRegistrationResult,
+    preRegistrationResult,
     rouletteEnabled = CONFIG.roulette.enabled }) {
     const issues = [];
     const failedTasks = flattenTaskResults(groupResults).filter(isFailedTask);
     if (failedTasks.length > 0) issues.push(`작업 실패 ${failedTasks.length}개`);
     if (snapshot?.degraded) issues.push('최종 상태 확인 불가');
-    if (hasSafeRepairableItems(diff)) issues.push('글·미션·보상 미완료');
+    if (hasSafeRepairableItems(diff)) issues.push('미션·보상 미완료');
     if (hasMonthlyAttendanceVerificationIssue(diff)) issues.push('월간출석 확인 필요');
     const roulettePlanned = plan?.groups?.some(group =>
         group.tasks?.some(task => task.kind === 'rouletteDraws'));
     if (rouletteEnabled && roulettePlanned && diff?.rouletteStillRemaining) {
         issues.push('룰렛 미완료');
     }
-    if (boostRewardResult?.success === false) issues.push('오늘의 1등 보상 확인 필요');
     if (preRegistrationResult?.success === false) issues.push('사전등록 확인 필요');
     return { success: issues.length === 0, issues };
 }
@@ -305,7 +216,7 @@ function logFailedTasks(groupResults) {
 function logSnapshotSummary(label, snapshot) {
     const summary = getSnapshotSummary(snapshot);
     log(
-        `${label}: \uAE00\uC791\uC131 ${summary.articleWritten ? '\uC644\uB8CC' : '\uBBF8\uC644\uB8CC'}, \uB8F0\uB81B ${summary.rouletteRemaining}\uD68C, \uBBF8\uC158 \uC644\uB8CC ${summary.missions.complete}/\uC218\uB839\uAC00\uB2A5 ${summary.missions.receivable}/\uBBF8\uC644\uB8CC ${summary.missions.incomplete}`,
+        `${label}: \uB8F0\uB81B ${summary.rouletteRemaining}\uD68C, \uBBF8\uC158 \uC644\uB8CC ${summary.missions.complete}/\uC218\uB839\uAC00\uB2A5 ${summary.missions.receivable}/\uBBF8\uC644\uB8CC ${summary.missions.incomplete}`,
         'info'
     );
 }
@@ -328,13 +239,13 @@ function formatMonthlyAttendanceProgress(progress = {}) {
 
 function logSnapshotDiff(label, diff) {
     log(
-        `${label}: \uAE00 ${diff.articleStillMissing ? '\uBBF8\uC644\uB8CC' : '\uD655\uC778'}, \uBBF8\uC158 ${diff.incompleteMissionNos.length}\uAC1C, \uB370\uC77C\uB9AC ${diff.unclaimedDailyShop}\uAC1C, \uB9C8\uC791 ${diff.unclaimedMajakShop}\uAC1C, EXTRA ${diff.claimableExtra}\uAC1C, ${formatMonthlyAttendanceProgress(diff.monthlyAttendanceProgress)}`,
+        `${label}: \uBBF8\uC158 ${diff.incompleteMissionNos.length}\uAC1C, \uB370\uC77C\uB9AC ${diff.unclaimedDailyShop}\uAC1C, \uB9C8\uC791 ${diff.unclaimedMajakShop}\uAC1C, EXTRA ${diff.claimableExtra}\uAC1C, ${formatMonthlyAttendanceProgress(diff.monthlyAttendanceProgress)}`,
         hasSnapshotDiffWarning(diff) ? 'warning' : 'success'
     );
 }
 
-const SNAPSHOT_SECTION_ORDER = ['articleWrite', 'missions', 'roulette', 'rouletteExtra', 'shop', 'majak',
-    'flakeTotal', 'flakeMonthly', 'boost', 'reviewEvent'];
+const SNAPSHOT_SECTION_ORDER = ['missions', 'roulette', 'rouletteExtra', 'shop', 'majak',
+    'flakeTotal', 'flakeMonthly'];
 
 // The component-id read runs first; the other sections run in parallel, so the slowest few decide.
 function addSnapshotDetail(timing, label, sections) {
@@ -365,13 +276,6 @@ export async function runAutomation() {
     const timing = createRunTiming();
     const allTabs = [];
 
-    const progressSection = document.querySelector('.stove-progress-section');
-    if (progressSection) {
-        const rect = progressSection.getBoundingClientRect();
-        const offsetTop = window.pageYOffset + rect.top - (window.innerHeight * 0.3) + (rect.height / 2);
-        window.scrollTo({ top: offsetTop, behavior: 'smooth' });
-    }
-
     try {
         log('🚀 전체 자동화 시작', 'info');
         log('헤더 정보 추출 중...', 'info');
@@ -395,49 +299,18 @@ export async function runAutomation() {
                 return snapshot;
             });
 
-        // Comments need only the article list and today's record, so the rate-limited chain starts
-        // while the read-only snapshot loads. Nothing the snapshot decides depends on comments.
         log('', 'info');
-        log('\uAC8C\uC2DC\uAE00 \uBAA9\uB85D \uAC00\uC838\uC624\uB294 \uC911...', 'info');
+        log('월간 출석 기록 불러오는 중...', 'info');
         const endMonthlyContext = timing.start('준비', '월간 출석 기록');
-        const endArticles = timing.start('준비', '게시글 목록');
         let monthlyAttendanceContext;
-        let articles;
         try {
-            [monthlyAttendanceContext, articles] = await Promise.all([
-                loadMonthlyAttendanceContext(headers).then(context => {
-                    endMonthlyContext();
-                    return context;
-                }),
-                getArticleList(headers, 30).then(list => {
-                    endArticles();
-                    return list;
-                })
-            ]);
+            monthlyAttendanceContext = await loadMonthlyAttendanceContext(headers).then(context => {
+                endMonthlyContext();
+                return context;
+            });
         } catch (error) {
             await beforeSnapshotTask; // never end the run with the snapshot reads still in flight
             throw error;
-        }
-        log(`\uAC8C\uC2DC\uAE00 ${articles.length}\uAC1C \uBC1C\uACAC`, 'success');
-
-        if (articles.length === 0) {
-            logSnapshotSummary('\uCD08\uAE30 \uC2A4\uB0C5\uC0F7', await beforeSnapshotTask);
-            setAutomationSignal(AUTOMATION_SIGNAL.error, '게시글 없음');
-            log('\uAC8C\uC2DC\uAE00\uC774 \uC5C6\uC2B5\uB2C8\uB2E4', 'error');
-            return;
-        }
-
-        const quota = createCommunityQuota(monthlyAttendanceContext);
-        const likesRemaining = quota.remaining('likes');
-        const commentsRemaining = quota.remaining('comments');
-        if (quota.done.likes > 0 || quota.done.comments > 0) {
-            log(`오늘 이미 한 활동: 좋아요 ${quota.done.likes}/${CONFIG.targets.articleLikes}, 댓글 ${quota.done.comments}/${CONFIG.targets.comments} · 남은 것만 진행합니다`, 'info');
-        }
-        let commentTask;
-        if (commentsRemaining > 0) {
-            commentTask = timing.track('community:comments', () => postCommentsSerially({
-                headers, articles, targetComments: commentsRemaining, onPosted: () => quota.add('comments')
-            }));
         }
 
         const beforeSnapshot = await beforeSnapshotTask;
@@ -446,13 +319,13 @@ export async function runAutomation() {
         const compareWithAttendanceRecord = snapshot => applyMonthlyAttendanceRecord(
             compareSnapshots(beforeSnapshot, snapshot, plan), snapshot, monthlyAttendanceContext);
 
-        const plan = buildAutomationPlan(beforeSnapshot, { community: { likesRemaining, commentsRemaining } });
+        const plan = buildAutomationPlan(beforeSnapshot);
         if (plan.skippedDone.length > 0) {
             // The snapshot proved these categories complete, as the skipped tasks would have found.
             for (const kind of plan.skippedDone) state.completed[kind] = true;
             log(`오늘 이미 완료되어 건너뜀: ${plan.skippedDone.join(', ')}`, 'info');
         }
-        const handlers = createAutomationTaskHandlers({ headers, articles, allTabs, commentTask, quota });
+        const handlers = createAutomationTaskHandlers({ headers, allTabs });
         const executablePlan = timing.timeTasks(bindTaskHandlers(plan, handlers));
 
         log('', 'info');
@@ -467,7 +340,7 @@ export async function runAutomation() {
                 const backgroundCount = results.filter(result => result.status === 'background').length;
                 const foregroundCount = results.length - backgroundCount;
                 const suffix = backgroundCount > 0 ? `, \uBC31\uADF8\uB77C\uC6B4\uB4DC ${backgroundCount}\uAC1C` : '';
-                const elapsed = timing.groupSuffix(timing.endGroup('그룹', group.id), results);
+                const elapsed = timingText(timing.groupSuffix(timing.endGroup('그룹', group.id), results));
                 log(`\uADF8\uB8F9 \uC644\uB8CC: ${group.id} (${foregroundCount - rejectedCount}/${foregroundCount}${suffix})${elapsed}`, rejectedCount > 0 ? 'warning' : 'success');
             }
         });
@@ -492,15 +365,6 @@ export async function runAutomation() {
         });
         logFailedTasks(backgroundResults);
         const allGroupResults = [...groupResults, ...backgroundResults];
-
-        // Comments run in the background; reward eligibility must be read after they finish.
-        let boostRewardResult;
-        if (beforeSnapshot.boost?.success && !beforeSnapshot.boost.notAvailable) {
-            const endBoostReward = timing.start('마무리', '1등 보상');
-            boostRewardResult = await claimBoostMissionReward(headers);
-            endBoostReward();
-            if (!boostRewardResult.success) log('오늘의 1등 보상 상태를 확인하지 못했습니다. 대시보드를 확인해 주세요', 'warning');
-        }
 
         log('', 'info');
         log('\uCD5C\uC885 \uC2A4\uB0C5\uC0F7 \uC218\uC9D1 \uC911...', 'info');
@@ -541,7 +405,7 @@ export async function runAutomation() {
                         },
                         onGroupDone: (group, results) => {
                             const rejectedCount = results.filter(isFailedTask).length;
-                            const elapsed = timing.groupSuffix(timing.endGroup(null, `repair:${group.id}`), results);
+                            const elapsed = timingText(timing.groupSuffix(timing.endGroup(null, `repair:${group.id}`), results));
                             log(`\uBCF5\uAD6C \uC644\uB8CC: ${group.id} (${results.length - rejectedCount}/${results.length})${elapsed}`, rejectedCount > 0 ? 'warning' : 'success');
                         }
                     });
@@ -577,17 +441,11 @@ export async function runAutomation() {
             changedAfterSnapshot = true;
         }
         const outcome = getAutomationOutcome({ snapshot: afterSnapshot, diff, plan,
-            groupResults: allGroupResults, boostRewardResult, preRegistrationResult });
+            groupResults: allGroupResults, preRegistrationResult });
         const dailyAccumulatedFlake = state.earnings.dailyAccumulated || 0;
 
         // Calculate earnings summary
-        const articleWriteFlake = state.progress.newArticle > 0 ? 200 : 0;
-        const articleLikeFlake = state.progress.articleLikes * 3;
-        const commentFlake = state.progress.comments * 30;
-        const questActivityFlake = articleWriteFlake + articleLikeFlake + commentFlake;
-
-        let totalEarnings = (questActivityFlake || 0) +
-            (state.earnings.roulette || 0) +
+        let totalEarnings = (state.earnings.roulette || 0) +
             (state.earnings.rouletteExtra || 0) +
             (state.earnings.dailyShop || 0) +
             (state.earnings.majak || 0) +
@@ -599,7 +457,6 @@ export async function runAutomation() {
             (state.earnings.attendanceMissions || 0) +
             (state.earnings.surveyMissions || 0) +
             (state.earnings.prizeEntry || 0) +
-            (state.earnings.boostMission || 0) +
             (dailyAccumulatedFlake || 0);
 
         if (isNaN(totalEarnings)) {
@@ -615,9 +472,6 @@ export async function runAutomation() {
         log('═══════════════════════════════════════', 'info');
         log('💰 최종 FLAKE 수익 요약', 'success');
         log('═══════════════════════════════════════', 'info');
-        log(`  ✍️  글쓰기: ${articleWriteFlake} FLAKE`, 'success');
-        log(`  👍 게시글 좋아요: ${articleLikeFlake} FLAKE (${state.progress.articleLikes}회 × 3)`, articleLikeFlake > 0 ? 'success' : 'info');
-        log(`  💬 댓글 쓰기: ${commentFlake} FLAKE (${state.progress.comments}회 × 30)`, commentFlake > 0 ? 'success' : 'info');
         log(`  📋 데일리 미션: ${state.earnings.dailyMissions} FLAKE`, state.earnings.dailyMissions > 0 ? 'success' : 'info');
         const visitMissionFlake = state.earnings.visitMissions || 0;
         log(`  🚶 방문 미션: ${visitMissionFlake} FLAKE`, visitMissionFlake > 0 ? 'success' : 'info');
@@ -626,7 +480,6 @@ export async function runAutomation() {
         log(`  🎨 배너 미션: ${state.earnings.bannerMissions} FLAKE`, state.earnings.bannerMissions > 0 ? 'success' : 'info');
         log(`  📆 출석 미션: ${state.earnings.attendanceMissions} FLAKE`, state.earnings.attendanceMissions > 0 ? 'success' : 'info');
         log(`  📊 설문조사: ${state.earnings.surveyMissions} FLAKE`, state.earnings.surveyMissions > 0 ? 'success' : 'info');
-        log(`  🔥 오늘의 1등 미션: ${state.earnings.boostMission} FLAKE`, state.earnings.boostMission > 0 ? 'success' : 'info');
         const prizeEntrySign = state.earnings.prizeEntry >= 0 ? '+' : '';
         log(`  🎁 경품 응모: ${prizeEntrySign}${state.earnings.prizeEntry} FLAKE`, state.earnings.prizeEntry >= 0 ? 'success' : 'warning');
         log(`  🎰 룰렛 순수익: ${state.earnings.roulette >= 0 ? '+' : ''}${state.earnings.roulette} FLAKE`, state.earnings.roulette >= 0 ? 'success' : 'warning');
@@ -644,18 +497,6 @@ export async function runAutomation() {
             (!CONFIG.roulette.enabled || !diff.rouletteStillRemaining);
         state.completed.dailyShop = afterSnapshot.shop?.success === true && diff.unclaimedDailyShop === 0;
         state.completed.majak = afterSnapshot.majak?.success === true && diff.unclaimedMajakShop === 0;
-        updateProgress();
-
-        const progressFill = document.querySelector('.stove-progress-fill');
-        if (progressFill && outcome.success) progressFill.style.width = '100%';
-
-        const progressText = document.getElementById('stove-progress-text');
-        if (progressText) {
-            progressText.style.display = 'block';
-            progressText.style.opacity = '1';
-            progressText.textContent = outcome.success ? '100%' : '확인 필요';
-        }
-
         log('', 'info');
         log('📊 상태 업데이트 중...', 'info');
         const endStatusUpdate = timing.start('마무리', '상태 업데이트');
@@ -685,8 +526,8 @@ export async function runAutomation() {
             closeTab(allTabs);
             log('✓ 모든 탭 닫힘', 'success');
         }
-        log('', 'info');
-        for (const line of timing.summaryLines()) log(line, 'info');
+        log('', 'info', { timing: true });
+        for (const line of timing.summaryLines()) log(line, 'info', { timing: true });
         state.isRunning = false;
         setButtonState(false);
     }

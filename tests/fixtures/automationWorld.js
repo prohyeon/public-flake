@@ -1,7 +1,7 @@
 // Stateful STOVE "world" for runAutomation characterization tests.
 //
 // Every endpoint runAutomation touches is answered from one mutable world object: POST/PUT
-// handlers change it (claims, draws, likes, comments, boosts) and GET handlers read it, so
+// handlers change it (claims, draws, shop claims) and GET handlers read it, so
 // before/after snapshots, repair passes and same-day re-runs behave like the real services.
 // Routes match on method + exact api.onstove.com pathname only (never a catch-all), so the
 // harness still fails a test on any request this world does not know about.
@@ -16,8 +16,6 @@ export const USER_ID = 100;
 export const REWARD_SHOP_TAB = 'https://reward.onstove.com/ko';
 export const PRIZE_MISSION_NO = 359;
 export const SINGLE_VISIT_URL = 'https://store.onstove.com/ko/event/1001';
-export const REVIEW_ARTICLE_ID = '14523486';
-export const REVIEW_URL = `https://page.onstove.com/quarter/kr/view/${REVIEW_ARTICLE_ID}`;
 
 export const COMPONENTS = Object.freeze({
     daily: 226, content: 301, weekly: 401, survey: 501, banner: 601, attendance: 701
@@ -110,24 +108,13 @@ function buildShops({ dailyShopClaimed, majakClaimed }) {
 }
 
 const ROULETTE_PRIZES = [300, 50, 150, 100];
-const boostCandidate = (id, score) => ({
-    article_id: String(id), score, title: `후보 ${id}`, datetime: NOW - 60000,
-    today_contest_agree: true, source: 'postoffice', status: 'PUBLISHED', coverage: 'PUBLIC',
-    profile: { id: '200', type: 'USER' }
-});
-
 /**
  * options (all optional):
  *   missions: 'pending' | 'done'            mission statuses (default 'pending')
- *   articleWritten: boolean                  today's own article already exists
- *   articleCount: number                     lounge "today" articles (default 13)
- *   likedArticleIds: number[]                already liked (default first 3)
  *   rouletteUsed: number                     participation count before the run (default 28)
  *   roulettePrizes: number[]                 FLAKE won per draw, cycled (default [300, 50, 150, 100])
  *   rouletteExtraReceived: number[]          milestones already received (default [10, 20])
  *   dailyShopClaimed / majakClaimed: boolean
- *   boost: 'pending' | 'rewarded' | 'none'
- *   reviewEvent: 'ready' | 'commented' | 'none'
  *   attendanceTrigger: 'rewardTab' | 'focusedRewardTab' | 'never'
  *       which opened tab makes the server count today's monthly attendance (+1 once)
  *   overrides: { [routeName]: (request, callIndex, next) => response }
@@ -135,17 +122,8 @@ const boostCandidate = (id, score) => ({
  */
 export function installAutomationWorld(h, options = {}) {
     const done = options.missions === 'done';
-    const articleCount = options.articleCount ?? 13;
     const world = {
         missions: buildMissions(done),
-        articles: Array.from({ length: articleCount }, (_, index) => ({
-            article_id: 70001 + index, title: `오늘의 글 ${index + 1}`
-        })),
-        liked: new Set(options.likedArticleIds ?? [70001, 70002, 70003]),
-        articleWritten: Boolean(options.articleWritten),
-        myArticles: options.articleWritten
-            ? [{ article_id: 99000, title: '출석', datetime: NOW - 3600000 }]
-            : [{ article_id: 98000, title: '지난 글', datetime: Date.parse('2026-10-14T03:00:00Z') }],
         roulette: {
             used: options.rouletteUsed ?? 28,
             milestones: [
@@ -158,32 +136,12 @@ export function installAutomationWorld(h, options = {}) {
             }))
         },
         shops: buildShops({ dailyShopClaimed: Boolean(options.dailyShopClaimed), majakClaimed: Boolean(options.majakClaimed) }),
-        boost: {
-            mode: options.boost ?? 'pending',
-            boosted: options.boost === 'rewarded',
-            rewarded: options.boost === 'rewarded',
-            commented: options.boost === 'rewarded',
-            remaining: 5,
-            nextChargeAt: null,
-            boostedIds: new Set()
-        },
-        review: {
-            mode: options.reviewEvent ?? 'ready',
-            comments: [
-                ...(options.reviewEvent === 'commented'
-                    ? [{ comment_id: 900001, comment_status_code: 'NORMAL', user_info: { member_no: USER_ID } }]
-                    : []),
-                { comment_id: 5001, comment_status_code: 'NORMAL', user_info: { member_no: 300 } }
-            ]
-        },
         attendance: { trigger: options.attendanceTrigger ?? 'rewardTab', counted: false },
         overrides: { ...(options.overrides || {}) },
         audit: {
             missionClaims: [], duplicateClaims: [], prematureClaims: [],
             draws: 0, overDraws: 0, prizeApplies: 0, extraClaims: [],
-            shopClaims: [], boosts: [], boostRewards: 0, reviewComments: 0,
-            likes: [], duplicateLikes: [], comments: [], articlesCreated: [],
-            preRegistrations: 0, wishlists: 0
+            shopClaims: [], preRegistrations: 0, wishlists: 0
         }
     };
     const { audit } = world;
@@ -231,32 +189,7 @@ export function installAutomationWorld(h, options = {}) {
         });
     }
 
-    // --- account, lounge articles ---------------------------------------------------------
     route('profile', 'GET', /^\/postie\/v1\.0\/user\/me$/, () => okBody({ user_id: USER_ID, nickname: '테스터' }));
-    route('myArticles', 'GET', /^\/postie\/v1\.0\/interest\/user\/(\d+)\/article\/list$/,
-        () => okBody({ list: structuredClone(world.myArticles) }));
-    route('articleList', 'GET', /^\/stadium-api\/v1\.0\/today\/all$/,
-        () => okBody({ list: structuredClone(world.articles) }));
-    route('likeStatus', 'GET', /^\/postie\/v1\.0\/article\/([\d,]+)\/interaction\/LIKE$/, (request, url, match) =>
-        okBody(Object.fromEntries(match[1].split(',').map(id => [id, { LIKE: world.liked.has(Number(id)) }]))));
-    route('like', 'PUT', /^\/postie\/v1\.0\/article\/(\d+)\/interaction\/LIKE$/, (request, url, match) => {
-        const id = Number(match[1]);
-        if (world.liked.has(id)) audit.duplicateLikes.push(id);
-        world.liked.add(id);
-        audit.likes.push(id);
-        return okBody({ LIKE: true });
-    });
-    route('comment', 'POST', /^\/postie\/v1\.0\/article\/(\d+)\/comment$/, (request, url, match) => {
-        audit.comments.push(Number(match[1]));
-        return okBody({ comment_id: 880000 + audit.comments.length });
-    });
-    route('createArticle', 'POST', /^\/postie\/v1\.0\/article$/, request => {
-        const articleId = 99001 + audit.articlesCreated.length;
-        audit.articlesCreated.push(articleId);
-        world.articleWritten = true;
-        world.myArticles.unshift({ article_id: articleId, title: request.body.title, datetime: NOW });
-        return okBody({ article_id: articleId });
-    });
 
     // --- flake balance ------------------------------------------------------------------------
     route('flakeBalance', 'GET', /^\/mileage\/v1\.0\/balance$/, () => okBody({ mileage_amount: 150000 }));
@@ -404,141 +337,10 @@ export function installAutomationWorld(h, options = {}) {
         return { response_code: 0, message: 'OK' };
     });
 
-    // --- today's #1 boost mission ----------------------------------------------------------
-    const boostMission = () => {
-        const { boost } = world;
-        const details = [
-            { action_type: 'ARTICLE_BOOST_ADD', label: '부스트', current_count: boost.boosted ? 1 : 0, required_count: 1 },
-            { action_type: 'COMMENT_ADD', label: '댓글', current_count: boost.commented || audit.comments.length > 0 ? 1 : 0, required_count: 1 },
-            { action_type: 'ARTICLE_ADD', label: '글쓰기', current_count: world.articleWritten ? 1 : 0, required_count: 1 }
-        ];
-        return {
-            mission_id: 1, title: '오늘의 1등', start_dt: NOW - 3600000, end_dt: NOW + 82800000, created_at: NOW - 3600000,
-            is_completed: details.every(detail => detail.current_count >= detail.required_count),
-            is_rewarded: boost.rewarded, rewards: [{ type: 'FLAKE', amount: 3000 }], details
-        };
-    };
-    route('boostMissions', 'GET', /^\/stadium-api\/v1\.0\/missions$/,
-        () => okBody({ missions: world.boost.mode === 'none' ? [] : [boostMission()] }));
-    route('boostBalance', 'GET', /^\/stadium-api\/v1\.0\/boost\/balance$/,
-        () => okBody({ remaining_count: world.boost.remaining, next_charge_at: world.boost.nextChargeAt }));
-    route('boostRanking', 'GET', /^\/stadium-api\/v1\.0\/recommend\/articles\/realtime-ranking$/, () => okBody({
-        articles: [boostCandidate(81011, 443), boostCandidate(81012, 966), boostCandidate(81013, 354)],
-        generated_at: NOW - 30000
-    }));
-    route('boostStatuses', 'GET', /^\/stadium-api\/v1\.0\/article\/([\d,]+)\/interaction\/BOOST$/, (request, url, match) =>
-        okBody(Object.fromEntries(match[1].split(',').map(id => [id, { BOOST: world.boost.boostedIds.has(id) }]))));
-    route('boostArticle', 'PUT', /^\/stadium-api\/v1\.0\/boost\/(\d+)$/, (request, url, match) => {
-        if (world.boost.remaining < 1) return { code: 81333, message: '부스트 잔여 횟수가 없습니다' };
-        world.boost.boostedIds.add(match[1]);
-        world.boost.boosted = true;
-        world.boost.remaining -= 1;
-        world.boost.nextChargeAt = NOW + 300000;
-        audit.boosts.push(match[1]);
-        return okBody({ remaining_count: world.boost.remaining, next_charge_at: world.boost.nextChargeAt });
-    });
-    route('boostReward', 'POST', /^\/stadium-api\/v1\.0\/missions\/(\d+)\/reward$/, () => {
-        if (world.boost.rewarded) {
-            audit.duplicateClaims.push('boost:1');
-            return { code: 81001, message: '이미 보상을 받았습니다' };
-        }
-        if (!boostMission().is_completed) {
-            audit.prematureClaims.push('boost:1');
-            return { code: 81002, message: '미션 조건을 달성하지 않았습니다' };
-        }
-        world.boost.rewarded = true;
-        audit.boostRewards += 1;
-        return okBody({ mission_id: 1, rewards: [{ type: 'FLAKE', amount: 3000 }] });
-    });
-
-    // --- game review comment event ---------------------------------------------------------
-    const reviewEvents = () => [
-        { event_no: 1915, service_id: 'STOVEINDIE', language: 'ko', benefits: ['COUPON'], title: '가을 세일 쿠폰',
-            status: 'ONGOING', expose_start_at: '2026-10-01', expose_end_at: '2026-10-31',
-            link_url: 'https://store.onstove.com/ko/event/sale' },
-        ...(world.review.mode === 'none' ? [] : [{
-            event_no: 1914, service_id: 'STOVEINDIE', language: 'ko', benefits: ['FLAKE'],
-            title: '게임 리뷰 읽고,<br>댓글 달면 플레이크 GET!', status: 'ONGOING',
-            expose_start_at: '2026-10-10', expose_end_at: '2026-10-20', link_url: REVIEW_URL
-        }])
-    ];
-    route('reviewEvents', 'GET', /^\/eventhub\/v1\.0\/promotion\/events\/ON$/, () => {
-        const events = reviewEvents();
-        return okBody({ total_event_cnt: events.length, promotion_events: events });
-    });
-    route('reviewArticle', 'GET', /^\/cwms\/v3\.0\/article$/, () => okBody({
-        article_id: REVIEW_ARTICLE_ID, community_key: 'quarter', channel_key: 'kr', article_status_code: 'PUBLISHED',
-        coverage_code: 'PUBLIC', board_seq: 134147, channel_seq: 73, title: '게임 리뷰'
-    }));
-    route('reviewMember', 'GET', /^\/cwms\/v1\.0\/user\/CHANNEL\/(\d+)$/, () => okBody({ user_info: { member_no: USER_ID } }));
-    route('reviewPermission', 'GET', /^\/cwms\/v1\.0\/user\/board\/permission$/,
-        () => okBody([{ board_seq: 134147, user_permission_info: { comment: { write: true } } }]));
-    route('reviewComments', 'GET', /^\/cwms\/v1\.1\/article\/(\d+)\/comment\/list$/, (request, url) => {
-        const page = Number(url.searchParams.get('page'));
-        const comments = world.review.comments;
-        return okBody({
-            total: comments.length, display_total: comments.length, page, size: 20,
-            next_yn: comments.length > page * 20 ? 'Y' : 'N',
-            list: structuredClone(comments.slice((page - 1) * 20, page * 20))
-        });
-    });
-    route('reviewComment', 'POST', /^\/cwms\/v1\.0\/article\/(\d+)\/comment$/, () => {
-        if (world.review.comments.some(comment => comment.user_info.member_no === USER_ID)) {
-            audit.duplicateClaims.push('review:comment');
-        }
-        audit.reviewComments += 1;
-        world.review.comments.unshift({ comment_id: 900001, comment_status_code: 'NORMAL', user_info: { member_no: USER_ID } });
-        return okBody({ comment_id: 900001 });
-    });
-
     return world;
 }
 
 /** Override helper: the first `count` calls answer `response`, later calls reach the world. */
 export function failFirst(count, response) {
     return (request, callIndex, next) => (callIndex < count ? response : next());
-}
-
-function replaceNavigator(t, value) {
-    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
-    Object.defineProperty(globalThis, 'navigator', { configurable: true, writable: true, value });
-    t.after(() => {
-        if (descriptor) Object.defineProperty(globalThis, 'navigator', descriptor);
-        else delete globalThis.navigator;
-    });
-}
-
-/** A navigator WITHOUT Web Locks, whatever the running Node version provides. */
-export function removeWebLocks(t) {
-    replaceNavigator(t, { userAgent: 'automation-world' });
-}
-
-/**
- * Browser Web Locks stand-in (Node 22 has none). Boost and review-event automation refuse to run
- * without it, exactly as in a browser that lacks navigator.locks.
- */
-export function installWebLocks(t) {
-    const held = new Set();
-    const requested = [];
-    const locks = {
-        async request(name, options, callback) {
-            requested.push(name);
-            if (held.has(name)) return callback(null);
-            held.add(name);
-            try {
-                return await callback({ name, mode: 'exclusive' });
-            } finally {
-                held.delete(name);
-            }
-        }
-    };
-    replaceNavigator(t, { userAgent: 'automation-world', locks });
-    return { requested };
-}
-
-/** World plus Web Locks (default) or an explicitly lock-less navigator (webLocks: false). */
-export function useAutomationWorld(t, h, options = {}) {
-    if (options.webLocks === false) removeWebLocks(t);
-    else installWebLocks(t);
-    return installAutomationWorld(h, options);
 }

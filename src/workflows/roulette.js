@@ -7,7 +7,6 @@ import {
     getRouletteSubEventNo, getRouletteExtraSubEventNo
 } from '../api/roulette.js';
 import { log } from '../ui/logger.js';
-import { updateProgress } from '../ui/progress.js';
 import { debugLog } from '../utils/debug.js';
 
 function services(deps = {}) {
@@ -18,7 +17,6 @@ function services(deps = {}) {
         claimRouletteExtra,
         delay,
         log,
-        updateProgress,
         ...deps
     };
 }
@@ -28,7 +26,6 @@ export async function runRouletteDraws(headers, deps = {}) {
     if (!CONFIG.roulette.enabled) {
         io.log('⚠️ 룰렛 기능이 비활성화되어 있습니다', 'warning');
         state.completed.roulette = true;
-        io.updateProgress();
         return 0;
     }
 
@@ -163,7 +160,6 @@ export async function runRouletteDraws(headers, deps = {}) {
 
             state.earnings.roulette = netProfit;
             state.completed.roulette = true;
-            io.updateProgress();
             return netProfit;
         }
     } catch (e) {
@@ -171,7 +167,6 @@ export async function runRouletteDraws(headers, deps = {}) {
     }
 
     state.completed.roulette = true;
-    io.updateProgress();
     io.log('✅ 룰렛 실행 완료!', 'success');
     return 0;
 }

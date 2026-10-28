@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { decodeHtmlEntities, formatLogEntry } from '../../src/ui/logger.js';
+import { decodeHtmlEntities, formatLogEntry, timingText } from '../../src/ui/logger.js';
 
 test('decodeHtmlEntities decodes named and numeric entities and leaves unknown ones', () => {
     assert.equal(decodeHtmlEntities('1,000 플레이크 &amp; 아우루 5,000'), '1,000 플레이크 & 아우루 5,000');
@@ -9,12 +9,10 @@ test('decodeHtmlEntities decodes named and numeric entities and leaves unknown o
     assert.equal(decodeHtmlEntities(42), '42');
 });
 
-test('formatLogEntry adds the type icon only when the message has no icon of its own', () => {
-    assert.equal(formatLogEntry('완료', 'success'), '✓ 완료');
-    assert.equal(formatLogEntry('✓ 헤더 정보 추출 완료', 'success'), '✓ 헤더 정보 추출 완료');
-    assert.equal(formatLogEntry('✅ 데일리 미션 처리 완료!', 'success'), '✅ 데일리 미션 처리 완료!');
-    assert.equal(formatLogEntry('⏳ 경품 응모 진행 중...', 'info'), '⏳ 경품 응모 진행 중...');
-    assert.equal(formatLogEntry('⚠️ 점검 모드', 'warning'), '⚠️ 점검 모드');
-    assert.equal(formatLogEntry('🎰 룰렛', 'info'), '⏳ 🎰 룰렛');
-    assert.equal(formatLogEntry('A &amp; B'), '⏳ A & B');
+test('formatLogEntry shows plain text: no icon prefix, no emoji, timing markers removed', () => {
+    assert.equal(formatLogEntry('완료', 'success'), '완료');
+    assert.equal(formatLogEntry('✅ 데일리 미션 처리 완료!', 'success'), '데일리 미션 처리 완료!');
+    assert.equal(formatLogEntry('  📋 리워드샵 페이지 방문 중...', 'info'), '  리워드샵 페이지 방문 중...');
+    assert.equal(formatLogEntry('A &amp; B'), 'A & B');
+    assert.equal(formatLogEntry(`그룹 완료: visits (4/4)${timingText(' · 0.1초')}`), '그룹 완료: visits (4/4) · 0.1초');
 });

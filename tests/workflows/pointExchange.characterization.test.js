@@ -61,11 +61,11 @@ const flush = async () => {
 };
 
 const EXCHANGE_SUCCESS_LOGS = [
-    '[info] 💱 7700 포인트 교환 준비 중...',
-    '[info]   💎 현재 보유: 250,000 FLAKE',
-    '[info]   ✓ 필요 플레이크: 192,500 FLAKE',
+    '[info] 7700 포인트 교환 준비 중...',
+    '[info]   현재 보유: 250,000 FLAKE',
+    '[info]   필요 플레이크: 192,500 FLAKE',
     '[success] 7,700 포인트 교환 완료 (-192,500 FLAKE)',
-    '[info]   💰 잔여 FLAKE: 57,500'
+    '[info]   잔여 FLAKE: 57,500'
 ];
 
 // -------------------------------------------------------------------------------------------------
@@ -95,9 +95,9 @@ test('exchange: refuses without any write when the balance is one FLAKE short', 
     assert.deepEqual(h.calls(), [`GET ${BILL_BALANCE_URL}`, `GET ${RATE_URL}`]);
     assert.deepEqual(writes(h), []);
     assert.deepEqual(h.logs(), [
-        '[info] 💱 7700 포인트 교환 준비 중...',
-        '[info]   💎 현재 보유: 192,499 FLAKE',
-        '[info]   ✓ 필요 플레이크: 192,500 FLAKE',
+        '[info] 7700 포인트 교환 준비 중...',
+        '[info]   현재 보유: 192,499 FLAKE',
+        '[info]   필요 플레이크: 192,500 FLAKE',
         '[error] 플레이크 부족: 192,499 / 192,500 FLAKE'
     ]);
     assertGolden('api/point-exchange-workflow-insufficient', h.snapshot());
@@ -114,7 +114,7 @@ test('exchange: a null mileage amount counts as 0 FLAKE and is refused', async t
     assert.deepEqual(await exchangeConfiguredPoints(TEST_HEADERS),
         { success: false, reason: 'insufficientBalance', availableFlake: 0, requiredFlake: 192500 });
     assert.deepEqual(writes(h), []);
-    assert.equal(h.logs()[1], '[info]   💎 현재 보유: 0 FLAKE');
+    assert.equal(h.logs()[1], '[info]   현재 보유: 0 FLAKE');
 });
 
 test('exchange: an unknown balance (missing amount, even an error-coded response) does not block the POST', async t => {
@@ -159,7 +159,7 @@ test('exchange: an unexpected rate throws before the POST', async t => {
     const h = setup(t, { rate: { code: 0, value: { ...RATE_OK.value, from_amount: 24 } } });
     await assert.rejects(exchangeConfiguredPoints(TEST_HEADERS), { message: 'Expected 192500 flake but exchange rate requires 184800' });
     assert.deepEqual(writes(h), []);
-    assert.deepEqual(h.logs(), ['[info] 💱 7700 포인트 교환 준비 중...', '[info]   💎 현재 보유: 250,000 FLAKE']);
+    assert.deepEqual(h.logs(), ['[info] 7700 포인트 교환 준비 중...', '[info]   현재 보유: 250,000 FLAKE']);
 });
 
 test('exchange: failure codes map to messages; each attempt is a single POST, never retried', async t => {
@@ -195,9 +195,9 @@ test('exchange: success without amounts falls back to the plan; residue_flake is
         { success: true, pointAmount: 7700, spentFlake: 192500, exchangedAmount: 7700, residueFlake: null });
     assert.equal(h.logs().at(-1), '[success] 7,700 포인트 교환 완료 (-192,500 FLAKE)', 'no residue line without a residue');
     assert.equal((await exchangeConfiguredPoints(TEST_HEADERS)).residueFlake, 100);
-    assert.equal(h.logs().at(-1), '[info]   💰 잔여 FLAKE: 100');
+    assert.equal(h.logs().at(-1), '[info]   잔여 FLAKE: 100');
     assert.equal((await exchangeConfiguredPoints(TEST_HEADERS)).residueFlake, 0);
-    assert.equal(h.logs().at(-1), '[info]   💰 잔여 FLAKE: 0');
+    assert.equal(h.logs().at(-1), '[info]   잔여 FLAKE: 0');
     assert.deepEqual(writes(h), [EXCHANGE_WRITE, EXCHANGE_WRITE, EXCHANGE_WRITE]);
 });
 
@@ -218,7 +218,7 @@ test('exchange: disabled in CONFIG -> no request at all', async t => {
     CONFIG.pointExchange.enabled = false;
     assert.deepEqual(await exchangeConfiguredPoints(TEST_HEADERS), { success: false, reason: 'disabled' });
     assert.deepEqual(h.requests, []);
-    assert.deepEqual(h.logs(), ['[info] ⏭️ 포인트 교환 기능이 비활성화되어 있습니다']);
+    assert.deepEqual(h.logs(), ['[info] 포인트 교환 기능이 비활성화되어 있습니다']);
 });
 
 // -------------------------------------------------------------------------------------------------
@@ -241,8 +241,8 @@ test('all-in-one: exchange then charge -> exactly two writes, success notice, or
     assert.equal(h.requests[4].body.access_token, 'test-suat');
     assert.deepEqual(h.logs(), [
         ...EXCHANGE_SUCCESS_LOGS,
-        '[info] 💳 7,700 포인트로 7,700 캐시 충전 준비 중...',
-        '[info]   💰 현재 포인트: 7,700 P',
+        '[info] 7,700 포인트로 7,700 캐시 충전 준비 중...',
+        '[info]   현재 포인트: 7,700 P',
         '[success] 7700 캐시 충전 완료 (주문번호: 2605101202375031)'
     ]);
 
@@ -284,7 +284,7 @@ test('all-in-one: insufficient points after the exchange skips the charge', asyn
     assert.deepEqual(await runPointCashChargeAllInOne(TEST_HEADERS),
         { success: false, reason: 'insufficientPoints', availablePoints: 7699, requiredPoints: 7700 });
     assert.deepEqual(writes(h), [EXCHANGE_WRITE]);
-    assert.deepEqual(h.logs().slice(-2), ['[info]   💰 현재 포인트: 7,699 P', '[error] 포인트 부족: 7,699 / 7,700 P']);
+    assert.deepEqual(h.logs().slice(-2), ['[info]   현재 포인트: 7,699 P', '[error] 포인트 부족: 7,699 / 7,700 P']);
 });
 
 test('all-in-one: an unknown point balance does not block the charge', async t => {
@@ -314,17 +314,17 @@ test('all-in-one: disabled flags are checked before any request', async t => {
     const h = setup(t);
     CONFIG.lostArkCashCharge.enabled = false;
     assert.deepEqual(await runPointCashChargeAllInOne(TEST_HEADERS), { success: false, reason: 'disabled' });
-    assert.deepEqual(h.logs(), ['[info] ⏭️ 로스트아크 캐시 충전 기능이 비활성화되어 있습니다']);
+    assert.deepEqual(h.logs(), ['[info] 로스트아크 캐시 충전 기능이 비활성화되어 있습니다']);
 
     CONFIG.lostArkCashCharge.enabled = true;
     CONFIG.pointExchange.enabled = false;
     assert.deepEqual(await runPointCashChargeAllInOne(TEST_HEADERS), { success: false, reason: 'disabled' });
-    assert.equal(h.logs().at(-1), '[info] ⏭️ 포인트 교환 기능이 비활성화되어 있습니다');
+    assert.equal(h.logs().at(-1), '[info] 포인트 교환 기능이 비활성화되어 있습니다');
     assert.deepEqual(h.requests, []);
 });
 
 // -------------------------------------------------------------------------------------------------
-// runPointExchange (the panel's 💱 button)
+// runPointExchange (the panel's button)
 // -------------------------------------------------------------------------------------------------
 
 const BUTTON_IDS = ['stove-btn-start', 'stove-btn-reward-shop', 'stove-btn-status-refresh', 'stove-btn-point-cash-charge'];

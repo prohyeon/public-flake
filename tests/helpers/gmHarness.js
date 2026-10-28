@@ -88,14 +88,10 @@ const DEFAULT_TIME_ZONE = 'Asia/Seoul';
 // jsdom schedules its own timers (e.g. storage event dispatch on setItem). Those are not app delays.
 const JSDOM_FRAME = /[\\/]node_modules[\\/]jsdom[\\/]/;
 
-const LOG_ICON_TYPES = new Map([['✓', 'success'], ['✗', 'error'], ['⏳', 'info'], ['⚠️', 'warning']]);
+const LOG_ICON_TYPES = new Map([['', 'success'], ['', 'error'], ['', 'info'], ['', 'warning']]);
 
 const DEFAULT_BODY = `
     <div id="stove-quest-automation">
-        <div class="stove-progress-section">
-            <div class="stove-progress-fill"></div>
-            <div id="stove-progress-text"></div>
-        </div>
         <div class="stove-log-section"><div id="stove-log-content"></div></div>
     </div>`;
 
@@ -251,15 +247,8 @@ export function installHarness(options = {}) {
     resetConfig();
 
     function logs() {
-        return [...document.querySelectorAll('#stove-log-content > div')].map(entry => {
-            // The logger tags each entry with its type and drops the type icon when the message
-            // already starts with an icon of its own, so the type comes from the tag.
-            const text = entry.textContent;
-            const type = entry.dataset.type;
-            const icon = [...LOG_ICON_TYPES.keys()].find(prefix => LOG_ICON_TYPES.get(prefix) === type);
-            if (!icon) return `[?] ${text}`;
-            return `[${type}] ${text.startsWith(`${icon} `) ? text.slice(icon.length + 1) : text}`;
-        });
+        // The logger tags each entry with its type; the text is what the panel shows.
+        return [...document.querySelectorAll('#stove-log-content > div')].map(entry => `[${entry.dataset.type}] ${entry.textContent}`);
     }
 
     function storage(store) {

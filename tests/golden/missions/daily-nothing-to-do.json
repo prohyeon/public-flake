@@ -34,12 +34,12 @@
   "tabs": [],
   "delays": [],
   "logs": [
-    "[info] 📋 데일리 미션 시작...",
-    "[info] 📝 총 1개 미션 확인",
-    "[info] ℹ️ 수행할 방문 미션이 없습니다",
-    "[info] ℹ️ 수령 가능한 보상이 없습니다",
-    "[info] 📊 미션 진행 상황: 1/1 완료",
-    "[success] ✅ 데일리 미션 처리 완료!"
+    "[info] 데일리 미션 시작...",
+    "[info] 총 1개 미션 확인",
+    "[info] 수행할 방문 미션이 없습니다",
+    "[info] 수령 가능한 보상이 없습니다",
+    "[info] 미션 진행 상황: 1/1 완료",
+    "[success] 데일리 미션 처리 완료!"
   ],
   "titles": [],
   "sounds": 0,
@@ -48,11 +48,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -65,7 +60,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -79,8 +73,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": 226,

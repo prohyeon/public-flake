@@ -1,5 +1,4 @@
 import { CONFIG } from '../config.js';
-import { dailyBoostLimit } from './boost.js';
 
 function task(id, kind, meta = {}) {
     return { id, kind, ...meta };
@@ -22,8 +21,7 @@ function isSectionKnown(section) {
 // A mission task is skipped only when the snapshot proves its whole category is done: the section
 // is known, the category has missions and every one is COMPLETE. "Nothing receivable yet" is not
 // enough because missions become receivable mid-run (the reward-shop visit counts monthly
-// attendance, comments advance the weekly count), and an empty category may be a component that
-// failed to load.
+// attendance), and an empty category may be a component that failed to load.
 const MISSION_TASK_CATEGORIES = {
     dailyMissions: 'daily',
     contentMissions: 'content',
@@ -67,36 +65,17 @@ function getPrizeEntryMission(snapshot) {
         .find(isConfiguredPrizeMission);
 }
 
-// Boosts until today's limit (dailyBoosts) is used, even when the mission is finished or absent, and
-// always once for a 0/1 mission. A pending attempt is scheduled only to be re-checked.
-function shouldScheduleBoost(boost) {
-    if (!CONFIG.boostMission.enabled || !isSectionKnown(boost)) return false;
-    const today = boost.dailyBoosts || [];
-    if (today.some(attempt => attempt.status === 'pending')) return true;
-    if (!(boost.remainingCount > 0)) return false;
-    const mission = boost.notAvailable ? null : boost.mission;
-    const missionNeedsBoost = Boolean(mission) && mission.rewarded === false && mission.completed !== true &&
-        mission.current === 0 && mission.required === 1;
-    return missionNeedsBoost || today.length < dailyBoostLimit();
-}
-
 function shouldSchedulePrizeEntry(snapshot) {
     if (!CONFIG.prizeEntry?.enabled || !isSectionKnown(snapshot?.missions)) return false;
 
     return getPrizeEntryMission(snapshot)?.status === 'INCOMPLETE';
 }
 
-/**
- * options.community: { likesRemaining, commentsRemaining } from today's local record; a 0 drops the
- * task. Without it both tasks run with the full target.
- */
-export function buildAutomationPlan(snapshot = {}, options = {}) {
+export function buildAutomationPlan(snapshot = {}) {
     const plannedMissionNos = getVisitMissionNos(snapshot);
-    const community = options.community || {};
     const skippedDone = Object.keys(MISSION_TASK_CATEGORIES)
         .filter(kind => isCategoryDone(snapshot, MISSION_TASK_CATEGORIES[kind]));
     const missionTask = (id, kind, meta) => (skippedDone.includes(kind) ? null : task(id, kind, meta));
-    const articleWrite = snapshot.articleWrite;
     const roulette = snapshot.roulette;
     const rouletteExtra = snapshot.rouletteExtra;
     const shop = snapshot.shop;
@@ -110,17 +89,6 @@ export function buildAutomationPlan(snapshot = {}, options = {}) {
             task('setup:componentRefresh', 'componentRefresh'),
             task('setup:eventRefresh', 'eventRefresh')
         ]),
-        group('community', 3, [
-            isSectionKnown(articleWrite) && articleWrite.hasWrittenToday === false
-                ? task('community:articleWrite', 'articleWrite')
-                : null,
-            community.likesRemaining === 0 ? null : task('community:articleLikes', 'articleLikes'),
-            community.commentsRemaining === 0 ? null : task('community:comments', 'comments', {
-                background: true,
-                rateLimited: true,
-                nonAuthoritativeRepair: true
-            })
-        ]),
         group('visits', plannedMissionNos.length > 0 ? 1 : 4, [
             plannedMissionNos.length > 0
                 ? task('visits:singleVisits', 'singleVisits', { missionNos: plannedMissionNos })
@@ -128,11 +96,6 @@ export function buildAutomationPlan(snapshot = {}, options = {}) {
             missionTask('visits:dailyMissions', 'dailyMissions'),
             missionTask('visits:contentMissions', 'contentMissions'),
             missionTask('visits:bannerMissions', 'bannerMissions')
-        ]),
-        group('boost', 1, [
-            shouldScheduleBoost(snapshot.boost)
-                ? task('boost:boostMission', 'boostMission', { consumesBoost: true })
-                : null
         ]),
         group('missionClaims', 2, [
             missionTask('missionClaims:weeklyMissions', 'weeklyMissions'),
@@ -164,11 +127,6 @@ export function buildAutomationPlan(snapshot = {}, options = {}) {
                 ? task('followups:majakShop', 'majakShop')
                 : null
         ]),
-        group('reviewEvent', 1, [
-            CONFIG.reviewEvent.enabled && isSectionKnown(snapshot.reviewEvent) && snapshot.reviewEvent.actionable === true
-                ? task('reviewEvent:comment', 'reviewEvent', { nonAuthoritativeRepair: true })
-                : null
-        ])
     ]);
 
     return { plannedMissionNos, groups, skippedDone };
@@ -177,9 +135,6 @@ export function buildAutomationPlan(snapshot = {}, options = {}) {
 export function buildRepairPlan(diff = {}) {
     const plannedMissionNos = diff.incompleteMissionNos || [];
     const tasks = [
-        diff.articleStillMissing
-            ? task('repairSafe:articleWrite', 'articleWrite')
-            : null,
         plannedMissionNos.length > 0
             ? task('repairSafe:singleVisits', 'singleVisits', { missionNos: plannedMissionNos })
             : null,

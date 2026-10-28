@@ -86,8 +86,8 @@
     "[success] EXTRA 수령 완료: 500 플레이크 (500 FLAKE)",
     "[error] EXTRA 수령 실패 (milestone_no: 12)",
     "[error] EXTRA 수령 오류: API Error: 500 Error",
-    "[success] 💰 총 EXTRA 수령: 500 FLAKE",
-    "[success] ✅ 룰렛 EXTRA 처리 완료!"
+    "[success] 총 EXTRA 수령: 500 FLAKE",
+    "[success] 룰렛 EXTRA 처리 완료!"
   ],
   "titles": [],
   "sounds": 0,
@@ -96,11 +96,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -113,7 +108,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 500,
@@ -127,8 +121,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": null,

@@ -11,22 +11,18 @@ import { assertGolden } from '../helpers/golden.js';
 import {
     API, DAY, NOW, COMPONENTS, STATUS_PANEL_BODY, URLS, panelSnapshot,
     componentPageBody, loadedComponents, mission, componentBody, componentUrl, routeComponents,
-    pendingComponentBodies, doneComponentBodies, participationBody, dailyShopBody, profileBody, articlesBody,
-    boostMission, boostMissionsBody, boostBalanceBody, reviewCommentsBody,
+    pendingComponentBodies, doneComponentBodies, participationBody, dailyShopBody,
     pendingWorld, routeStatusWorld
 } from '../fixtures/status.js';
 import { CONFIG } from '../../src/config.js';
 import { state } from '../../src/state.js';
 import {
     checkRouletteStatus, checkDailyShopStatus, checkMajakShopStatus, checkSurveyStatus,
-    checkDailyMissionStatus, checkArticleWriteStatus, visitRequiredPages, checkAllStatus
+    checkDailyMissionStatus, visitRequiredPages, checkAllStatus
 } from '../../src/workflows/status.js';
 
 const writes = h => h.requests.filter(request => request.method !== 'GET');
 const ROULETTE_URL = `${API}/emsbackapi/v3.0/participationCnt?sub_event_no=1000000353`;
-const PROFILE_URL = `${API}/postie/v1.0/user/me?timestemp=${DEFAULT_NOW}`;
-const articlesUrl = userId =>
-    `${API}/postie/v1.0/interest/user/${userId}/article/list?user_id=${userId}&sort=LATEST&size=10&type=WRITE&timestemp=${DEFAULT_NOW}`;
 const SHOPS = [
     { name: 'daily', check: checkDailyShopStatus, service: 'STOVEINDIE' },
     { name: 'majak', check: checkMajakShopStatus, service: 'RIICHICITY_IND' }
@@ -304,65 +300,6 @@ test('daily missions: a non-iterable missions value is caught and reported as an
     assert.equal(h.requests.length, 1);
 });
 
-// ---------------------------------------------------------------- checkArticleWriteStatus
-
-test('article write: profile then the WRITE list; counts articles inside the local (KST) day', async t => {
-    const h = useHarness(t);
-    h.on('GET', PROFILE_URL, profileBody('100'))
-        .on('GET', articlesUrl('100'), articlesBody([NOW - 3600000, NOW - 2 * DAY]));
-
-    const result = await checkArticleWriteStatus(TEST_HEADERS);
-
-    assert.deepEqual(result, { success: true, hasWrittenToday: true, todayCount: 1 });
-    assert.deepEqual(writes(h), []);
-    assertGolden('status/article-written-today', { result, ...h.snapshot() });
-});
-
-test('article write: day window is [local midnight, +24h) and an empty list means not written', async t => {
-    const h = useHarness(t);
-    h.on('GET', PROFILE_URL, profileBody(100))
-        .on('GET', articlesUrl(100), [
-            articlesBody([TODAY_START - 1, TODAY_START, TODAY_START + DAY - 1, TODAY_START + DAY]),
-            articlesBody([TODAY_START - 1, NOW + DAY]),
-            articlesBody([])
-        ]);
-
-    const results = await sequence(3, () => checkArticleWriteStatus(TEST_HEADERS));
-
-    assert.deepEqual(results, [
-        { success: true, hasWrittenToday: true, todayCount: 2 },
-        { success: true, hasWrittenToday: false, todayCount: 0 },
-        { success: true, hasWrittenToday: false, todayCount: 0 }
-    ]);
-});
-
-test('article write: missing profile id or list, and transport failures', async t => {
-    const h = useHarness(t);
-    h.on('GET', PROFILE_URL, [
-        { code: 0, value: {} },
-        httpError(401),
-        { code: 9, message: 'odd', value: { user_id: '100' } }, // code ignored
-        profileBody('100'),
-        profileBody('100')
-    ]).on('GET', articlesUrl('100'), [{ code: 0, value: {} }, httpError(500), articlesBody([NOW])]);
-
-    const results = await sequence(5, () => checkArticleWriteStatus(TEST_HEADERS));
-
-    assert.deepEqual(results, [
-        { success: false, error: '프로필 정보 없음' },
-        { success: false, error: 'API Error: 401 Error' },
-        { success: false, error: '게시글 목록 없음' },
-        { success: false, error: 'API Error: 500 Error' },
-        { success: true, hasWrittenToday: true, todayCount: 1 }
-    ]);
-    assert.deepEqual(h.calls(), [
-        `GET ${PROFILE_URL}`, `GET ${PROFILE_URL}`,
-        `GET ${PROFILE_URL}`, `GET ${articlesUrl('100')}`,
-        `GET ${PROFILE_URL}`, `GET ${articlesUrl('100')}`,
-        `GET ${PROFILE_URL}`, `GET ${articlesUrl('100')}`
-    ]);
-});
-
 // ---------------------------------------------------------------- visitRequiredPages
 
 test('visitRequiredPages: opens the reward shop and store main in background tabs and logs progress', async t => {
@@ -391,9 +328,9 @@ test('visitRequiredPages: a tab failure is logged as a warning and the tabs open
 
     assert.equal(tabs.length, 1);
     assert.deepEqual(h.logs(), [
-        '[info] 🌐 필수 페이지 탭 열기...',
-        '[info]   📋 리워드샵 페이지 방문 중...',
-        '[info]   🏠 스토브 메인 페이지 방문 중...',
+        '[info] 필수 페이지 탭 열기...',
+        '[info]   리워드샵 페이지 방문 중...',
+        '[info]   스토브 메인 페이지 방문 중...',
         '[warning] 페이지 방문 중 오류: popup blocked'
     ]);
 });
@@ -420,18 +357,8 @@ function doneWorld() {
         participation: participationBody(30),
         dailyShop: dailyShopBody(true),
         majakShop: dailyShopBody(true),
-        articles: articlesBody([NOW - 3600000, NOW - 7200000, NOW - DAY]),
         balance: { code: 0, message: 'OK', value: { mileage_amount: 200000 } },
-        deposit: { code: 0, message: 'OK', value: { total_deposit_amount: 50000 } },
-        boostMissions: boostMissionsBody([boostMission({
-            is_completed: true, is_rewarded: true,
-            details: boostMission().details.map(detail => ({ ...detail, current_count: detail.required_count }))
-        })]),
-        boostBalance: boostBalanceBody(4, NOW + 300000),
-        reviewComments: reviewCommentsBody([
-            { comment_id: '899', comment_status_code: 'NORMAL', user_info: { member_no: 55 } },
-            { comment_id: '900', comment_status_code: 'NORMAL', user_info: { member_no: 100 } }
-        ])
+        deposit: { code: 0, message: 'OK', value: { total_deposit_amount: 50000 } }
     };
 }
 
@@ -453,26 +380,19 @@ test('checkAllStatus: fresh day with everything pending renders the full dashboa
 
     assert.equal(result, undefined);
     assert.deepEqual(writes(h), [], 'status refresh never mutates');
-    assert.equal(loadingPanel.values['stove-status-roulette'], '<span class="stove-status-value" id="stove-status-roulette"><span style="color: #3b82f6">⏳ 확인 중...</span></span>');
+    assert.equal(loadingPanel.values['stove-status-roulette'], '<span class="stove-status-value" id="stove-status-roulette"><span style="color: #3b82f6">확인 중...</span></span>');
 
     const text = Object.fromEntries(Object.entries(panel.values).map(([id, html]) =>
         [id.replace('stove-status-', ''), h.document.getElementById(id).textContent]));
     assert.deepEqual(text, {
-        'article': '✍️ 아직 작성 안 함',
-        'mission-daily': '🎁 1개',
-        'mission-weekly': '🎁 1개',
+        'mission-daily': '보상 1개',
+        'mission-weekly': '보상 1개',
         'mission-content': '받을 보상 없음',
         'mission-attendance': '7일중 9일출석',
         'roulette': '0/30 (30회 남음)',
-        'boost': '0/1 · 잔여 5회',
-        'boost-reward': '조건 진행 중 · 3,000 F',
-        'boost-target': '자동화 실행 후 표시',
-        'review-event': '0/1 · 참여 전',
-        'review-period': '2026-10-10 ~ 2026-10-20 (한국 시간)',
-        'review-target': '게임 리뷰',
-        'daily': '📦 보상 받지 않음',
-        'majak': '🀄 보상 받지 않음',
-        'survey': '📊 1개 투표 가능',
+        'daily': '보상 미수령',
+        'majak': '보상 미수령',
+        'survey': '투표 가능 1개',
         'total-flake': '150,000 F',
         'monthly-flake': '+12,345 F'
     });
@@ -482,7 +402,6 @@ test('checkAllStatus: fresh day with everything pending renders the full dashboa
     assert.equal(countCalls(h, componentUrl(COMPONENTS.survey)), 2, 'survey component is read by both the mission and survey checks');
     assert.deepEqual(h.requests.filter(request => request.url === componentUrl(COMPONENTS.survey)).map(request => request.headers['caller-id']),
         ['flake-fe', 'storee-lounge']);
-    assert.equal(countCalls(h, URLS.profile), 2, 'profile is read by the article check and the boost check');
     assertGolden('status/check-all-fresh-day', { loadingPanel, ...h.snapshot({ unordered: true }), panel });
 });
 
@@ -496,15 +415,12 @@ test('checkAllStatus: everything already done (component ids preloaded, so no mi
     assert.deepEqual(writes(h), []);
     assert.equal(countCalls(h, URLS.page), 0);
     const text = id => h.document.getElementById(`stove-status-${id}`).textContent;
-    assert.equal(text('article'), '✅ 오늘 2개 작성');
-    for (const id of ['mission-daily', 'mission-weekly', 'mission-content']) assert.equal(text(id), '✅ 완료');
+    for (const id of ['mission-daily', 'mission-weekly', 'mission-content']) assert.equal(text(id), '완료');
     assert.equal(text('mission-attendance'), '7일중 28일출석');
     assert.equal(text('roulette'), '30/30 (0회 남음)');
-    assert.equal(text('daily'), '✅ 전부 완료');
-    assert.equal(text('majak'), '✅ 전부 완료');
-    assert.equal(text('survey'), '✅ 전부 완료');
-    assert.equal(text('boost-reward'), '✅ 3,000 F 수령 완료');
-    assert.equal(text('review-event'), '✅ 댓글 등록 완료');
+    assert.equal(text('daily'), '전부 완료');
+    assert.equal(text('majak'), '전부 완료');
+    assert.equal(text('survey'), '전부 완료');
     assert.equal(text('total-flake'), '200,000 F');
     assert.deepEqual(panel.pointCashCharge, {
         disabled: false, title: '192,500 플레이크 보유: 충전 가능', opacity: '1', status: '충전 가능', statusColor: 'rgb(167, 243, 208)'
@@ -524,27 +440,19 @@ test('checkAllStatus: several APIs failing or malformed degrade cell by cell', a
         participation: httpError(500),
         dailyShop: { code: 9999, message: 'maintenance' },
         majakShop: rawText('<html>점검</html>'),
-        articles: httpError(502),
         balance: httpError(500),
-        deposit: { code: 1, message: 'denied' },
-        boostBalance: { code: 0, value: { remaining_count: -1 } },
-        reviewEvents: networkError()
+        deposit: { code: 1, message: 'denied' }
     });
 
     const { panel } = await runCheckAll(h);
 
     assert.deepEqual(writes(h), []);
     const text = id => h.document.getElementById(`stove-status-${id}`).textContent;
-    assert.equal(text('article'), '❌ 확인 실패');
-    assert.equal(text('mission-daily'), '🎁 1개', 'missions still render from the components that answered');
-    assert.equal(text('roulette'), '❌ 확인 실패');
-    assert.equal(text('daily'), '❌ 확인 실패');
-    assert.equal(text('majak'), '❌ 확인 실패');
-    assert.equal(text('survey'), '❌ 확인 실패');
-    assert.equal(text('boost'), '⚠️ 확인 실패');
-    assert.equal(h.document.getElementById('stove-status-boost').title, '부스트 잔여 횟수 응답이 올바르지 않습니다');
-    assert.equal(text('review-event'), '⚠️ 확인 필요');
-    assert.equal(h.document.getElementById('stove-status-review-event').title, 'Network error');
+    assert.equal(text('mission-daily'), '보상 1개', 'missions still render from the components that answered');
+    assert.equal(text('roulette'), '확인 실패');
+    assert.equal(text('daily'), '확인 실패');
+    assert.equal(text('majak'), '확인 실패');
+    assert.equal(text('survey'), '확인 실패');
     // Mileage failures are swallowed as 0 and look like a real zero balance.
     assert.equal(text('total-flake'), '0 F');
     assert.equal(text('monthly-flake'), '+0 F');
@@ -565,8 +473,8 @@ test('checkAllStatus: every API down still renders, reading the mission page twi
     assert.deepEqual(writes(h), []);
     assert.equal(countCalls(h, URLS.page), 2, 'checkAllStatus and getAllDailyMissions both try to load component ids');
     const text = id => h.document.getElementById(`stove-status-${id}`).textContent;
-    for (const id of ['article', 'roulette', 'daily', 'majak']) assert.equal(text(id), '❌ 확인 실패');
-    for (const id of ['daily', 'weekly', 'content', 'attendance']) assert.equal(text(`mission-${id}`), '❌');
+    for (const id of ['roulette', 'daily', 'majak']) assert.equal(text(id), '확인 실패');
+    for (const id of ['daily', 'weekly', 'content', 'attendance']) assert.equal(text(`mission-${id}`), '실패');
     assert.equal(text('survey'), '비활성화', 'no survey component id is known, so the survey reads as disabled');
     assert.equal(text('total-flake'), '0 F');
     assert.equal(text('monthly-flake'), '+0 F');
@@ -580,10 +488,8 @@ test('checkAllStatus: without a session cookie it alerts and marks every cell as
     assert.deepEqual(h.alerts, ['상태 확인 실패: Authorization token (SUAT) not found']);
     assert.deepEqual(h.requests, []);
     const text = id => h.document.getElementById(`stove-status-${id}`).textContent;
-    assert.equal(text('article'), '❌ 확인 실패');
-    assert.equal(text('mission-daily'), '❌');
-    assert.equal(text('total-flake'), '❌ 확인 실패');
-    assert.equal(text('monthly-flake'), '❌ 확인 실패');
-    assert.equal(text('boost'), '⚠️ 확인 실패');
+    assert.equal(text('mission-daily'), '실패');
+    assert.equal(text('total-flake'), '확인 실패');
+    assert.equal(text('monthly-flake'), '확인 실패');
     assertGolden('status/check-all-no-session', { ...h.snapshot(), panel });
 });

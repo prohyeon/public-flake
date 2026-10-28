@@ -10,7 +10,6 @@ import {
 
 function baseSnapshot(overrides = {}) {
     return {
-        articleWrite: { success: true, hasWrittenToday: false },
         missions: normalizeMissionSnapshot([]),
         roulette: { success: true, unknown: false, remaining: 0 },
         rouletteExtra: { success: true, claimable: [] },
@@ -38,59 +37,6 @@ function missionSnapshot(missions) {
     ]);
 }
 
-test('review event is included once in full automation only when actionable and excluded from repair', () => {
-    const plan = buildAutomationPlan(baseSnapshot({ reviewEvent: { success: true, actionable: true } }));
-    assert.equal(findTask(plan, 'reviewEvent').nonAuthoritativeRepair, true);
-    assert.equal(plan.groups.find(group => group.id === 'reviewEvent').concurrency, 1);
-    for (const section of [undefined, { success: true, actionable: false },
-        { success: false, actionable: true }, { success: true, unknown: true, actionable: true }]) {
-        assert.equal(findTask(buildAutomationPlan(baseSnapshot({ reviewEvent: section })), 'reviewEvent'), undefined);
-    }
-    assert.equal(findTask(buildRepairPlan({ reviewEventIncomplete: true }), 'reviewEvent'), undefined);
-});
-
-test('boost schedules a single serial task only for a known 0/1 mission with remaining charges', t => {
-    // Mission-only behavior, as with daily boosts off.
-    CONFIG.boostMission.dailyBoosts = 0;
-    t.after(() => { CONFIG.boostMission.dailyBoosts = 5; });
-    const boost = { success: true, remainingCount: 5, mission: { current: 0, required: 1, rewarded: false } };
-    const plan = buildAutomationPlan(baseSnapshot({ boost }));
-    assert.equal(findTask(plan, 'boostMission').consumesBoost, true);
-    assert.equal(plan.groups.find(group => group.id === 'boost').concurrency, 1);
-    for (const section of [undefined, { ...boost, success: false }, { ...boost, unknown: true },
-        { ...boost, remainingCount: 0 }, { ...boost, notAvailable: true },
-        { ...boost, mission: { ...boost.mission, current: 1 } },
-        { ...boost, mission: { ...boost.mission, rewarded: true } }]) {
-        assert.equal(findTask(buildAutomationPlan(baseSnapshot({ boost: section })), 'boostMission'), undefined);
-    }
-    assert.equal(findTask(buildRepairPlan({ boostIncomplete: true }), 'boostMission'), undefined,
-        'automatic repair must never repeat an uncertain boost');
-});
-
-test('daily boosts are scheduled until five are done today, even when the mission is finished or absent', () => {
-    assert.equal(CONFIG.boostMission.dailyBoosts, 5);
-    const done = count => Array.from({ length: count }, (_, index) => ({ status: 'confirmed', articleId: String(21 + index) }));
-    const finished = { success: true, remainingCount: 5, mission: { current: 1, required: 1, rewarded: true, completed: true } };
-    for (const section of [
-        finished,
-        { success: true, notAvailable: true, remainingCount: 5 },
-        { ...finished, dailyBoosts: done(4) },
-        // A pending attempt is scheduled to be re-checked even without charges; it never boosts again.
-        { ...finished, remainingCount: 0, dailyBoosts: [{ status: 'pending', articleId: '12' }] }
-    ]) {
-        assert.ok(findTask(buildAutomationPlan(baseSnapshot({ boost: section })), 'boostMission'), JSON.stringify(section));
-    }
-    for (const section of [
-        { ...finished, dailyBoosts: done(5) },
-        { ...finished, remainingCount: 0 },
-        { ...finished, success: false },
-        { ...finished, unknown: true },
-        undefined
-    ]) {
-        assert.equal(findTask(buildAutomationPlan(baseSnapshot({ boost: section })), 'boostMission'), undefined, JSON.stringify(section));
-    }
-});
-
 test('buildAutomationPlan separates safe parallel and serial flake-spending groups', () => {
     const missions = missionSnapshot([
         { mission_no: 11, title: 'Visit', status: 'INCOMPLETE', is_visit_mission: true },
@@ -103,13 +49,6 @@ test('buildAutomationPlan separates safe parallel and serial flake-spending grou
     }));
 
     assert.deepEqual(plan.plannedMissionNos, [11]);
-
-    const community = plan.groups.find(group => group.id === 'community');
-    assert.equal(community.concurrency, 3);
-    assert.deepEqual(taskKinds(community), ['articleWrite', 'articleLikes', 'comments']);
-    assert.equal(findTask(plan, 'comments').background, true);
-    assert.equal(findTask(plan, 'comments').rateLimited, true);
-    assert.equal(findTask(plan, 'comments').nonAuthoritativeRepair, true);
 
     const visits = plan.groups.find(group => group.id === 'visits');
     assert.equal(visits.concurrency, 1);
@@ -140,7 +79,6 @@ test('buildAutomationPlan includes intended handler kinds for a fully actionable
         plan.groups.map(group => [group.id, taskKinds(group)]),
         [
             ['setup', ['requiredPages', 'componentRefresh', 'eventRefresh']],
-            ['community', ['articleWrite', 'articleLikes', 'comments']],
             ['visits', ['singleVisits', 'dailyMissions', 'contentMissions', 'bannerMissions']],
             ['missionClaims', ['weeklyMissions', 'attendanceMissions', 'surveyMissions']],
             ['flakeSpending', ['rouletteDraws', 'rouletteExtra', 'prizeEntry']],
@@ -249,18 +187,8 @@ test('buildAutomationPlan does not schedule followups from missing sections', ()
     assert.equal(findTask(plan, 'majakShop'), undefined);
 });
 
-test('buildAutomationPlan skips articleWrite after writing today but keeps article engagement tasks', () => {
-    const plan = buildAutomationPlan(baseSnapshot({
-        articleWrite: { success: true, hasWrittenToday: true }
-    }));
-    const community = plan.groups.find(group => group.id === 'community');
-
-    assert.deepEqual(taskKinds(community), ['articleLikes', 'comments']);
-});
-
 test('buildRepairPlan retries only bounded retryable categories and excludes rouletteDraws', () => {
     const plan = buildRepairPlan({
-        articleStillMissing: true,
         incompleteMissionNos: [21, 22],
         unclaimedDailyShop: 1,
         claimableExtra: 2,
@@ -274,7 +202,6 @@ test('buildRepairPlan retries only bounded retryable categories and excludes rou
             id: 'repairSafe',
             concurrency: 1,
             tasks: [
-                { id: 'repairSafe:articleWrite', kind: 'articleWrite' },
                 { id: 'repairSafe:singleVisits', kind: 'singleVisits', missionNos: [21, 22] },
                 { id: 'repairSafe:dailyShop', kind: 'dailyShop' },
                 { id: 'repairSafe:rouletteExtra', kind: 'rouletteExtra' }
@@ -336,15 +263,4 @@ test('buildAutomationPlan keeps every mission task when the missions section is 
         assert.deepEqual(plan.skippedDone, []);
         for (const kind of everyMissionTask) assert.ok(findTask(plan, kind), kind);
     }
-});
-
-test("buildAutomationPlan drops likes or comments that today's record shows as done", () => {
-    const community = options => taskKinds(buildAutomationPlan(baseSnapshot(), options).groups.find(group => group.id === 'community'));
-
-    assert.deepEqual(community(), ['articleWrite', 'articleLikes', 'comments']);
-    assert.deepEqual(community({ community: { likesRemaining: 3, commentsRemaining: 0 } }), ['articleWrite', 'articleLikes']);
-    assert.deepEqual(community({ community: { likesRemaining: 0, commentsRemaining: 5 } }), ['articleWrite', 'comments']);
-    const plan = buildAutomationPlan(baseSnapshot({ articleWrite: { success: true, hasWrittenToday: true } }),
-        { community: { likesRemaining: 0, commentsRemaining: 0 } });
-    assert.equal(plan.groups.find(group => group.id === 'community'), undefined, 'an emptied group is dropped');
 });

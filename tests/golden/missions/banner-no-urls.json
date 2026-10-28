@@ -21,12 +21,12 @@
     200
   ],
   "logs": [
-    "[info] 🎨 배너 미션 시작...",
-    "[info] 📋 배너 미션 1개 발견",
-    "[info] 🌐 배너 URL 1개 방문 중...",
-    "[warning]   ⚠️ \"미션 321\" - URL 없음, 스킵",
-    "[info] ℹ️ 수령 가능한 배너 미션이 없습니다",
-    "[success] ✅ 배너 미션 처리 완료!"
+    "[info] 배너 미션 시작...",
+    "[info] 배너 미션 1개 발견",
+    "[info] 배너 URL 1개 방문 중...",
+    "[warning]   \"미션 321\" - URL 없음, 스킵",
+    "[info] 수령 가능한 배너 미션이 없습니다",
+    "[success] 배너 미션 처리 완료!"
   ],
   "titles": [],
   "sounds": 0,
@@ -35,11 +35,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -52,7 +47,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -66,8 +60,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": 226,

@@ -66,8 +66,8 @@
     "[success] 수령 가능한 EXTRA: 2개",
     "[success] EXTRA 수령 완료: 1,000 플레이크 (1000 FLAKE)",
     "[success] EXTRA 수령 완료: 스토브 포인트 500P (0 FLAKE)",
-    "[success] 💰 총 EXTRA 수령: 1000 FLAKE",
-    "[success] ✅ 룰렛 EXTRA 처리 완료!"
+    "[success] 총 EXTRA 수령: 1000 FLAKE",
+    "[success] 룰렛 EXTRA 처리 완료!"
   ],
   "titles": [],
   "sounds": 0,
@@ -76,11 +76,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -93,7 +88,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 1000,
@@ -107,8 +101,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": null,

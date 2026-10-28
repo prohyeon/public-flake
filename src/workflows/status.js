@@ -7,14 +7,12 @@ import { getRouletteParticipationCount, getRouletteSubEventNo } from '../api/rou
 import { getDailyShopRewards, getMajakDailyShopRewards } from '../api/shop.js';
 import { apiRequest } from '../api/request.js';
 import { getAllDailyMissions, getMissionComponentIds, getMissionComponentNos, missionComponentUrl } from '../api/missions.js';
-import { getMyProfile, getMyArticles, getMonthlyFlakeTotal, getTotalFlakeBalance } from '../api/profile.js';
+import { getMonthlyFlakeTotal, getTotalFlakeBalance } from '../api/profile.js';
 import { log } from '../ui/logger.js';
 import { updateStatusUI } from '../ui/status.js';
 import { updatePointCashChargeButtonAvailability } from '../ui/pointCashCharge.js';
-import { checkBoostStatus } from './boost.js';
-import { checkReviewEventStatus } from './reviewEvent.js';
 
-const STATUS_KEYS = ['articleWrite', 'dailyMission', 'roulette', 'dailyShop', 'majakShop', 'survey', 'boost', 'reviewEvent'];
+const STATUS_KEYS = ['dailyMission', 'roulette', 'dailyShop', 'majakShop', 'survey'];
 const BALANCE_KEYS = ['totalFlake', 'monthlyFlake'];
 
 function services(deps = {}) {
@@ -24,8 +22,6 @@ function services(deps = {}) {
         getMajakDailyShopRewards,
         apiRequest,
         getAllDailyMissions,
-        getMyProfile,
-        getMyArticles,
         getTodayString,
         ...deps
     };
@@ -167,36 +163,6 @@ export async function checkDailyMissionStatus(headers, deps = {}) {
     }
 }
 
-export async function checkArticleWriteStatus(headers, deps = {}) {
-    const io = services(deps);
-    try {
-        const profileData = await io.getMyProfile(headers);
-        if (!profileData?.value?.user_id) {
-            return { success: false, error: '프로필 정보 없음' };
-        }
-
-        const userId = profileData.value.user_id;
-        const articlesData = await io.getMyArticles(headers, userId, 10);
-        if (!articlesData?.value?.list) {
-            return { success: false, error: '게시글 목록 없음' };
-        }
-
-        const articles = articlesData.value.list;
-        const now = new Date();
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        const todayEnd = todayStart + 24 * 60 * 60 * 1000;
-
-        const todayArticles = articles.filter(article => {
-            const articleTime = article.datetime;
-            return articleTime >= todayStart && articleTime < todayEnd;
-        });
-
-        return { success: true, hasWrittenToday: todayArticles.length > 0, todayCount: todayArticles.length };
-    } catch (e) {
-        return { success: false, error: e.message };
-    }
-}
-
 export async function visitRequiredPages() {
     log('🌐 필수 페이지 탭 열기...', 'info');
     const tabs = [];
@@ -224,28 +190,22 @@ export async function checkAllStatus() {
             await getMissionComponentIds(headers);
         }
 
-        const [articleWriteStatus, dailyMissionStatus, rouletteStatus, dailyShopStatus, majakShopStatus, surveyStatus, totalFlake, monthlyFlake, boostStatus, reviewEventStatus] = await Promise.all([
-            checkArticleWriteStatus(headers),
+        const [dailyMissionStatus, rouletteStatus, dailyShopStatus, majakShopStatus, surveyStatus, totalFlake, monthlyFlake] = await Promise.all([
             checkDailyMissionStatus(headers),
             checkRouletteStatus(headers),
             checkDailyShopStatus(headers),
             checkMajakShopStatus(headers),
             checkSurveyStatus(headers),
             getTotalFlakeBalance(headers),
-            getMonthlyFlakeTotal(headers),
-            checkBoostStatus(headers),
-            checkReviewEventStatus(headers)
+            getMonthlyFlakeTotal(headers)
         ]);
 
         updateStatusUI({
-            articleWrite: articleWriteStatus,
             dailyMission: dailyMissionStatus,
             roulette: rouletteStatus,
             dailyShop: dailyShopStatus,
             majakShop: majakShopStatus,
             survey: surveyStatus,
-            boost: boostStatus,
-            reviewEvent: reviewEventStatus,
             totalFlake,
             monthlyFlake
         });

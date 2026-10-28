@@ -71,7 +71,7 @@ test('runRouletteDraws reports a negative net profit as a warning', async t => {
     assert.equal(net, -170);
     assert.equal(state.earnings.roulette, -170);
     assert.equal(state.completed.roulette, true);
-    assert.ok(h.logs().includes('[warning]   📊 순수익: -170 FLAKE'));
+    assert.ok(h.logs().includes('[warning]   순수익: -170 FLAKE'));
     assertGolden('roulette/draws-net-loss', h.snapshot());
 });
 
@@ -141,7 +141,7 @@ test('runRouletteDraws with the default config draws at most 30 times from a fre
     assert.equal(net, 0);
     assert.equal(state.earnings.roulette, 0);
     assert.equal(state.completed.roulette, true);
-    assert.ok(h.logs().includes('[success]   📊 순수익: +0 FLAKE'));
+    assert.ok(h.logs().includes('[success]   순수익: +0 FLAKE'));
 });
 
 test('runRouletteDraws retries a thrown or non-JSON draw after retryDelay and stops retrying on success', async t => {

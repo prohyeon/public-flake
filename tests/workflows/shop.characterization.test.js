@@ -588,7 +588,7 @@ test('openRewardShop logs an error when the tab cannot be opened', async t => {
     assert.doesNotThrow(() => openRewardShop());
 
     assert.deepEqual(h.tabs, []);
-    assert.ok(h.logs().includes('[error] ❌ 탭 열기 실패: popup blocked'));
+    assert.ok(h.logs().includes('[error] 탭 열기 실패: popup blocked'));
     assertGolden('shop/open-reward-shop-failure', h.snapshot());
 });
 

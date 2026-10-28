@@ -176,20 +176,20 @@
     200
   ],
   "logs": [
-    "[info] 🎁 데일리 누적 보상 수령 시작...",
+    "[info] 데일리 누적 보상 수령 시작...",
     "[info] 현재 누적 출석일: 30일",
     "[success] 수령 가능한 누적 보상: 6개",
-    "[info] 📦 보상 정보: 5일 플레이크 (타입: FLAKE, 5일)",
+    "[info] 보상 정보: 5일 플레이크 (타입: FLAKE, 5일)",
     "[error] 보상 수령 실패: 5일 플레이크 (코드: 9001, 메시지: 이미 수령한 보상)",
-    "[info] 📦 보상 정보: 아이템 상자 (타입: ITEMBOX, 7일)",
+    "[info] 보상 정보: 아이템 상자 (타입: ITEMBOX, 7일)",
     "[error] 보상 수령 실패: 아이템 상자 (코드: 9002, 메시지: legacy msg field)",
-    "[info] 📦 보상 정보: 할인 쿠폰 (타입: INDIE_SALE_COUPON, 10일)",
+    "[info] 보상 정보: 할인 쿠폰 (타입: INDIE_SALE_COUPON, 10일)",
     "[error] 보상 수령 오류 (할인 쿠폰): API Error: 500 Error",
-    "[info] 📦 보상 정보: 인디 게임 A (타입: INDIE_GAME_COUPON, 12일)",
+    "[info] 보상 정보: 인디 게임 A (타입: INDIE_GAME_COUPON, 12일)",
     "[error] 보상 수령 오류 (인디 게임 A): API Error: 500 Error",
-    "[info] 📦 보상 정보: 인디 게임 C (타입: INDIE_GAME_COUPON, 14일)",
+    "[info] 보상 정보: 인디 게임 C (타입: INDIE_GAME_COUPON, 14일)",
     "[error] 보상 수령 실패: 인디 게임 C (코드: N/A, 메시지: N/A)",
-    "[info] 📦 보상 정보: 20일 플레이크 (타입: FLAKE, 20일)",
+    "[info] 보상 정보: 20일 플레이크 (타입: FLAKE, 20일)",
     "[success] FLAKE 보상 수령 완료 (20일): 20일 플레이크 (100 FLAKE)"
   ],
   "titles": [],
@@ -199,11 +199,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -216,7 +211,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -230,8 +224,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 100,
-      "boostMission": 0
+      "dailyAccumulated": 100
     },
     "missionComponents": {
       "daily": null,

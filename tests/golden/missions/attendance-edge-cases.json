@@ -34,14 +34,14 @@
   "tabs": [],
   "delays": [],
   "logs": [
-    "[info] 📅 출석 미션 시작...",
+    "[info] 출석 미션 시작...",
     "[warning] 출석 미션 componentNo가 로드되지 않음",
-    "[info] 📅 출석 미션 시작...",
+    "[info] 출석 미션 시작...",
     "[warning] 출석 미션 데이터를 찾을 수 없습니다",
-    "[info] 📅 출석 미션 시작...",
+    "[info] 출석 미션 시작...",
     "[error] 출석 미션 오류: API Error: 500 Error",
-    "[success] ✅ 출석 미션 처리 완료!",
-    "[info] ⏭️ 출석 미션이 비활성화되어 있습니다"
+    "[success] 출석 미션 처리 완료!",
+    "[info] 출석 미션이 비활성화되어 있습니다"
   ],
   "titles": [],
   "sounds": 0,
@@ -50,11 +50,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -67,7 +62,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -81,8 +75,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": 226,

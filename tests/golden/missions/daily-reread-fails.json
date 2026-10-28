@@ -49,12 +49,12 @@
     3000
   ],
   "logs": [
-    "[info] 📋 데일리 미션 시작...",
-    "[info] 📝 총 1개 미션 확인",
-    "[info] 🌐 방문 미션 1개 탭 열기 시작...",
-    "[info] 🌐 미션 61 방문 중...",
+    "[info] 데일리 미션 시작...",
+    "[info] 총 1개 미션 확인",
+    "[info] 방문 미션 1개 탭 열기 시작...",
+    "[info] 미션 61 방문 중...",
     "[success] 미션 61 탭 열림",
-    "[success] ✅ 방문 미션 탭 열기 완료",
+    "[success] 방문 미션 탭 열기 완료",
     "[error] 미션 상태 재조회 실패"
   ],
   "titles": [],
@@ -64,11 +64,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -81,7 +76,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -95,8 +89,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": 226,

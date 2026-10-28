@@ -107,7 +107,7 @@ export function createRunTiming(now = getTimestamp) {
         },
 
         summaryLines() {
-            const lines = [`⏱ 단계별 소요 시간 · 총 ${formatSeconds(now() - startedAt)}`];
+            const lines = [`소요 시간 · 총 ${formatSeconds(now() - startedAt)}`];
             const sections = [...new Set([...SECTION_ORDER, ...phases.map(phase => phase.section)])];
             // A step that never ended (the run stopped early) is left out.
             for (const section of sections) {

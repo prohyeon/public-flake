@@ -1,19 +1,31 @@
 import { CONFIG } from '../config.js';
 
-// Markup and styles of the automation panel. Whitespace inside the template is rendered into the
-// <style> and HTML (and pinned by the panel golden), so edit it deliberately.
+// Markup and styles of the automation panel. Element ids and classes are used by the workflows and
+// tests, so keep them stable. Whitespace inside the template is rendered into the <style> and HTML
+// (and pinned by the panel golden), so edit it deliberately.
 export function panelMarkup() {
     return `
         <style>
             #stove-quest-automation {
-                background: #1a1a1a;
-                border: 1px solid #2a2a2a;
+                --bg: #151515;
+                --surface: #1e1e1e;
+                --surface-2: #262626;
+                --border: #2e2e2e;
+                --text: #e6e6e6;
+                --muted: #8a8a8a;
+                --accent: #3b82f6;
+                --ok: #34d399;
+                --warn: #fbbf24;
+                --error: #f87171;
+                background: var(--bg);
+                border: 1px solid var(--border);
                 border-radius: 12px;
-                padding: 24px;
+                padding: 20px;
                 margin: 24px 0;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-                color: #e0e0e0;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                color: var(--text);
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+                font-size: 14px;
+                line-height: 1.5;
                 width: 100%;
                 min-width: 0;
                 box-sizing: border-box;
@@ -27,413 +39,313 @@ export function panelMarkup() {
             #stove-quest-automation[data-stove-mount="fallback"] {
                 margin-top: 96px;
             }
+            #stove-quest-automation * { box-sizing: border-box; }
             .stove-panel-header {
-                font-size: 20px;
-                font-weight: bold;
-                margin-bottom: 16px;
                 display: flex;
-                align-items: center;
+                align-items: baseline;
                 justify-content: space-between;
-                gap: 8px;
-                color: #ffffff;
-                border-bottom: 2px solid #2a2a2a;
-                padding-bottom: 12px;
-                min-width: 0;
                 flex-wrap: wrap;
+                gap: 8px 16px;
+                padding-bottom: 14px;
+                margin-bottom: 16px;
+                border-bottom: 1px solid var(--border);
             }
-            .stove-panel-title { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
-            .stove-panel-version {
-                display: flex;
-                flex-direction: column;
-                align-items: flex-end;
-                font-size: 11px;
-                font-weight: normal;
-                color: #888888;
-                line-height: 1.4;
-                font-family: 'Courier New', monospace;
-                min-width: 0;
-                overflow-wrap: anywhere;
+            .stove-panel-title { font-size: 18px; font-weight: 700; color: #ffffff; min-width: 0; overflow-wrap: anywhere; }
+            .stove-panel-version { font-size: 12px; color: var(--muted); font-family: 'Courier New', monospace; }
+            .stove-maintenance-notice {
+                background: #3b1212;
+                border: 1px solid #7f1d1d;
+                border-radius: 8px;
+                padding: 14px 16px;
+                margin-bottom: 16px;
             }
-            .stove-controls {
+            .stove-maintenance-title { font-weight: 700; color: #ffffff; margin-bottom: 4px; }
+            .stove-maintenance-message { color: #fecaca; }
+            .stove-actions {
                 display: grid;
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-                gap: 12px;
-                margin-bottom: 20px;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+                gap: 16px;
+                margin-bottom: 16px;
+                align-items: stretch;
+            }
+            .stove-actions-secondary {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+                gap: 10px;
+                min-width: 0;
             }
             .stove-btn {
-                background: #2a2a2a;
-                border: 1px solid #3a3a3a;
-                color: #e0e0e0;
-                padding: 10px 20px;
-                border-radius: 6px;
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                color: var(--text);
+                padding: 10px 14px;
+                border-radius: 8px;
                 cursor: pointer;
-                font-size: 14px;
+                font: inherit;
                 font-weight: 600;
-                transition: all 0.2s ease;
+                text-align: left;
+                transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
                 min-width: 0;
                 overflow-wrap: anywhere;
             }
-            .stove-controls > * { min-width: 0; }
-            .stove-btn-main,
-            .stove-btn-sub {
-                display: block;
-                line-height: 1.35;
-            }
-            .stove-btn-sub {
-                margin-top: 2px;
-                font-size: 12px;
-                color: #a7f3d0;
-                font-weight: 500;
-            }
-            .stove-btn-note {
-                display: block;
-                margin-top: 4px;
-                font-size: 11px;
-                color: #fbbf24;
-                font-weight: 500;
-                line-height: 1.3;
-            }
-            .stove-btn:hover:not(:disabled) {
-                background: #3a3a3a;
-                border-color: #4a4a4a;
-                transform: translateY(-1px);
-            }
-            .stove-btn:active:not(:disabled) { transform: translateY(0); }
-            .stove-btn:disabled {
-                cursor: not-allowed;
-                opacity: 0.4;
-                background: #1f1f1f;
-            }
-            .stove-progress-section {
-                background: #232323;
-                border: 1px solid #2a2a2a;
-                border-radius: 8px;
-                padding: 16px;
-                margin-bottom: 16px;
-            }
-            .stove-progress-header {
-                font-size: 16px;
-                font-weight: 600;
-                margin-bottom: 12px;
-                color: #ffffff;
-            }
-            .stove-progress-bar {
-                background: #1a1a1a;
-                border: 1px solid #2a2a2a;
-                border-radius: 8px;
-                height: 24px;
-                overflow: hidden;
-                margin-bottom: 12px;
-                position: relative;
-            }
-            .stove-progress-fill {
-                background: #10b981;
-                height: 100%;
-                width: 0%;
-                transition: width 0.5s ease;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 12px;
-                font-weight: bold;
-                color: #ffffff;
-            }
-            .stove-task-list {
+            .stove-btn:hover:not(:disabled) { background: #303030; border-color: #3d3d3d; }
+            .stove-btn-primary { background: var(--accent); border-color: var(--accent); color: #ffffff; }
+            .stove-btn-primary:hover:not(:disabled) { background: #2563eb; border-color: #2563eb; }
+            .stove-btn:disabled { cursor: not-allowed; opacity: 0.45; }
+            .stove-btn-main { display: block; }
+            .stove-btn-sub { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); font-weight: 400; }
+            .stove-btn-note { display: block; margin-top: 2px; font-size: 12px; color: var(--warn); font-weight: 500; }
+            .stove-layout {
                 display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 8px;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+                gap: 16px;
+                align-items: start;
             }
-            .stove-task {
-                background: #1a1a1a;
-                border: 1px solid #2a2a2a;
-                padding: 8px 12px;
-                border-radius: 6px;
-                font-size: 14px;
-                color: #d0d0d0;
+            .stove-card {
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                padding: 16px;
                 min-width: 0;
-                overflow-wrap: anywhere;
             }
-            .stove-log-section {
-                background: #0f0f0f;
-                border: 1px solid #2a2a2a;
-                border-radius: 8px;
-                padding: 16px;
-                max-height: 300px;
-                overflow-y: auto;
-                scroll-behavior: smooth;
-            }
-            .stove-log-header {
-                font-size: 16px;
-                font-weight: 600;
-                margin-bottom: 8px;
-                color: #ffffff;
+            .stove-card-header {
                 display: flex;
-                justify-content: space-between;
                 align-items: center;
-            }
-            .stove-log-copy-btn {
-                background: #2a2a2a;
-                border: 1px solid #3a3a3a;
-                color: #ffffff;
-                font-size: 14px;
-                padding: 4px 8px;
-                border-radius: 4px;
-                cursor: pointer;
-                transition: all 0.2s;
-            }
-            .stove-log-copy-btn:hover { background: #3a3a3a; border-color: #4a4a4a; }
-            #stove-log-content {
-                font-size: 13px;
-                line-height: 1.5;
-                font-family: 'Courier New', monospace;
-            }
-            .stove-log-section::-webkit-scrollbar { width: 8px; }
-            .stove-log-section::-webkit-scrollbar-track { background: #1a1a1a; border-radius: 4px; }
-            .stove-log-section::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 4px; }
-            .stove-log-section::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }
-            .stove-status-section {
-                background: #232323;
-                border: 1px solid #2a2a2a;
-                border-radius: 8px;
-                padding: 16px;
-                margin-bottom: 16px;
-            }
-            .stove-status-header {
-                font-size: 16px;
-                font-weight: 600;
+                justify-content: space-between;
+                gap: 8px;
                 margin-bottom: 12px;
-                color: #ffffff;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
+                min-height: 28px;
             }
-            .stove-status-refresh {
-                background: #2a2a2a;
-                border: 1px solid #3a3a3a;
-                color: #e0e0e0;
-                padding: 4px 12px;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 12px;
-                font-weight: 600;
-                transition: all 0.2s ease;
-            }
-            .stove-status-refresh:hover { background: #3a3a3a; border-color: #4a4a4a; }
-            .stove-status-list { display: grid; grid-template-columns: 1fr; gap: 8px; }
-            .stove-status-item {
-                background: #1a1a1a;
-                border: 1px solid #2a2a2a;
-                padding: 10px 12px;
+            .stove-card-title { font-size: 14px; font-weight: 700; color: #ffffff; letter-spacing: 0.02em; }
+            .stove-ghost-btn {
+                background: transparent;
+                border: 1px solid var(--border);
+                color: var(--muted);
+                padding: 4px 10px;
                 border-radius: 6px;
-                font-size: 14px;
-                color: #d0d0d0;
+                cursor: pointer;
+                font: inherit;
+                font-size: 12px;
+                white-space: nowrap;
+            }
+            .stove-ghost-btn:hover { color: var(--text); border-color: #3d3d3d; }
+            .stove-status-group + .stove-status-group { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+            .stove-status-group-title { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+            .stove-status-item {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                gap: 8px;
+                gap: 12px;
+                padding: 7px 0;
                 min-width: 0;
             }
-            .stove-status-label { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
-            .stove-status-value { font-family: 'Courier New', monospace; min-width: 0; overflow-wrap: anywhere; text-align: right; }
+            .stove-status-label { color: #c8c8c8; min-width: 0; overflow-wrap: anywhere; }
+            .stove-status-value { font-variant-numeric: tabular-nums; text-align: right; min-width: 0; overflow-wrap: anywhere; color: var(--text); }
+            .stove-status-item.stove-total { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 12px; }
             .stove-mission-item { position: relative; cursor: help; }
-            .stove-mission-item:hover { background: #252525; border-color: #3a3a3a; }
             .stove-mission-tooltip {
                 position: absolute;
                 left: 0;
                 top: 100%;
-                margin-top: 8px;
+                margin-top: 6px;
                 background: #2a2a2a;
                 border: 1px solid #3a3a3a;
-                border-radius: 6px;
+                border-radius: 8px;
                 padding: 12px;
-                min-width: 300px;
+                min-width: 280px;
                 max-width: 400px;
                 z-index: 10000;
                 font-size: 13px;
                 line-height: 1.5;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+                box-shadow: 0 8px 24px rgba(0,0,0,0.5);
                 display: none;
             }
             .stove-mission-item:hover .stove-mission-tooltip { display: block; }
             .stove-mission-tooltip-title {
                 font-weight: 600;
-                color: #10b981;
-                margin-bottom: 8px;
-                border-bottom: 1px solid #3a3a3a;
+                color: var(--ok);
+                margin-bottom: 6px;
                 padding-bottom: 6px;
+                border-bottom: 1px solid #3a3a3a;
             }
-            .stove-mission-tooltip-item {
-                padding: 4px 0;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
+            .stove-mission-tooltip-item { padding: 4px 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
             .stove-mission-tooltip-name { flex: 1; color: #d0d0d0; }
-            .stove-mission-tooltip-status { margin-left: 12px; font-size: 12px; }
-            .stove-maintenance-notice {
-                background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
-                border: 2px solid #b71c1c;
-                border-radius: 8px;
-                padding: 20px;
-                margin-bottom: 20px;
-                text-align: center;
+            .stove-mission-tooltip-status { font-size: 12px; white-space: nowrap; }
+            .stove-log-toolbar { display: flex; align-items: center; gap: 12px; }
+            .stove-switch {
+                position: relative;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 12px;
+                color: var(--muted);
+                cursor: pointer;
+                user-select: none;
             }
-            .stove-maintenance-icon { font-size: 48px; margin-bottom: 12px; display: block; }
-            .stove-maintenance-title { font-size: 18px; font-weight: bold; color: #ffffff; margin-bottom: 8px; }
-            .stove-maintenance-message { font-size: 14px; color: #ffebee; line-height: 1.6; }
+            .stove-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+            .stove-switch-box {
+                width: 16px;
+                height: 16px;
+                border: 1px solid #4a4a4a;
+                border-radius: 4px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                background: var(--bg);
+                flex: 0 0 auto;
+            }
+            .stove-switch-box::after {
+                content: "";
+                width: 8px;
+                height: 4px;
+                border-left: 2px solid #ffffff;
+                border-bottom: 2px solid #ffffff;
+                transform: rotate(-45deg) translate(1px, -1px);
+                opacity: 0;
+            }
+            .stove-switch input:checked + .stove-switch-box { background: var(--accent); border-color: var(--accent); }
+            .stove-switch input:checked + .stove-switch-box::after { opacity: 1; }
+            .stove-switch input:focus-visible + .stove-switch-box { outline: 2px solid var(--accent); outline-offset: 2px; }
+            .stove-log-section {
+                background: #0f0f0f;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 10px 12px;
+                max-height: 420px;
+                overflow-y: auto;
+                scroll-behavior: smooth;
+            }
+            .stove-log-section::-webkit-scrollbar { width: 8px; }
+            .stove-log-section::-webkit-scrollbar-track { background: transparent; }
+            .stove-log-section::-webkit-scrollbar-thumb { background: #333333; border-radius: 4px; }
+            #stove-log-content {
+                font-size: 13px;
+                line-height: 1.55;
+                font-family: 'Courier New', monospace;
+            }
+            #stove-log-content > div {
+                padding: 2px 0 2px 10px;
+                border-left: 2px solid transparent;
+                overflow-wrap: anywhere;
+            }
+            #stove-log-content:not([data-show-timing="true"]) [data-timing="true"],
+            #stove-log-content:not([data-show-timing="true"]) .log-timing { display: none; }
             .stove-success-notice {
                 background: #064e3b;
                 border: 1px solid #10b981;
                 border-radius: 8px;
                 color: #d1fae5;
-                font-size: 14px;
-                font-weight: 700;
+                font-weight: 600;
                 margin-bottom: 16px;
                 padding: 12px 14px;
                 text-align: center;
                 transition: opacity 0.3s ease, transform 0.3s ease;
             }
-            .stove-success-notice--hide {
-                opacity: 0;
-                transform: translateY(-6px);
+            .stove-success-notice--hide { opacity: 0; transform: translateY(-6px); }
+            @media (max-width: 900px) {
+                .stove-layout { grid-template-columns: minmax(0, 1fr); }
             }
             @media (max-width: 720px) {
+                #stove-quest-automation { padding: 16px; }
                 #stove-quest-automation[data-stove-mount="myhome"] { width: calc(100% - 24px); }
-                .stove-controls,
-                .stove-task-list { grid-template-columns: minmax(0, 1fr); }
-                .stove-panel-header { align-items: flex-start; }
-                .stove-panel-version { align-items: flex-start; }
-                .stove-status-header,
-                .stove-log-header { flex-wrap: wrap; gap: 8px; }
-                .stove-mission-tooltip {
-                    min-width: 0;
-                    width: min(400px, calc(100vw - 48px));
-                    max-width: calc(100vw - 48px);
-                }
+                .stove-actions { grid-template-columns: minmax(0, 1fr); }
+                .stove-actions-secondary { grid-template-columns: minmax(0, 1fr); }
+                .stove-mission-tooltip { min-width: 0; width: min(400px, calc(100vw - 48px)); max-width: calc(100vw - 48px); }
             }
         </style>
-
         <div class="stove-panel-header">
-            <span class="stove-panel-title">🤖 STOVE 퀘스트 자동화</span>
-            <span class="stove-panel-version">
-                <div>v${CONFIG.version}</div>
-                <div>Updated: ${CONFIG.lastUpdated}</div>
-            </span>
+            <span class="stove-panel-title">STOVE 퀘스트 자동화</span>
+            <span class="stove-panel-version">v${CONFIG.version} · ${CONFIG.lastUpdated}</span>
         </div>
-
         <div id="stove-maintenance-notice" class="stove-maintenance-notice" style="display: none;">
-            <span class="stove-maintenance-icon">🚧</span>
             <div class="stove-maintenance-title">점검 중</div>
             <div class="stove-maintenance-message">${CONFIG.maintenanceMode.message}</div>
         </div>
-
-        <div class="stove-controls">
-            <button id="stove-btn-start" class="stove-btn">🚀 전체 자동화</button>
+        <div class="stove-actions">
+            <button id="stove-btn-start" class="stove-btn stove-btn-primary">전체 자동화</button>
+            <div class="stove-actions-secondary">
             <button id="stove-btn-point-cash-charge" class="stove-btn" disabled title="192,500 플레이크 이상일 때 충전 가능">
-                <span class="stove-btn-main">💱 7700 캐시 충전</span>
-                <span class="stove-btn-sub">(192,500 플레이크)</span>
+                <span class="stove-btn-main">7,700 캐시 충전</span>
+                <span class="stove-btn-sub">192,500 플레이크 필요</span>
                 <span class="stove-btn-note" id="stove-btn-point-cash-charge-status">플레이크 확인 중</span>
             </button>
-            <button id="stove-btn-reward-shop" class="stove-btn">🏪 리워드샵 방문</button>
-        </div>
-
-        <div class="stove-status-section">
-            <div class="stove-status-header">
-                📊 현재 상태
-                <button id="stove-btn-status-refresh" class="stove-status-refresh">🔄 새로고침</button>
-            </div>
-            <div class="stove-status-list">
-                <div class="stove-status-item">
-                    <span class="stove-status-label">✍️ 오늘 글쓰기</span>
-                    <span class="stove-status-value" id="stove-status-article">-</span>
-                </div>
-                <div class="stove-status-item stove-mission-item" data-category="daily">
-                    <span class="stove-status-label">📅 데일리</span>
-                    <span class="stove-status-value" id="stove-status-mission-daily">-</span>
-                </div>
-                <div class="stove-status-item stove-mission-item" data-category="weekly">
-                    <span class="stove-status-label">📆 위클리</span>
-                    <span class="stove-status-value" id="stove-status-mission-weekly">-</span>
-                </div>
-                <div class="stove-status-item stove-mission-item" data-category="content">
-                    <span class="stove-status-label">💬 컨텐츠</span>
-                    <span class="stove-status-value" id="stove-status-mission-content">-</span>
-                </div>
-                <div class="stove-status-item stove-mission-item" data-category="attendance">
-                    <span class="stove-status-label">📆 월간출석</span>
-                    <span class="stove-status-value" id="stove-status-mission-attendance">-</span>
-                </div>
-                <div class="stove-status-item">
-                    <span class="stove-status-label">🎰 룰렛 횟수</span>
-                    <span class="stove-status-value" id="stove-status-roulette">-</span>
-                </div>
-                <div class="stove-status-item">
-                    <span class="stove-status-label">🔥 부스트 미션</span>
-                    <span class="stove-status-value" id="stove-status-boost">-</span>
-                </div>
-                <div class="stove-status-item">
-                    <span class="stove-status-label">🎁 오늘의 1등 보상</span>
-                    <span class="stove-status-value" id="stove-status-boost-reward">-</span>
-                </div>
-                <div class="stove-status-item">
-                    <span class="stove-status-label">🎯 부스트 선택 글</span>
-                    <span class="stove-status-value" id="stove-status-boost-target">-</span>
-                </div>
-                <div class="stove-status-item">
-                    <span class="stove-status-label">💬 게임 리뷰 이벤트</span>
-                    <span class="stove-status-value" id="stove-status-review-event">-</span>
-                </div>
-                <div class="stove-status-item">
-                    <span class="stove-status-label">📅 리뷰 이벤트 기간</span>
-                    <span class="stove-status-value" id="stove-status-review-period">-</span>
-                </div>
-                <div class="stove-status-item">
-                    <span class="stove-status-label">🎯 이벤트 대상 리뷰</span>
-                    <span class="stove-status-value" id="stove-status-review-target">-</span>
-                </div>
-                <div class="stove-status-item">
-                    <span class="stove-status-label">💝 데일리 보상</span>
-                    <span class="stove-status-value" id="stove-status-daily">-</span>
-                </div>
-                <div class="stove-status-item">
-                    <span class="stove-status-label">🀄 마작 리워드</span>
-                    <span class="stove-status-value" id="stove-status-majak">-</span>
-                </div>
-                <div class="stove-status-item">
-                    <span class="stove-status-label">📊 설문조사</span>
-                    <span class="stove-status-value" id="stove-status-survey">-</span>
-                </div>
-                <div class="stove-status-item" style="border-top: 2px solid #3a3a3a; margin-top: 8px; padding-top: 16px;">
-                    <span class="stove-status-label">💎 현재 보유</span>
-                    <span class="stove-status-value" id="stove-status-total-flake">-</span>
-                </div>
-                <div class="stove-status-item">
-                    <span class="stove-status-label">📅 이번 달 획득</span>
-                    <span class="stove-status-value" id="stove-status-monthly-flake">-</span>
-                </div>
+            <button id="stove-btn-reward-shop" class="stove-btn">
+                <span class="stove-btn-main">리워드샵 방문</span>
+            </button>
             </div>
         </div>
-
-        <div class="stove-progress-section">
-            <div class="stove-progress-header">📊 커뮤니티 활동 진행 상황</div>
-            <div class="stove-progress-bar">
-                <div class="stove-progress-fill">
-                    <span id="stove-progress-text"></span>
+        <div class="stove-layout">
+            <div class="stove-card stove-status-section">
+                <div class="stove-card-header">
+                    <span class="stove-card-title">현재 상태</span>
+                    <button id="stove-btn-status-refresh" class="stove-ghost-btn stove-status-refresh">새로고침</button>
+                </div>
+                <div class="stove-status-group">
+                    <div class="stove-status-group-title">미션</div>
+                    <div class="stove-status-item stove-mission-item" data-category="daily">
+                        <span class="stove-status-label">데일리</span>
+                        <span class="stove-status-value" id="stove-status-mission-daily">-</span>
+                    </div>
+                    <div class="stove-status-item stove-mission-item" data-category="weekly">
+                        <span class="stove-status-label">위클리</span>
+                        <span class="stove-status-value" id="stove-status-mission-weekly">-</span>
+                    </div>
+                    <div class="stove-status-item stove-mission-item" data-category="content">
+                        <span class="stove-status-label">컨텐츠</span>
+                        <span class="stove-status-value" id="stove-status-mission-content">-</span>
+                    </div>
+                    <div class="stove-status-item stove-mission-item" data-category="attendance">
+                        <span class="stove-status-label">월간 출석</span>
+                        <span class="stove-status-value" id="stove-status-mission-attendance">-</span>
+                    </div>
+                    <div class="stove-status-item">
+                        <span class="stove-status-label">설문조사</span>
+                        <span class="stove-status-value" id="stove-status-survey">-</span>
+                    </div>
+                </div>
+                <div class="stove-status-group">
+                    <div class="stove-status-group-title">보상</div>
+                    <div class="stove-status-item">
+                        <span class="stove-status-label">룰렛 횟수</span>
+                        <span class="stove-status-value" id="stove-status-roulette">-</span>
+                    </div>
+                    <div class="stove-status-item">
+                        <span class="stove-status-label">데일리 보상</span>
+                        <span class="stove-status-value" id="stove-status-daily">-</span>
+                    </div>
+                    <div class="stove-status-item">
+                        <span class="stove-status-label">마작 리워드</span>
+                        <span class="stove-status-value" id="stove-status-majak">-</span>
+                    </div>
+                </div>
+                <div class="stove-status-group">
+                    <div class="stove-status-group-title">플레이크</div>
+                    <div class="stove-status-item stove-total">
+                        <span class="stove-status-label">현재 보유</span>
+                        <span class="stove-status-value" id="stove-status-total-flake">-</span>
+                    </div>
+                    <div class="stove-status-item">
+                        <span class="stove-status-label">이번 달 획득</span>
+                        <span class="stove-status-value" id="stove-status-monthly-flake">-</span>
+                    </div>
                 </div>
             </div>
-            <div class="stove-task-list">
-                <div class="stove-task">게시글 추천: <span id="stove-article-likes">0/${CONFIG.targets.articleLikes}</span></div>
-                <div class="stove-task">댓글 작성: <span id="stove-comments">0/${CONFIG.targets.comments}</span></div>
-                <div class="stove-task">새글 작성: <span id="stove-new-article">0/${CONFIG.targets.newArticle}</span></div>
+            <div class="stove-card">
+                <div class="stove-card-header">
+                    <span class="stove-card-title">로그</span>
+                    <div class="stove-log-toolbar">
+                        <label class="stove-switch">
+                            <input type="checkbox" id="stove-toggle-timing">
+                            <span class="stove-switch-box"></span>
+                            소요 시간 표시
+                        </label>
+                        <button id="stove-btn-copy-log" class="stove-ghost-btn" title="로그 전체 복사">복사</button>
+                    </div>
+                </div>
+                <div class="stove-log-section">
+                    <div id="stove-log-content"></div>
+                </div>
             </div>
-        </div>
-
-        <div class="stove-log-section">
-            <div class="stove-log-header">
-                <span>📝 로그</span>
-                <button id="stove-btn-copy-log" class="stove-log-copy-btn" title="로그 전체 복사">📋</button>
-            </div>
-            <div id="stove-log-content"></div>
         </div>
     `;
 }

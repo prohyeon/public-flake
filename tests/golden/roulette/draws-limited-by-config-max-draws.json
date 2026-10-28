@@ -140,14 +140,14 @@
     "[success] 룰렛 4/5 완료: 50 플레이크 (50 FLAKE)",
     "[success] 룰렛 5/5 완료: 1,000 플레이크 (1000 FLAKE)",
     "[info] [1차] 5/5 성공",
-    "[info] ✓ [2차] 남은 횟수 재확인: 0/5",
+    "[info] [2차] 남은 횟수 재확인: 0/5",
     "[info] 모든 룰렛 횟수를 소진했습니다",
     "[info] ",
-    "[success] 🎰 최종 룰렛 결과 (2차 실행)",
-    "[success]   🎯 총 실행: 5회 성공",
-    "[success]   💰 총 획득: 1250 FLAKE",
-    "[info]   💸 총 비용: 500 FLAKE",
-    "[success]   📊 순수익: +750 FLAKE"
+    "[success] 최종 룰렛 결과 (2차 실행)",
+    "[success]   총 실행: 5회 성공",
+    "[success]   총 획득: 1250 FLAKE",
+    "[info]   총 비용: 500 FLAKE",
+    "[success]   순수익: +750 FLAKE"
   ],
   "titles": [],
   "sounds": 0,
@@ -156,11 +156,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": true,
       "dailyShop": false,
@@ -173,7 +168,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 750,
       "rouletteExtra": 0,
@@ -187,8 +181,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": null,

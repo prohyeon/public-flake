@@ -27,7 +27,7 @@ test('steps and groups are summarized by section in a fixed order, then any extr
     timing.startGroup('ignored');
     assert.equal(timing.endGroup(null, 'ignored'), 59700, 'a null section is measured but not summarized');
     assert.deepEqual(timing.summaryLines(), [
-        '⏱ 단계별 소요 시간 · 총 70.0초',
+        '소요 시간 · 총 70.0초',
         '  준비: 초기 스냅샷 0.8초',
         '  그룹: visits 3.5초',
         '  백그라운드: comments 45.0초',
@@ -37,7 +37,7 @@ test('steps and groups are summarized by section in a fixed order, then any extr
 });
 
 test('a run that recorded nothing still reports its total', () => {
-    assert.deepEqual(createRunTiming(clock(1000, 3500)).summaryLines(), ['⏱ 단계별 소요 시간 · 총 2.5초']);
+    assert.deepEqual(createRunTiming(clock(1000, 3500)).summaryLines(), ['소요 시간 · 총 2.5초']);
 });
 
 test('timeTasks records sync, resolved, rejected and throwing tasks without replacing their results', async () => {

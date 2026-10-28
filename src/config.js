@@ -1,10 +1,7 @@
 export const CONFIG = {
-    version: '2.13.1',
-    lastUpdated: '2026-10-18',
+    version: '3.0.0',
+    lastUpdated: '2026-10-28',
     debug: false,
-    // 미션·이벤트별 중복 방지 기록(stove-boost-v1:*, stove-review-v1:*)은 마지막 시도 후 이 일수가
-    // 지나면 지운다. 지금 진행 중인 미션·이벤트의 기록은 지우지 않는다.
-    storageRetentionDays: 7,
     maintenanceMode: {
         enabled: false,
         startDate: '2025-11-01',
@@ -13,28 +10,9 @@ export const CONFIG = {
     api: {
         baseUrl: 'https://api.onstove.com'
     },
-    targets: {
-        articleLikes: 10,
-        comments: 5,
-        newArticle: 1
-    },
     delays: {
-        betweenActions: 200,
-        afterComment: 11000
+        betweenActions: 200
     },
-    comment: "Nice!",
-    commentPool: [
-        '굿',
-        '굿굿',
-        'ㅋㅋㅋㅋ',
-        '좋네요',
-        '오 좋다',
-        '잘봤어요',
-        '인정',
-        '나이스',
-        '괜찮네요',
-        '오호'
-    ],
     roulette: {
         enabled: true,
         subEventNo: '1000000353',
@@ -48,31 +26,6 @@ export const CONFIG = {
         enabled: true,
         skipMissions: [],
         visitDelay: 3000
-    },
-    boostMission: {
-        enabled: true,
-        // 미션이 없거나 이미 끝나도 하루(KST) 이 횟수까지 실시간 인기글에 부스트한다(잔여 횟수 안에서,
-        // 글마다 1번). 0이면 오늘의 1등 미션이 0/1일 때만 1번 부스트한다.
-        dailyBoosts: 5,
-        boostDelay: 1000,
-        // 오늘 저장된 후보가 없을 때의 조회 횟수. 저장된 후보가 있으면 1번만 조회해 합친다.
-        rankingQueries: 5,
-        queryDelay: 2000,
-        rankingCacheMaxAge: 60 * 60 * 1000,
-        // 저장·부스트 여부 조회에 쓰는 후보 상한(온도 순). 부스트 여부는 한 요청에 id를 이어 붙여 조회한다.
-        rankingCacheSize: 20,
-        maxRankingAge: 10 * 60 * 1000,
-        verifyAttempts: 3,
-        verifyDelay: 1000
-    },
-    reviewEvent: {
-        enabled: true,
-        stickerUrl: 'https://d2x8kymwjom7h7.cloudfront.net/live/application_no/10009/partners-sns-api/sp7HsnbTri6Q.png',
-        visitDelay: 3000,
-        maxEventPages: 20,
-        maxCommentPages: 100,
-        verifyAttempts: 3,
-        verifyDelay: 1000
     },
     contentMissions: {
         enabled: true

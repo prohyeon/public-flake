@@ -89,18 +89,18 @@
     200
   ],
   "logs": [
-    "[info] 📰 컨텐츠 미션 시작...",
-    "[info] 📝 총 4개 컨텐츠 미션 확인",
-    "[info] 🌐 미완료 컨텐츠 미션 1개 탭 열기 시작...",
-    "[info]   🌐 \"아주 긴 컨텐츠 미션 제목은 삼십 글자에서 잘려서 로그...\" 방문 중...",
-    "[success]   ✓ \"아주 긴 컨텐츠 미션 제목은 삼십 글자에서 잘려서 로그...\" 탭 열림",
-    "[success] ✅ 컨텐츠 미션 탭 열기 완료",
-    "[info] 🎁 수령 가능한 컨텐츠 미션 2개 발견",
-    "[success]   ✓ \"아주 긴 컨텐츠 미션 제목은 삼십 글자에서 잘려서 로그...\": +15 FLAKE",
-    "[success]   ✓ \"미션 103...\": +25 FLAKE",
-    "[success] ✅ 컨텐츠 미션 보상 수령 완료: +40 FLAKE",
-    "[info] 📊 컨텐츠 미션 진행 상황: 1/4 완료",
-    "[success] ✅ 컨텐츠 미션 처리 완료!"
+    "[info] 컨텐츠 미션 시작...",
+    "[info] 총 4개 컨텐츠 미션 확인",
+    "[info] 미완료 컨텐츠 미션 1개 탭 열기 시작...",
+    "[info]   \"아주 긴 컨텐츠 미션 제목은 삼십 글자에서 잘려서 로그...\" 방문 중...",
+    "[success]   \"아주 긴 컨텐츠 미션 제목은 삼십 글자에서 잘려서 로그...\" 탭 열림",
+    "[success] 컨텐츠 미션 탭 열기 완료",
+    "[info] 수령 가능한 컨텐츠 미션 2개 발견",
+    "[success]   \"아주 긴 컨텐츠 미션 제목은 삼십 글자에서 잘려서 로그...\": +15 FLAKE",
+    "[success]   \"미션 103...\": +25 FLAKE",
+    "[success] 컨텐츠 미션 보상 수령 완료: +40 FLAKE",
+    "[info] 컨텐츠 미션 진행 상황: 1/4 완료",
+    "[success] 컨텐츠 미션 처리 완료!"
   ],
   "titles": [],
   "sounds": 0,
@@ -109,11 +109,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -126,7 +121,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -140,8 +134,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": 226,

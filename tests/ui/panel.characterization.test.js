@@ -199,14 +199,11 @@ test('mount: the full panel markup (template, <style>, initializeUI effects) mat
     const version = bundleConfigValue(userscript, 'version');
     const lastUpdated = bundleConfigValue(userscript, 'lastUpdated');
     const html = panel.outerHTML;
-    const versionMarkup = `<div>v${version}</div>`;
-    const updatedMarkup = `<div>Updated: ${lastUpdated}</div>`;
-    assert.equal(html.split(versionMarkup).length, 2, 'version is rendered once from CONFIG.version');
-    assert.equal(html.split(updatedMarkup).length, 2, 'date is rendered once from CONFIG.lastUpdated');
+    const versionMarkup = `<span class="stove-panel-version">v${version} · ${lastUpdated}</span>`;
+    assert.equal(html.split(versionMarkup).length, 2, 'version and date are rendered once from CONFIG');
     // Release bumps must not invalidate the markup golden, so the two release values are placeholders.
     const normalized = html
-        .replace(versionMarkup, '<div>v{CONFIG.version}</div>')
-        .replace(updatedMarkup, '<div>Updated: {CONFIG.lastUpdated}</div>');
+        .replace(versionMarkup, '<span class="stove-panel-version">v{CONFIG.version} · {CONFIG.lastUpdated}</span>');
 
     assert.equal(panel.querySelectorAll('style').length, 1);
     assert.ok(panel.firstElementChild.tagName === 'STYLE', 'the <style> block is the first child');
@@ -219,27 +216,17 @@ test('mount: the full panel markup (template, <style>, initializeUI effects) mat
         'stove-btn-point-cash-charge-status',
         'stove-btn-reward-shop',
         'stove-btn-status-refresh',
-        'stove-status-article',
         'stove-status-mission-daily',
         'stove-status-mission-weekly',
         'stove-status-mission-content',
         'stove-status-mission-attendance',
+        'stove-status-survey',
         'stove-status-roulette',
-        'stove-status-boost',
-        'stove-status-boost-reward',
-        'stove-status-boost-target',
-        'stove-status-review-event',
-        'stove-status-review-period',
-        'stove-status-review-target',
         'stove-status-daily',
         'stove-status-majak',
-        'stove-status-survey',
         'stove-status-total-flake',
         'stove-status-monthly-flake',
-        'stove-progress-text',
-        'stove-article-likes',
-        'stove-comments',
-        'stove-new-article',
+        'stove-toggle-timing',
         'stove-btn-copy-log',
         'stove-log-content'
     ]);
@@ -255,7 +242,7 @@ test('mount: the full panel markup (template, <style>, initializeUI effects) mat
 test('mount: initializeUI leaves the normal-mode panel ready, without requests until the 500ms status check', t => {
     const m = mountBundle(t);
 
-    assert.deepEqual(m.logs(), ['⏳ 자동화 패널이 준비되었습니다']);
+    assert.deepEqual(m.logs(), ['자동화 패널이 준비되었습니다']);
     assert.equal(m.byId('stove-maintenance-notice').style.display, 'none');
     assert.deepEqual(m.disabledStates(), {
         'stove-btn-start': false,
@@ -270,7 +257,7 @@ test('mount: initializeUI leaves the normal-mode panel ready, without requests u
     assert.equal(charge.title, '192,500 플레이크 필요 (현재 0)');
     assert.equal(charge.style.opacity, '0.45');
     assert.equal(m.byId('stove-btn-point-cash-charge-status').textContent, '192,500 플레이크 부족');
-    assert.equal(m.byId('stove-btn-copy-log').textContent, '📋');
+    assert.equal(m.byId('stove-btn-copy-log').textContent, '복사');
 
     assert.deepEqual(m.requests, []);
     assert.deepEqual(m.tabs, []);
@@ -285,7 +272,7 @@ test('mount: the 500ms timer runs checkAllStatus (mission components first)', as
     await settle();
 
     assert.deepEqual(m.requests.map(describeRequest), [`GET ${MISSION_PAGE}`]);
-    assert.equal(m.byId('stove-status-article').textContent, '⏳ 확인 중...', 'status rows switch to loading');
+    assert.equal(m.byId('stove-status-roulette').textContent, '확인 중...', 'status rows switch to loading');
     assert.deepEqual(m.alerts, []);
 
     // The status refresh button triggers the very same request sequence.
@@ -301,14 +288,12 @@ test('mount: the 500ms timer runs checkAllStatus (mission components first)', as
 const BUTTON_NOW = Date.parse('2026-10-16T01:00:00Z');
 
 const BUTTON_ACTIONS = {
-    // Full automation reads the profile and the lounge list alongside the before-snapshot so the
-    // comment chain can start early.
+    // Full automation reads the profile alongside the before-snapshot.
     'stove-btn-start': {
         action: 'runAutomation',
         requests: [
             `GET ${MISSION_PAGE}`,
-            `GET https://api.onstove.com/postie/v1.0/user/me?timestemp=${BUTTON_NOW}`,
-            'GET https://api.onstove.com/stadium-api/v1.0/today/all?size=30'
+            `GET https://api.onstove.com/postie/v1.0/user/me?timestemp=${BUTTON_NOW}`
         ],
         tabs: []
     },
@@ -349,7 +334,7 @@ test('button wiring: every action button triggers its own workflow (first reques
     assert.equal(recordings['stove-btn-start'].title, '[SG_RUNNING] 전체 자동화 실행 중 | MY홈');
     assert.equal(recordings['stove-btn-point-cash-charge'].title, 'MY홈');
     assert.deepEqual(recordings['stove-btn-reward-shop'].tabs, [{ url: 'https://reward.onstove.com/ko', options: { active: true, insert: true } }]);
-    assert.deepEqual(recordings['stove-btn-reward-shop'].newLogs, ['⏳ 🏪 리워드샵 페이지를 새 탭에서 엽니다...', '✅ 리워드샵 탭이 열렸습니다!']);
+    assert.deepEqual(recordings['stove-btn-reward-shop'].newLogs, ['리워드샵 페이지를 새 탭에서 엽니다...', '리워드샵 탭이 열렸습니다!']);
     assert.deepEqual(recordings['stove-btn-point-cash-charge'].requests[0].headers, {
         Authorization: 'Bearer test-suat',
         'caller-id': 'billuser',
@@ -363,10 +348,10 @@ test('button wiring: buttons that start disabled ignore clicks', async t => {
     m.byId('stove-btn-point-cash-charge').click();
     await settle();
     assert.deepEqual(m.requests, []);
-    assert.deepEqual(m.logs(), ['⏳ 자동화 패널이 준비되었습니다']);
+    assert.deepEqual(m.logs(), ['자동화 패널이 준비되었습니다']);
 });
 
-test('copy-log button: copies the log text, shows ✓ and restores the icon after 1000ms', async t => {
+test('copy-log button: copies the log text, shows and restores the icon after 1000ms', async t => {
     const m = mountBundle(t);
     m.byId('stove-btn-reward-shop').click();
     const button = m.byId('stove-btn-copy-log');
@@ -376,11 +361,11 @@ test('copy-log button: copies the log text, shows ✓ and restores the icon afte
     // jsdom has no innerText, so the textContent fallback (entries concatenated without newlines) is copied.
     assert.deepEqual(m.clipboardWrites, [m.byId('stove-log-content').textContent]);
     assert.equal(m.clipboardWrites[0],
-        '⏳ 자동화 패널이 준비되었습니다⏳ 🏪 리워드샵 페이지를 새 탭에서 엽니다...✅ 리워드샵 탭이 열렸습니다!');
-    assert.equal(button.textContent, '✓');
+        '자동화 패널이 준비되었습니다리워드샵 페이지를 새 탭에서 엽니다...리워드샵 탭이 열렸습니다!');
+    assert.equal(button.textContent, '복사됨');
     assert.equal(m.timerDelays(1000).length, 1);
     assert.equal(m.runTimers(1000), 1);
-    assert.equal(button.textContent, '📋');
+    assert.equal(button.textContent, '복사');
     assert.deepEqual(m.requests, [], 'copying the log makes no request');
     assert.equal(m.logs().length, 3, 'copying does not log');
 });
@@ -390,9 +375,9 @@ test('copy-log button: a clipboard failure leaves the icon unchanged and schedul
     const button = m.byId('stove-btn-copy-log');
     button.click();
     await settle();
-    assert.equal(button.textContent, '📋');
+    assert.equal(button.textContent, '복사');
     assert.equal(m.timerDelays(1000).length, 0);
-    assert.deepEqual(m.logs(), ['⏳ 자동화 패널이 준비되었습니다']);
+    assert.deepEqual(m.logs(), ['자동화 패널이 준비되었습니다']);
 });
 
 test('copy-log button: missing log content skips the copy; a button removed mid-copy is tolerated', async t => {
@@ -414,7 +399,7 @@ test('copy-log button: missing log content skips the copy; a button removed mid-
     gone.byId('stove-btn-copy-log').click();
     await settle();
     assert.equal(writes.length, 1);
-    assert.equal(removedButton.textContent, '📋', 'the detached button is not touched');
+    assert.equal(removedButton.textContent, '복사', 'the detached button is not touched');
     assert.equal(gone.timerDelays(1000).length, 0);
 });
 
@@ -432,8 +417,8 @@ test('maintenance mode: notice shown, six buttons disabled and inert, warning lo
 
     assert.equal(m.byId('stove-maintenance-notice').style.display, 'block');
     assert.equal(m.byId('stove-maintenance-notice').textContent.replace(/\s+/g, ' ').trim(),
-        '🚧 점검 중 11월 플레이크 구조 확인중입니다, 업데이트 이후 사용할 수 있습니다');
-    assert.deepEqual(m.logs(), ['⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
+        '점검 중 11월 플레이크 구조 확인중입니다, 업데이트 이후 사용할 수 있습니다');
+    assert.deepEqual(m.logs(), ['점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
     for (const id of MAINTENANCE_DISABLED_IDS) assert.equal(m.byId(id).disabled, true, `${id} is disabled`);
     assert.equal(m.byId('stove-btn-copy-log').disabled, false);
     // updatePointCashChargeButtonAvailability is not called: the template's title/status are untouched.
@@ -449,12 +434,12 @@ test('maintenance mode: notice shown, six buttons disabled and inert, warning lo
     assert.deepEqual(m.requests, []);
     assert.deepEqual(m.tabs, []);
     assert.equal(m.document.title, 'MY홈');
-    assert.deepEqual(m.logs(), ['⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
+    assert.deepEqual(m.logs(), ['점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
 
     m.byId('stove-btn-copy-log').click();
     await settle();
-    assert.deepEqual(m.clipboardWrites, ['⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
-    assert.equal(m.byId('stove-btn-copy-log').textContent, '✓');
+    assert.deepEqual(m.clipboardWrites, ['점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
+    assert.equal(m.byId('stove-btn-copy-log').textContent, '복사됨');
 });
 
 test('maintenance mode: the 500ms status check is still scheduled and still calls the API', async t => {
@@ -473,13 +458,13 @@ test('maintenance mode: before CONFIG.maintenanceMode.startDate (2025-11-01) the
     // (see the isMaintenanceMode tests in tests/utils/utils.characterization.test.js).
     const before = mountBundle(t, { source: maintenanceBundle, now: Date.parse('2025-10-01T03:00:00Z') });
     assert.equal(before.byId('stove-maintenance-notice').style.display, 'none');
-    assert.deepEqual(before.logs(), ['⏳ 자동화 패널이 준비되었습니다']);
+    assert.deepEqual(before.logs(), ['자동화 패널이 준비되었습니다']);
     before.byId('stove-btn-reward-shop').click();
     assert.deepEqual(before.tabs.map(tab => tab.url), ['https://reward.onstove.com/ko']);
 
     const after = mountBundle(t, { source: maintenanceBundle, now: Date.parse('2025-11-02T03:00:00Z') });
     assert.equal(after.byId('stove-maintenance-notice').style.display, 'block');
-    assert.deepEqual(after.logs(), ['⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
+    assert.deepEqual(after.logs(), ['점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
 });
 
 test('init: while the document is loading, mounting waits for a single DOMContentLoaded', t => {
@@ -490,20 +475,20 @@ test('init: while the document is loading, mounting waits for a single DOMConten
     m.document.dispatchEvent(new m.window.Event('DOMContentLoaded'));
     assert.ok(m.panel);
     assert.equal(m.panel.dataset.stoveMount, 'myhome');
-    assert.deepEqual(m.logs(), ['⏳ 자동화 패널이 준비되었습니다']);
+    assert.deepEqual(m.logs(), ['자동화 패널이 준비되었습니다']);
     assert.equal(m.timerDelays(500).length, 1);
 
     m.document.dispatchEvent(new m.window.Event('DOMContentLoaded'));
     assert.equal(m.document.querySelectorAll('#stove-quest-automation').length, 1);
     assert.equal(m.timerDelays(500).length, 1, 'the bootstrap listener runs once');
-    assert.deepEqual(m.logs(), ['⏳ 자동화 패널이 준비되었습니다']);
+    assert.deepEqual(m.logs(), ['자동화 패널이 준비되었습니다']);
 });
 
 test('initializeUI: a missing button is skipped without breaking the other listeners', async t => {
     const source = patchOnce(userscript, 'id="stove-btn-reward-shop"', 'id="stove-btn-reward-shop-renamed"');
     assert.equal(userscript.split('id="stove-btn-reward-shop"').length, 2, 'the template holds the only id attribute');
     const m = mountBundle(t, { source });
-    assert.deepEqual(m.logs(), ['⏳ 자동화 패널이 준비되었습니다']);
+    assert.deepEqual(m.logs(), ['자동화 패널이 준비되었습니다']);
     m.byId('stove-btn-reward-shop-renamed').click();
     m.byId('stove-btn-status-refresh').click();
     await settle();
@@ -517,5 +502,5 @@ test('initializeUI: maintenance mode tolerates a missing notice element', async 
     const m = mountBundle(t, { source });
     assert.equal(m.byId('stove-maintenance-notice-renamed').style.display, 'none');
     for (const id of MAINTENANCE_DISABLED_IDS) assert.equal(m.byId(id).disabled, true);
-    assert.deepEqual(m.logs(), ['⚠️ 점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
+    assert.deepEqual(m.logs(), ['점검 모드 활성화: 모든 기능이 비활성화되었습니다']);
 });

@@ -57,15 +57,15 @@
   "tabs": [],
   "delays": [],
   "logs": [
-    "[info] 🎁 경품 응모 시작...",
-    "[warning]   ⚠️ 경품 응모 미션을 찾지 못해 fallback mission_no 359 사용",
+    "[info] 경품 응모 시작...",
+    "[warning]   경품 응모 미션을 찾지 못해 fallback mission_no 359 사용",
     "[info] 경품 응모 진행 중... (테스트 경품, 비용: 1000 FLAKE)",
-    "[success]   ✓ 경품 응모 완료! (응모 번호: 1)",
-    "[info]   💰 잔여 FLAKE: 5",
-    "[info]   📅 응모 날짜 기록: 2026-10-16 (KST)",
+    "[success]   경품 응모 완료! (응모 번호: 1)",
+    "[info]   잔여 FLAKE: 5",
+    "[info]   응모 날짜 기록: 2026-10-16 (KST)",
     "[info] 경품 응모 미션 보상 확인 중...",
-    "[info] ✅ 경품 응모 완료! 순수익: -1000 FLAKE",
-    "[success] ✅ 경품 응모 처리 완료!"
+    "[info] 경품 응모 완료! 순수익: -1000 FLAKE",
+    "[success] 경품 응모 처리 완료!"
   ],
   "titles": [],
   "sounds": 0,
@@ -76,11 +76,6 @@
   },
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -93,7 +88,6 @@
       "surveyMissions": false,
       "prizeEntry": true
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -107,8 +101,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": -1000,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": 226,

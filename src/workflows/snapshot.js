@@ -10,18 +10,12 @@ import {
 } from '../api/roulette.js';
 import { getDailyShopRewards, getMajakDailyShopRewards } from '../api/shop.js';
 import { getTotalFlakeBalance, getMonthlyFlakeTotal } from '../api/profile.js';
-import { checkArticleWriteStatus } from './status.js';
-import { checkBoostStatus } from './boost.js';
-import { checkReviewEventStatus } from './reviewEvent.js';
 
 const SNAPSHOT_CATEGORIES = ['daily', 'content', 'weekly', 'banner', 'attendance', 'survey', 'other'];
 const COMPLETE_STATUSES = new Set(['COMPLETE', 'COMPLETED']);
 const DONE_STATUSES = new Set(['COMPLETE', 'COMPLETED']);
 
 const defaultServices = {
-    checkReviewEventStatus,
-    checkBoostStatus,
-    checkArticleWriteStatus,
     getAllDailyMissions,
     getMissionComponentIds,
     getRouletteParticipationCount,
@@ -415,36 +409,27 @@ export async function captureAutomationSnapshot(headers, deps = {}) {
     }
 
     const [
-        articleWrite,
         missionComponents,
         rawRouletteResult,
         rawRouletteExtraResult,
         rawShopResult,
         rawMajakResult,
         flakeTotal,
-        flakeMonthly,
-        boostResult,
-        reviewEventResult
+        flakeMonthly
     ] = await Promise.all([
-        settle('articleWrite', () => services.checkArticleWriteStatus(headers)),
         settle('missions', () => services.getAllDailyMissions(headers)),
         settle('roulette', () => services.getRouletteParticipationCount(headers, services.getRouletteSubEventNo())),
         settle('rouletteExtra', () => services.getRouletteExtra(headers, services.getRouletteExtraSubEventNo())),
         settle('shop', () => services.getDailyShopRewards(headers)),
         settle('majak', () => services.getMajakDailyShopRewards(headers)),
         settle('flakeTotal', () => services.getTotalFlakeBalance(headers)),
-        settle('flakeMonthly', () => services.getMonthlyFlakeTotal(headers)),
-        settle('boost', () => services.checkBoostStatus(headers)),
-        settle('reviewEvent', () => services.checkReviewEventStatus(headers))
+        settle('flakeMonthly', () => services.getMonthlyFlakeTotal(headers))
     ]);
 
     const rouletteResult = validateRouletteResult(rawRouletteResult);
     const rouletteExtraResult = validateRouletteExtraResult(rawRouletteExtraResult);
     const shopResult = validateAttendanceShopResult('shop', rawShopResult);
     const majakResult = validateAttendanceShopResult('majak', rawMajakResult);
-    const articleWriteError = articleWrite.ok && (!articleWrite.value || articleWrite.value.success === false)
-        ? makeSnapshotError('articleWrite', articleWrite.value?.error || articleWrite.value?.message || 'Article write status returned unsuccessful payload')
-        : null;
     let missionsError = null;
     if (missionComponents.ok && !Array.isArray(missionComponents.value)) {
         missionsError = makeSnapshotError('missions', 'Missions payload was not an array');
@@ -458,7 +443,6 @@ export async function captureAutomationSnapshot(headers, deps = {}) {
     }
 
     const sectionResults = {
-        articleWrite: articleWriteError ? { ...articleWrite, error: articleWriteError } : articleWrite,
         missions: missionComponents,
         roulette: rouletteResult,
         rouletteExtra: rouletteExtraResult,
@@ -475,12 +459,6 @@ export async function captureAutomationSnapshot(headers, deps = {}) {
     if (!flake.success) {
         errors.flake = flake.error;
     }
-    const boostError = !boostResult.ok ? boostResult.error :
-        boostResult.value?.success !== true ? makeSnapshotError('boost', boostResult.value?.error || '부스트 상태 확인 실패') : null;
-    if (boostError) errors.boost = boostError;
-    const reviewEventError = !reviewEventResult.ok ? reviewEventResult.error :
-        reviewEventResult.value?.success !== true ? makeSnapshotError('reviewEvent', reviewEventResult.value?.error || '게임 리뷰 이벤트 상태 확인 실패') : null;
-    if (reviewEventError) errors.reviewEvent = reviewEventError;
 
     const missions = missionComponents.ok && !missionsError
         ? normalizeMissionSnapshot(missionComponents.value, { missionComponents: missionComponentIds })
@@ -493,16 +471,11 @@ export async function captureAutomationSnapshot(headers, deps = {}) {
         capturedAt: new Date().toISOString(),
         degraded: Object.keys(errors).length > 0,
         errors,
-        articleWrite: articleWrite.ok && !articleWriteError
-            ? articleWrite.value
-            : failedSection(articleWrite.error || articleWriteError, articleWrite.value || {}),
         missions,
         roulette: normalizeRoulette(rouletteResult),
         rouletteExtra: normalizeRouletteExtra(rouletteExtraResult),
         shop: normalizeShop(shopResult),
         majak: normalizeShop(majakResult),
-        boost: boostError ? failedSection(boostError, { unknown: true }) : boostResult.value,
-        reviewEvent: reviewEventError ? failedSection(reviewEventError, { unknown: true, actionable: false }) : reviewEventResult.value,
         flake
     };
 }
@@ -555,8 +528,6 @@ export function compareSnapshots(before, after, plan = {}) {
     });
 
     return {
-        articleStillMissing: before?.articleWrite?.hasWrittenToday === false &&
-            after?.articleWrite?.hasWrittenToday === false,
         rouletteStillRemaining: (after?.roulette?.remaining || 0) > 0,
         incompleteMissionNos,
         unclaimedDailyShop: after?.shop?.unclaimedDaily?.length || 0,
@@ -570,7 +541,6 @@ export function getSnapshotSummary(snapshot) {
     const missions = Object.values(snapshot?.missions?.byMissionNo || {});
 
     return {
-        articleWritten: snapshot?.articleWrite?.hasWrittenToday === true,
         rouletteRemaining: snapshot?.roulette?.remaining || 0,
         missions: {
             complete: missions.filter(mission => COMPLETE_STATUSES.has(mission.status)).length,

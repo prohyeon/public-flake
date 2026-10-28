@@ -35,36 +35,18 @@
         },
         "body": null,
         "anonymous": true
-      },
-      {
-        "method": "GET",
-        "url": "https://api.onstove.com/stadium-api/v1.0/today/all?size=30",
-        "headers": {
-          "Authorization": "Bearer test-suat",
-          "caller-id": "lounge",
-          "X-UUID": "test-uuid",
-          "x-lang": "KO",
-          "x-nation": "KR",
-          "x-device-type": "P01",
-          "Accept": "application/json, text/plain, */*",
-          "Content-Type": "application/json",
-          "Origin": "https://lounge.onstove.com",
-          "Referer": "https://lounge.onstove.com/"
-        },
-        "body": null,
-        "anonymous": true
       }
     ],
     "tabs": [],
     "title": "[SG_RUNNING] 전체 자동화 실행 중 | MY홈",
     "newLogs": [
-      "⏳ 🚀 전체 자동화 시작",
-      "⏳ 헤더 정보 추출 중...",
-      "✓ 헤더 정보 추출 완료",
-      "⏳ ",
-      "⏳ 초기 스냅샷 수집 중...",
-      "⏳ ",
-      "⏳ 게시글 목록 가져오는 중..."
+      "전체 자동화 시작",
+      "헤더 정보 추출 중...",
+      "헤더 정보 추출 완료",
+      "",
+      "초기 스냅샷 수집 중...",
+      "",
+      "월간 출석 기록 불러오는 중..."
     ],
     "disabledAfterClick": {
       "stove-btn-start": true,
@@ -93,7 +75,7 @@
     "tabs": [],
     "title": "MY홈",
     "newLogs": [
-      "⏳ 💱 7700 포인트 교환 준비 중..."
+      "7700 포인트 교환 준비 중..."
     ],
     "disabledAfterClick": {
       "stove-btn-start": true,
@@ -117,8 +99,8 @@
     ],
     "title": "MY홈",
     "newLogs": [
-      "⏳ 🏪 리워드샵 페이지를 새 탭에서 엽니다...",
-      "✅ 리워드샵 탭이 열렸습니다!"
+      "리워드샵 페이지를 새 탭에서 엽니다...",
+      "리워드샵 탭이 열렸습니다!"
     ],
     "disabledAfterClick": {
       "stove-btn-start": false,

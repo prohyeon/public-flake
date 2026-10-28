@@ -793,9 +793,9 @@ test('a non-zero code fails content, weekly and survey reads but banner and atte
 
     const logs = h.logs();
     assert.ok(logs.includes('[error] 컨텐츠 미션 목록 조회 실패'));
-    assert.ok(logs.includes('[info] ℹ️ 위클리 미션: 현재 이용 불가'));
+    assert.ok(logs.includes('[info] 위클리 미션: 현재 이용 불가'));
     assert.ok(logs.includes('[error] 설문조사 미션 목록 조회 실패'));
-    assert.ok(logs.includes('[info] 📋 배너 미션 1개 발견'));
-    assert.ok(logs.includes('[info] 📋 출석 미션 1개 발견'));
+    assert.ok(logs.includes('[info] 배너 미션 1개 발견'));
+    assert.ok(logs.includes('[info] 출석 미션 1개 발견'));
     assert.equal(h.requests.length, 5);
 });

@@ -90,20 +90,20 @@
     500
   ],
   "logs": [
-    "[info] 🎨 배너 미션 시작...",
-    "[info] 📋 배너 미션 4개 발견",
-    "[info]   ✓ 이미 완료됨: 1개",
-    "[info] 🌐 배너 URL 2개 방문 중...",
-    "[info]   ⏳ \"배너 하나\" 방문 중...",
-    "[success]   ✓ \"배너 하나\" 탭 열림",
-    "[warning]   ⚠️ \"배너 둘\" - URL 없음, 스킵",
+    "[info] 배너 미션 시작...",
+    "[info] 배너 미션 4개 발견",
+    "[info]   이미 완료됨: 1개",
+    "[info] 배너 URL 2개 방문 중...",
+    "[info]   \"배너 하나\" 방문 중...",
+    "[success]   \"배너 하나\" 탭 열림",
+    "[warning]   \"배너 둘\" - URL 없음, 스킵",
     "[info] 3000ms 동안 배너 방문 반영 대기...",
     "[success] 배너 미션 상태 재조회 완료",
-    "[info] 💰 배너 미션 보상 수령 중... (2개)",
-    "[success]   ✓ \"배너 하나\": +50 FLAKE",
-    "[success]   ✓ \"미션 303\": +70 FLAKE",
-    "[success] ✅ 배너 미션 4개 완료! 총 120 FLAKE 획득",
-    "[success] ✅ 배너 미션 처리 완료!"
+    "[info] 배너 미션 보상 수령 중... (2개)",
+    "[success]   \"배너 하나\": +50 FLAKE",
+    "[success]   \"미션 303\": +70 FLAKE",
+    "[success] 배너 미션 4개 완료! 총 120 FLAKE 획득",
+    "[success] 배너 미션 처리 완료!"
   ],
   "titles": [],
   "sounds": 0,
@@ -112,11 +112,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -129,7 +124,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -143,8 +137,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": 226,

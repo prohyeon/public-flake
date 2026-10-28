@@ -34,9 +34,9 @@
   "tabs": [],
   "delays": [],
   "logs": [
-    "[info] 📰 컨텐츠 미션 시작...",
-    "[info] 📝 총 1개 컨텐츠 미션 확인",
-    "[info] ℹ️ 방문할 미완료 컨텐츠 미션이 없습니다",
+    "[info] 컨텐츠 미션 시작...",
+    "[info] 총 1개 컨텐츠 미션 확인",
+    "[info] 방문할 미완료 컨텐츠 미션이 없습니다",
     "[error] 컨텐츠 미션 상태 재조회 실패"
   ],
   "titles": [],
@@ -46,11 +46,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -63,7 +58,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -77,8 +71,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": 226,

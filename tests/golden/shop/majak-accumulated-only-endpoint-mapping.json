@@ -124,8 +124,8 @@
     "[success] 마작 누적 보상 수령 완료 (7일): 할인 쿠폰",
     "[success] 마작 누적 보상 수령 완료 (10일): 아이템 상자",
     "[success] 마작 누적 보상 수령 완료 (15일): 플레이크 50 (50 FLAKE)",
-    "[success] 🎁 총 4개 마작 누적 보상 수령 완료",
-    "[success] ✅ 마작 리워드 처리 완료!"
+    "[success] 총 4개 마작 누적 보상 수령 완료",
+    "[success] 마작 리워드 처리 완료!"
   ],
   "titles": [],
   "sounds": 0,
@@ -134,11 +134,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -151,7 +146,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -165,8 +159,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": null,

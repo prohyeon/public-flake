@@ -6,7 +6,6 @@ import {
     focusRewardShopForMonthlyAttendanceIfNeeded,
     getAutomationOutcome
 } from '../../src/workflows/automation.js';
-import { runTaskGroups, waitForBackgroundTasks } from '../../src/workflows/taskRunner.js';
 
 test('focusRewardShopForMonthlyAttendanceIfNeeded logs and opens reward shop when monthly attendance did not increase', () => {
     const logs = [];
@@ -72,21 +71,10 @@ const completedRun = overrides => ({
 
 test('automation succeeds when tasks and final verification succeed', () => {
     assert.deepEqual(getAutomationOutcome(completedRun({
-        groupResults: [{ groupId: 'community', results: [
-            { id: 'community:articleWrite', status: 'fulfilled', value: { articleId: 10 } }
+        groupResults: [{ groupId: 'visits', results: [
+            { id: 'visits:singleVisits', status: 'fulfilled', value: { attempted: 1, errors: [] } }
         ] }]
     })), { success: true, issues: [] });
-});
-
-test('background comment errors prevent success even when the promise and special force succeed', async () => {
-    const groups = await runTaskGroups([{ id: 'community', tasks: [{
-        id: 'community:comments', background: true,
-        run: async () => ({ attempted: 5, commentIds: [], errors: [{ message: 'API request timed out' }] })
-    }] }]);
-    const background = await waitForBackgroundTasks(groups);
-    const outcome = getAutomationOutcome(completedRun({ groupResults: [...groups, ...background] }));
-    assert.equal(outcome.success, false);
-    assert.deepEqual(outcome.issues, ['작업 실패 1개']);
 });
 
 test('caught failures and rejected tasks prevent a successful completion report', () => {
@@ -96,7 +84,7 @@ test('caught failures and rejected tasks prevent a successful completion report'
         { status: 'rejected', reason: new Error('network error') }
     ]) {
         const outcome = getAutomationOutcome(completedRun({
-            groupResults: [{ groupId: 'community', results: [{ id: 'failed', ...result }] }]
+            groupResults: [{ groupId: 'visits', results: [{ id: 'failed', ...result }] }]
         }));
         assert.equal(outcome.success, false);
     }
@@ -104,7 +92,6 @@ test('caught failures and rejected tasks prevent a successful completion report'
 
 test('remaining snapshot items and unknown final state prevent success', () => {
     for (const diff of [
-        { articleStillMissing: true },
         { incompleteMissionNos: [3] },
         { unclaimedDailyShop: 1 },
         { unclaimedMajakShop: 1 },
@@ -128,6 +115,3 @@ test('remaining roulette draws prevent success only when roulette was enabled an
     assert.equal(getAutomationOutcome({ ...input, plan: { groups: [] } }).success, true);
 });
 
-test('failed follow-up reward verification prevents success', () => {
-    assert.equal(getAutomationOutcome(completedRun({ boostRewardResult: { success: false } })).success, false);
-});

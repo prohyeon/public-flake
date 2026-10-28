@@ -6,12 +6,10 @@ import assert from 'node:assert/strict';
 
 import { useHarness, httpError, networkError, timeoutError, rawText, ok, TEST_HEADERS, DEFAULT_NOW } from '../helpers/gmHarness.js';
 import { assertGolden } from '../helpers/golden.js';
-import { getMyProfile, getMyArticles, getMonthlyFlakeTotal, getTotalFlakeBalance } from '../../src/api/profile.js';
+import { getMyProfile, getMonthlyFlakeTotal, getTotalFlakeBalance } from '../../src/api/profile.js';
 
 const API = 'https://api.onstove.com';
 const PROFILE_URL = `${API}/postie/v1.0/user/me?timestemp=${DEFAULT_NOW}`;
-const articlesUrl = (userId, size) =>
-    `${API}/postie/v1.0/interest/user/${userId}/article/list?user_id=${userId}&sort=LATEST&size=${size}&type=WRITE&timestemp=${DEFAULT_NOW}`;
 const BALANCE_URL = `${API}/mileage/v1.0/balance?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY`;
 const DEPOSIT_URL = `${API}/mileage/v2.0/master/deposit/total?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&tz_offset=540&yyyyMM=202610`;
 
@@ -73,40 +71,6 @@ test('getMyProfile: returns any parsed body untouched (code is not checked) and 
     await assert.rejects(getMyProfile(TEST_HEADERS), { message: 'Network error' });
     await assert.rejects(getMyProfile(TEST_HEADERS), { message: 'API request timed out' });
     assert.equal(h.requests.length, 5);
-});
-
-// ---------------------------------------------------------------- getMyArticles
-
-test('getMyArticles: GET the WRITE list (default size 10) with indie-my caller headers', async t => {
-    const h = useHarness(t);
-    const body = { code: 0, value: { list: [{ article_id: '1', datetime: DEFAULT_NOW }] } };
-    h.on('GET', articlesUrl('100', 10), body);
-
-    assert.deepEqual(await getMyArticles(TEST_HEADERS, '100'), body);
-    assert.deepEqual(h.requests[0].headers, {
-        'Authorization': 'Bearer test-suat',
-        'caller-id': 'indie-my',
-        'X-UUID': 'test-uuid',
-        'x-lang': 'ko',
-        'x-nation': 'KR',
-        'x-device-type': 'P01',
-        'Accept': 'application/json, text/plain, */*',
-        'Content-Type': 'application/json',
-        'Origin': 'https://profile.onstove.com',
-        'Referer': 'https://profile.onstove.com/'
-    });
-    assertGolden('status/api-my-articles', h.snapshot());
-});
-
-test('getMyArticles: honours size, forces locale headers and propagates HTTP errors', async t => {
-    const h = useHarness(t);
-    h.on('GET', articlesUrl('55', 3), [{ code: 0, value: { list: [] } }, httpError(404)]);
-    assert.deepEqual(await getMyArticles({ Authorization: 'Bearer z', 'x-lang': 'en' }, '55', 3), { code: 0, value: { list: [] } });
-    await assert.rejects(getMyArticles({ Authorization: 'Bearer z' }, '55', 3), { message: 'API Error: 404 Error' });
-    assert.deepEqual(h.requests[0].headers, {
-        Authorization: 'Bearer z', 'x-lang': 'ko', 'caller-id': 'indie-my', 'x-nation': 'KR', 'x-device-type': 'P01',
-        Origin: 'https://profile.onstove.com', Referer: 'https://profile.onstove.com/'
-    });
 });
 
 // ---------------------------------------------------------------- getMonthlyFlakeTotal
@@ -192,11 +156,9 @@ test('getTotalFlakeBalance: every failure collapses to 0 (indistinguishable from
 test('profile reads never write', async t => {
     const h = useHarness(t);
     h.on('GET', PROFILE_URL, { code: 0, value: { user_id: '1' } })
-        .on('GET', articlesUrl('1', 10), { code: 0, value: { list: [] } })
         .on('GET', BALANCE_URL, { code: 0, value: { mileage_amount: 1 } })
         .on('GET', DEPOSIT_URL, { code: 0, value: { total_deposit_amount: 1 } });
     await getMyProfile(TEST_HEADERS);
-    await getMyArticles(TEST_HEADERS, '1');
     await getTotalFlakeBalance(TEST_HEADERS);
     await getMonthlyFlakeTotal(TEST_HEADERS);
     assert.deepEqual(h.requests.filter(request => request.method !== 'GET' || request.body !== null), []);

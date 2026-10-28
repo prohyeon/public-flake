@@ -1,9 +1,6 @@
 // Fixtures for the status dashboard characterization tests (workflows/status.js, ui/status.js,
 // ui/progress.js). Response shapes follow what src reads plus captured shapes used elsewhere in
-// tests/helpers (boost, review event).
 import { DEFAULT_NOW } from '../helpers/gmHarness.js';
-import { boostFixture } from '../helpers/boostFixture.js';
-import { reviewEventFixture } from '../helpers/reviewEventFixture.js';
 
 export const API = 'https://api.onstove.com';
 export const DAY = 86400000;
@@ -18,111 +15,68 @@ export const MONTH = '202610';
 export const STATUS_PANEL_BODY = `
 <div id="stove-quest-automation">
         <div class="stove-controls">
-            <button id="stove-btn-start" class="stove-btn">🚀 전체 자동화</button>
+            <button id="stove-btn-start" class="stove-btn">전체 자동화</button>
             <button id="stove-btn-point-cash-charge" class="stove-btn" disabled title="192,500 플레이크 이상일 때 충전 가능">
-                <span class="stove-btn-main">💱 7700 캐시 충전</span>
+                <span class="stove-btn-main">7700 캐시 충전</span>
                 <span class="stove-btn-sub">(192,500 플레이크)</span>
                 <span class="stove-btn-note" id="stove-btn-point-cash-charge-status">플레이크 확인 중</span>
             </button>
-            <button id="stove-btn-reward-shop" class="stove-btn">🏪 리워드샵 방문</button>
+            <button id="stove-btn-reward-shop" class="stove-btn">리워드샵 방문</button>
         </div>
 
         <div class="stove-status-section">
             <div class="stove-status-header">
-                📊 현재 상태
-                <button id="stove-btn-status-refresh" class="stove-status-refresh">🔄 새로고침</button>
+                현재 상태
+                <button id="stove-btn-status-refresh" class="stove-status-refresh">새로고침</button>
             </div>
             <div class="stove-status-list">
-                <div class="stove-status-item">
-                    <span class="stove-status-label">✍️ 오늘 글쓰기</span>
-                    <span class="stove-status-value" id="stove-status-article">-</span>
-                </div>
                 <div class="stove-status-item stove-mission-item" data-category="daily">
-                    <span class="stove-status-label">📅 데일리</span>
+                    <span class="stove-status-label">데일리</span>
                     <span class="stove-status-value" id="stove-status-mission-daily">-</span>
                 </div>
                 <div class="stove-status-item stove-mission-item" data-category="weekly">
-                    <span class="stove-status-label">📆 위클리</span>
+                    <span class="stove-status-label">위클리</span>
                     <span class="stove-status-value" id="stove-status-mission-weekly">-</span>
                 </div>
                 <div class="stove-status-item stove-mission-item" data-category="content">
-                    <span class="stove-status-label">💬 컨텐츠</span>
+                    <span class="stove-status-label">컨텐츠</span>
                     <span class="stove-status-value" id="stove-status-mission-content">-</span>
                 </div>
                 <div class="stove-status-item stove-mission-item" data-category="attendance">
-                    <span class="stove-status-label">📆 월간출석</span>
+                    <span class="stove-status-label">월간출석</span>
                     <span class="stove-status-value" id="stove-status-mission-attendance">-</span>
                 </div>
                 <div class="stove-status-item">
-                    <span class="stove-status-label">🎰 룰렛 횟수</span>
+                    <span class="stove-status-label">룰렛 횟수</span>
                     <span class="stove-status-value" id="stove-status-roulette">-</span>
                 </div>
                 <div class="stove-status-item">
-                    <span class="stove-status-label">🔥 부스트 미션</span>
-                    <span class="stove-status-value" id="stove-status-boost">-</span>
-                </div>
-                <div class="stove-status-item">
-                    <span class="stove-status-label">🎁 오늘의 1등 보상</span>
-                    <span class="stove-status-value" id="stove-status-boost-reward">-</span>
-                </div>
-                <div class="stove-status-item">
-                    <span class="stove-status-label">🎯 부스트 선택 글</span>
-                    <span class="stove-status-value" id="stove-status-boost-target">-</span>
-                </div>
-                <div class="stove-status-item">
-                    <span class="stove-status-label">💬 게임 리뷰 이벤트</span>
-                    <span class="stove-status-value" id="stove-status-review-event">-</span>
-                </div>
-                <div class="stove-status-item">
-                    <span class="stove-status-label">📅 리뷰 이벤트 기간</span>
-                    <span class="stove-status-value" id="stove-status-review-period">-</span>
-                </div>
-                <div class="stove-status-item">
-                    <span class="stove-status-label">🎯 이벤트 대상 리뷰</span>
-                    <span class="stove-status-value" id="stove-status-review-target">-</span>
-                </div>
-                <div class="stove-status-item">
-                    <span class="stove-status-label">💝 데일리 보상</span>
+                    <span class="stove-status-label">데일리 보상</span>
                     <span class="stove-status-value" id="stove-status-daily">-</span>
                 </div>
                 <div class="stove-status-item">
-                    <span class="stove-status-label">🀄 마작 리워드</span>
+                    <span class="stove-status-label">마작 리워드</span>
                     <span class="stove-status-value" id="stove-status-majak">-</span>
                 </div>
                 <div class="stove-status-item">
-                    <span class="stove-status-label">📊 설문조사</span>
+                    <span class="stove-status-label">설문조사</span>
                     <span class="stove-status-value" id="stove-status-survey">-</span>
                 </div>
                 <div class="stove-status-item" style="border-top: 2px solid #3a3a3a; margin-top: 8px; padding-top: 16px;">
-                    <span class="stove-status-label">💎 현재 보유</span>
+                    <span class="stove-status-label">현재 보유</span>
                     <span class="stove-status-value" id="stove-status-total-flake">-</span>
                 </div>
                 <div class="stove-status-item">
-                    <span class="stove-status-label">📅 이번 달 획득</span>
+                    <span class="stove-status-label">이번 달 획득</span>
                     <span class="stove-status-value" id="stove-status-monthly-flake">-</span>
                 </div>
             </div>
         </div>
 
-
-        <div class="stove-progress-section">
-            <div class="stove-progress-header">📊 커뮤니티 활동 진행 상황</div>
-            <div class="stove-progress-bar">
-                <div class="stove-progress-fill">
-                    <span id="stove-progress-text"></span>
-                </div>
-            </div>
-            <div class="stove-task-list">
-                <div class="stove-task">게시글 추천: <span id="stove-article-likes">0/10</span></div>
-                <div class="stove-task">댓글 작성: <span id="stove-comments">0/5</span></div>
-                <div class="stove-task">새글 작성: <span id="stove-new-article">0/1</span></div>
-            </div>
-        </div>
-
         <div class="stove-log-section">
             <div class="stove-log-header">
-                <span>📝 로그</span>
-                <button id="stove-btn-copy-log" class="stove-log-copy-btn" title="로그 전체 복사">📋</button>
+                <span>로그</span>
+                <button id="stove-btn-copy-log" class="stove-ghost-btn" title="로그 전체 복사"></button>
             </div>
             <div id="stove-log-content"></div>
         </div>
@@ -272,44 +226,9 @@ export function dailyShopBody(todayReceived, { today = true } = {}) {
     } };
 }
 
-export const profileBody = (userId = '100') => ({ code: 0, message: 'OK', value: { user_id: userId, nickname: '테스터' } });
-
-export function articlesBody(datetimes) {
-    return { code: 0, message: 'OK', value: { list: datetimes.map((datetime, index) => ({
-        article_id: String(9000 + index), title: `글 ${index}`, datetime
-    })) } };
-}
 
 export const balanceBody = amount => ({ code: 0, message: 'OK', value: { mileage_amount: amount } });
 export const depositBody = amount => ({ code: 0, message: 'OK', value: { total_deposit_amount: amount } });
-
-export function boostMission(overrides = {}) {
-    return { ...boostFixture().mission, start_dt: NOW - DAY, end_dt: NOW + DAY, created_at: NOW - DAY, ...overrides };
-}
-
-export const boostMissionsBody = (missions = [boostMission()]) => ({ code: 0, message: 'OK', value: { missions } });
-export const boostBalanceBody = (remaining = 5, nextChargeAt = null) =>
-    ({ code: 0, message: 'OK', value: { remaining_count: remaining, next_charge_at: nextChargeAt } });
-
-export function reviewEvent(overrides = {}) {
-    return { ...reviewEventFixture().event, expose_start_at: '2026-10-10', expose_end_at: '2026-10-20', ...overrides };
-}
-
-export const reviewEventsBody = (events = [reviewEvent()]) =>
-    ({ code: 0, message: 'OK', value: { total_event_cnt: events.length, promotion_events: events } });
-
-export const reviewArticleBody = () => ({ code: 0, message: 'OK', value: {
-    ...reviewEventFixture().article,
-    community_key: 'quarter', channel_key: 'kr', article_status_code: 'PUBLISHED', coverage_code: 'PUBLIC'
-} });
-
-export const reviewMemberBody = (memberNo = 100) => ({ code: 0, message: 'OK', value: { user_info: { member_no: memberNo } } });
-export const reviewPermissionBody = (write = true) =>
-    ({ code: 0, message: 'OK', value: [{ board_seq: 134147, user_permission_info: { comment: { write } } }] });
-
-export function reviewCommentsBody(list = []) {
-    return { code: 0, message: 'OK', value: { total: list.length, display_total: list.length, page: 1, size: 20, list, next_yn: 'N' } };
-}
 
 
 
@@ -320,17 +239,8 @@ export const URLS = Object.freeze({
     participation: /^https:\/\/api\.onstove\.com\/emsbackapi\/v3\.0\/participationCnt\?sub_event_no=\d+$/,
     dailyShop: `${API}/dailyshop/v1.0/${MONTH}/services/STOVEINDIE`,
     majakShop: `${API}/dailyshop/v1.0/${MONTH}/services/RIICHICITY_IND`,
-    profile: /^https:\/\/api\.onstove\.com\/postie\/v1\.0\/user\/me\?timestemp=\d+$/,
-    articles: /^https:\/\/api\.onstove\.com\/postie\/v1\.0\/interest\/user\/\d+\/article\/list\?/,
     balance: `${API}/mileage/v1.0/balance?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY`,
     deposit: /^https:\/\/api\.onstove\.com\/mileage\/v2\.0\/master\/deposit\/total\?/,
-    boostMissions: /^https:\/\/api\.onstove\.com\/stadium-api\/v1\.0\/missions\?timestemp=\d+$/,
-    boostBalance: /^https:\/\/api\.onstove\.com\/stadium-api\/v1\.0\/boost\/balance\?timestemp=\d+$/,
-    reviewEvents: /^https:\/\/api\.onstove\.com\/eventhub\/v1\.0\/promotion\/events\/ON\?page=\d+&service_id=STOVEINDIE&timestemp=\d+$/,
-    reviewArticle: /^https:\/\/api\.onstove\.com\/cwms\/v3\.0\/article\?article_id=14523486&request_id=CM&timestemp=\d+$/,
-    reviewMember: /^https:\/\/api\.onstove\.com\/cwms\/v1\.0\/user\/CHANNEL\/73\?timestemp=\d+$/,
-    reviewPermission: /^https:\/\/api\.onstove\.com\/cwms\/v1\.0\/user\/board\/permission\?board_seq_list=134147&timestemp=\d+$/,
-    reviewComments: /^https:\/\/api\.onstove\.com\/cwms\/v1\.1\/article\/14523486\/comment\/list\?size=20&page=1&/
 });
 
 /** Defaults: a fresh day where everything is still pending. */
@@ -341,17 +251,8 @@ export function pendingWorld() {
         participation: participationBody(0),
         dailyShop: dailyShopBody(false),
         majakShop: dailyShopBody(false),
-        profile: profileBody(),
-        articles: articlesBody([NOW - 3 * DAY, NOW - 2 * DAY]),
         balance: balanceBody(150000),
         deposit: depositBody(12345),
-        boostMissions: boostMissionsBody(),
-        boostBalance: boostBalanceBody(5),
-        reviewEvents: reviewEventsBody(),
-        reviewArticle: reviewArticleBody(),
-        reviewMember: reviewMemberBody(),
-        reviewPermission: reviewPermissionBody(true),
-        reviewComments: reviewCommentsBody([])
     };
 }
 

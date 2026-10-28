@@ -12,11 +12,9 @@ test('createInitialState returns independent objects', () => {
     assert.deepEqual(b.missionComponents.dailyComponents, []);
 });
 
-test('resetRunProgress zeroes per-run counters and keeps loaded ids and balances', () => {
+test('resetRunProgress zeroes per-run flags and earnings and keeps loaded ids and balances', () => {
     const target = createInitialState();
     target.isRunning = true;
-    target.progress.comments = 5;
-    target.createdCommentIds.push('c1');
     target.completed.roulette = true;
     target.earnings.majak = 30;
     target.missionComponents.daily = 226;
@@ -27,8 +25,6 @@ test('resetRunProgress zeroes per-run counters and keeps loaded ids and balances
     resetRunProgress(target);
 
     const initial = createInitialState();
-    assert.deepEqual(target.progress, initial.progress);
-    assert.deepEqual(target.createdCommentIds, []);
     assert.deepEqual(target.completed, initial.completed);
     assert.deepEqual(target.earnings, initial.earnings);
     assert.equal(target.isRunning, true);

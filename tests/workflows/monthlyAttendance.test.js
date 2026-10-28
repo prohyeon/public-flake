@@ -39,7 +39,6 @@ const completedRun = diff => ({
     snapshot: { degraded: false },
     diff,
     plan: { groups: [] },
-    boostRewardResult: undefined,
     groupResults: []
 });
 

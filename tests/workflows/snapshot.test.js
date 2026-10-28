@@ -13,57 +13,10 @@ import {
 
 // Legacy snapshot cases isolate their existing sections from the new read-only service.
 const captureAutomationSnapshot = (headers, deps) => captureSnapshot(headers, {
-    checkReviewEventStatus: async () => ({ success: true, actionable: false, reason: 'noEvent' }),
-    checkBoostStatus: async () => ({ success: true, notAvailable: true }), ...deps
-});
-
-test('review event snapshot is actionable only on a known successful lookup and isolates failures', async () => {
-    const deps = {
-        getMissionComponentIds: async () => ({ daily: 100 }),
-        checkArticleWriteStatus: async () => ({ success: true, hasWrittenToday: true }),
-        getAllDailyMissions: async () => [],
-        getRouletteParticipationCount: async () => ({ value: { participation_cnt: 30 } }),
-        getRouletteExtra: async () => ({ value: { milestones: [] } }),
-        getDailyShopRewards: async () => ({ value: { daily_attendances: { rewards: [] } } }),
-        getMajakDailyShopRewards: async () => ({ value: { daily_attendances: { rewards: [] } } }),
-        getTotalFlakeBalance: async () => 100, getMonthlyFlakeTotal: async () => 50
-    };
-    const status = { success: true, actionable: true, reason: 'ready' };
-    const known = await captureAutomationSnapshot({}, { ...deps, checkReviewEventStatus: async () => status });
-    assert.equal(known.reviewEvent, status);
-    assert.equal(known.degraded, false);
-    const unknown = await captureAutomationSnapshot({}, { ...deps,
-        checkReviewEventStatus: async () => { throw new Error('offline'); } });
-    assert.equal(unknown.reviewEvent.actionable, false);
-    assert.deepEqual(Object.keys(unknown.errors), ['reviewEvent']);
-    assert.equal(unknown.roulette.success, true);
+    ...deps
 });
 
 let originalMissionComponents;
-
-test('boost snapshot records a known mission or an isolated non-actionable lookup failure', async () => {
-    const deps = {
-        getMissionComponentIds: async () => ({ daily: 100 }),
-        checkArticleWriteStatus: async () => ({ success: true, hasWrittenToday: true }),
-        getAllDailyMissions: async () => [],
-        getRouletteParticipationCount: async () => ({ value: { participation_cnt: 30 } }),
-        getRouletteExtra: async () => ({ value: { milestones: [] } }),
-        getDailyShopRewards: async () => ({ value: { daily_attendances: { rewards: [] } } }),
-        getMajakDailyShopRewards: async () => ({ value: { daily_attendances: { rewards: [] } } }),
-        getTotalFlakeBalance: async () => 100,
-        getMonthlyFlakeTotal: async () => 50
-    };
-    const boost = { success: true, remainingCount: 5, mission: { current: 0, required: 1, rewarded: false } };
-    const known = await captureAutomationSnapshot({}, { ...deps, checkBoostStatus: async () => boost });
-    assert.equal(known.degraded, false);
-    assert.equal(known.boost, boost);
-    const unknown = await captureAutomationSnapshot({}, { ...deps,
-        checkBoostStatus: async () => ({ success: false, unknown: true, error: 'offline' }) });
-    assert.equal(unknown.boost.success, false);
-    assert.equal(unknown.boost.unknown, true);
-    assert.deepEqual(Object.keys(unknown.errors), ['boost']);
-    assert.equal(unknown.roulette.success, true, 'boost lookup failure does not disable other sections');
-});
 
 function resetMissionComponents() {
     state.missionComponents = {
@@ -156,9 +109,8 @@ test('normalizeMissionSnapshot indexes missions by mission number and category',
 
 test('compareSnapshots reports still-incomplete planned missions', () => {
     const result = compareSnapshots(
-        { articleWrite: { hasWrittenToday: false } },
+        {},
         {
-            articleWrite: { hasWrittenToday: false },
             missions: {
                 byMissionNo: {
                     10: { status: 'INCOMPLETE' },
@@ -175,7 +127,6 @@ test('compareSnapshots reports still-incomplete planned missions', () => {
     );
 
     assert.deepEqual(result, {
-        articleStillMissing: true,
         rouletteStillRemaining: true,
         incompleteMissionNos: [10, 11],
         unclaimedDailyShop: 2,
@@ -312,7 +263,6 @@ test('compareSnapshots reports monthly attendance progress that did not increase
 
 test('getSnapshotSummary counts completed and incomplete work', () => {
     const summary = getSnapshotSummary({
-        articleWrite: { hasWrittenToday: true },
         roulette: { remaining: 3 },
         missions: normalizeMissionSnapshot([
             {
@@ -329,7 +279,6 @@ test('getSnapshotSummary counts completed and incomplete work', () => {
     });
 
     assert.deepEqual(summary, {
-        articleWritten: true,
         rouletteRemaining: 3,
         missions: {
             complete: 2,
@@ -351,7 +300,6 @@ test('captureAutomationSnapshot uses dependency overrides and survives dependenc
                 state.missionComponents.daily = 100;
                 return state.missionComponents;
             },
-            checkArticleWriteStatus: async () => ({ success: true, hasWrittenToday: true }),
             getAllDailyMissions: async () => [
                 {
                     componentNo: 100,
@@ -410,7 +358,6 @@ test('captureAutomationSnapshot uses dependency overrides and survives dependenc
     );
 
     assert.deepEqual(calls, ['componentIds']);
-    assert.equal(snapshot.articleWrite.hasWrittenToday, true);
     assert.equal(snapshot.missions.byMissionNo[1].status, 'COMPLETE');
     assert.equal(snapshot.roulette.current, 2);
     assert.equal(snapshot.roulette.remaining, CONFIG.roulette.maxDraws - 2);
@@ -436,7 +383,6 @@ test('captureAutomationSnapshot marks failed sections degraded and non-actionabl
         { Authorization: 'Bearer test' },
         {
             getMissionComponentIds: async () => ({ weekly: 900 }),
-            checkArticleWriteStatus: async () => ({ success: true, hasWrittenToday: true }),
             getAllDailyMissions: async () => {
                 throw new TypeError('mission failed');
             },
@@ -482,7 +428,6 @@ test('captureAutomationSnapshot marks resolved invalid payloads degraded and non
         { Authorization: 'Bearer test' },
         {
             getMissionComponentIds: async () => null,
-            checkArticleWriteStatus: async () => ({ success: false, error: 'profile missing' }),
             getAllDailyMissions: async () => null,
             getRouletteSubEventNo: () => 'draw-event',
             getRouletteParticipationCount: async () => ({ code: 1234, message: 'bad roulette' }),
@@ -498,10 +443,8 @@ test('captureAutomationSnapshot marks resolved invalid payloads degraded and non
     assert.equal(snapshot.degraded, true);
     assert.deepEqual(
         Object.keys(snapshot.errors).sort(),
-        ['articleWrite', 'flake', 'missionComponents', 'missions', 'roulette', 'shop']
+        ['flake', 'missionComponents', 'missions', 'roulette', 'shop']
     );
-    assert.equal(snapshot.articleWrite.success, false);
-    assert.equal(snapshot.articleWrite.error, 'profile missing');
     assert.equal(snapshot.roulette.remaining, 0);
     assert.equal(snapshot.roulette.success, false);
     assert.equal(snapshot.roulette.unknown, true);
@@ -531,7 +474,6 @@ test('captureAutomationSnapshot marks null roulette participation count degraded
         { Authorization: 'Bearer test' },
         {
             getMissionComponentIds: async () => ({ daily: 100 }),
-            checkArticleWriteStatus: async () => ({ success: true, hasWrittenToday: true }),
             getAllDailyMissions: async () => [],
             getRouletteSubEventNo: () => 'draw-event',
             getRouletteParticipationCount: async () => ({ value: { participation_cnt: null } }),
@@ -558,7 +500,6 @@ test('captureAutomationSnapshot accepts zero roulette participation count', asyn
         { Authorization: 'Bearer test' },
         {
             getMissionComponentIds: async () => ({ daily: 100 }),
-            checkArticleWriteStatus: async () => ({ success: true, hasWrittenToday: true }),
             getAllDailyMissions: async () => [],
             getRouletteSubEventNo: () => 'draw-event',
             getRouletteParticipationCount: async () => ({ value: { participation_cnt: 0 } }),
@@ -586,7 +527,6 @@ test('captureAutomationSnapshot marks malformed truthy rouletteExtra payload deg
         { Authorization: 'Bearer test' },
         {
             getMissionComponentIds: async () => ({ daily: 100 }),
-            checkArticleWriteStatus: async () => ({ success: true, hasWrittenToday: true }),
             getAllDailyMissions: async () => [],
             getRouletteSubEventNo: () => 'draw-event',
             getRouletteParticipationCount: async () => ({ value: { participation_cnt: 0 } }),
@@ -613,7 +553,6 @@ test('captureAutomationSnapshot marks malformed truthy shop and majak payloads d
         { Authorization: 'Bearer test' },
         {
             getMissionComponentIds: async () => ({ daily: 100 }),
-            checkArticleWriteStatus: async () => ({ success: true, hasWrittenToday: true }),
             getAllDailyMissions: async () => [],
             getRouletteSubEventNo: () => 'draw-event',
             getRouletteParticipationCount: async () => ({ value: { participation_cnt: 0 } }),
@@ -638,7 +577,6 @@ test('captureAutomationSnapshot marks malformed truthy shop and majak payloads d
 test('captureAutomationSnapshot reports each read once through onSectionTime without changing the snapshot', async () => {
     const deps = {
         getMissionComponentIds: async () => ({ daily: 100 }),
-        checkArticleWriteStatus: async () => ({ success: true, hasWrittenToday: true }),
         getAllDailyMissions: async () => [],
         getRouletteParticipationCount: async () => ({ value: { participation_cnt: 30 } }),
         getRouletteExtra: async () => ({ value: { milestones: [] } }),
@@ -651,8 +589,8 @@ test('captureAutomationSnapshot reports each read once through onSectionTime wit
     const plain = await captureAutomationSnapshot({}, deps);
     const withTiming = await captureAutomationSnapshot({}, { ...deps, onSectionTime: (name, ms) => timed.push([name, ms]) });
 
-    assert.deepEqual(timed.map(([name]) => name).sort(), ['articleWrite', 'boost', 'flakeMonthly', 'flakeTotal', 'majak',
-        'missionComponents', 'missions', 'reviewEvent', 'roulette', 'rouletteExtra', 'shop']);
+    assert.deepEqual(timed.map(([name]) => name).sort(), ['flakeMonthly', 'flakeTotal', 'majak',
+        'missionComponents', 'missions', 'roulette', 'rouletteExtra', 'shop']);
     assert.ok(timed.every(([, ms]) => Number.isFinite(ms) && ms >= 0));
     assert.equal(timed[0][0], 'missionComponents', 'component ids are read before the parallel sections');
     assert.deepEqual({ ...withTiming, capturedAt: 0 }, { ...plain, capturedAt: 0 }, 'a failed section is timed too');

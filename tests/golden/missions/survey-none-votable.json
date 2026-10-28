@@ -19,12 +19,12 @@
   "tabs": [],
   "delays": [],
   "logs": [
-    "[info] 📊 설문조사 미션 시작...",
-    "[info] 📝 총 1개 설문조사 확인",
-    "[info] ℹ️ 투표 가능한 설문조사가 없습니다",
-    "[info]   ✓ 이미 완료됨: 1개",
-    "[info] 📊 설문조사 진행 상황: 1/1 완료",
-    "[success] ✅ 설문조사 미션 처리 완료!"
+    "[info] 설문조사 미션 시작...",
+    "[info] 총 1개 설문조사 확인",
+    "[info] 투표 가능한 설문조사가 없습니다",
+    "[info]   이미 완료됨: 1개",
+    "[info] 설문조사 진행 상황: 1/1 완료",
+    "[success] 설문조사 미션 처리 완료!"
   ],
   "titles": [],
   "sounds": 0,
@@ -33,11 +33,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -50,7 +45,6 @@
       "surveyMissions": true,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -64,8 +58,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": 226,

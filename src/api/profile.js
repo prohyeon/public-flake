@@ -19,21 +19,6 @@ export async function getMyProfile(headers) {
     return response;
 }
 
-export async function getMyArticles(headers, userId, size = 10) {
-    const url = `${CONFIG.api.baseUrl}/postie/v1.0/interest/user/${userId}/article/list?user_id=${userId}&sort=LATEST&size=${size}&type=WRITE&timestemp=${getTimestamp()}`;
-    const myHeaders = {
-        ...headers,
-        'caller-id': 'indie-my',
-        'x-lang': 'ko',
-        'x-nation': 'KR',
-        'x-device-type': 'P01',
-        'Origin': 'https://profile.onstove.com',
-        'Referer': 'https://profile.onstove.com/'
-    };
-    const response = await apiRequest(url, 'GET', myHeaders);
-    return response;
-}
-
 export async function getMonthlyFlakeTotal(headers) {
     try {
         const now = new Date();

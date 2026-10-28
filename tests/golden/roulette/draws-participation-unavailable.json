@@ -21,7 +21,7 @@
   "logs": [
     "[info] 룰렛 확인 중...",
     "[warning] 룰렛 정보를 가져올 수 없습니다",
-    "[success] ✅ 룰렛 실행 완료!"
+    "[success] 룰렛 실행 완료!"
   ],
   "titles": [],
   "sounds": 0,
@@ -30,11 +30,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": true,
       "dailyShop": false,
@@ -47,7 +42,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -61,8 +55,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": null,

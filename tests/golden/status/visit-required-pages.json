@@ -27,9 +27,9 @@
   ],
   "delays": [],
   "logs": [
-    "[info] 🌐 필수 페이지 탭 열기...",
-    "[info]   📋 리워드샵 페이지 방문 중...",
-    "[info]   🏠 스토브 메인 페이지 방문 중...",
+    "[info] 필수 페이지 탭 열기...",
+    "[info]   리워드샵 페이지 방문 중...",
+    "[info]   스토브 메인 페이지 방문 중...",
     "[success] 필수 페이지 탭 열림"
   ],
   "titles": [],
@@ -39,11 +39,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -56,7 +51,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -70,8 +64,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": null,

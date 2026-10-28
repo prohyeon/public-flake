@@ -1,4 +1,4 @@
-// The workflow steps accept an optional deps object (boost/reviewEvent pattern) so they can be
+// The workflow steps accept an optional deps object (services pattern) so they can be
 // unit-tested without the GM harness. These tests pin that seam.
 import test, { beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,8 +25,7 @@ function recorder() {
         delays,
         deps: {
             log: (message, type) => logs.push(`[${type}] ${message}`),
-            delay: async ms => { delays.push(ms); },
-            updateProgress: () => {}
+            delay: async ms => { delays.push(ms); }
         }
     };
 }

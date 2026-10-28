@@ -34,7 +34,7 @@ function initializeUI() {
             const btn = document.getElementById('stove-btn-copy-log');
             if (btn) {
                 const original = btn.textContent;
-                btn.textContent = '✓';
+                btn.textContent = '복사됨';
                 setTimeout(() => { btn.textContent = original; }, 1000);
             }
         }).catch(err => {
@@ -68,6 +68,15 @@ function initializeUI() {
     }
 
     attachListener('stove-btn-copy-log', copyLogToClipboard);
+
+    // The timing lines stay hidden until the switch is checked; copying takes what is visible.
+    const timingToggle = document.getElementById('stove-toggle-timing');
+    const logContent = document.getElementById('stove-log-content');
+    if (timingToggle && logContent) {
+        timingToggle.addEventListener('change', () => {
+            logContent.dataset.showTiming = timingToggle.checked ? 'true' : 'false';
+        });
+    }
 
     setTimeout(() => { checkAllStatus(); }, 500);
 }

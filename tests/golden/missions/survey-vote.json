@@ -89,23 +89,23 @@
     200
   ],
   "logs": [
-    "[info] 📊 설문조사 미션 시작...",
-    "[info] 📝 총 6개 설문조사 확인",
-    "[info] 🗳️ 투표 가능한 설문조사 4개 발견",
-    "[info] 📊 \"미션 501\" 투표 중...",
-    "[info]   🎯 선택: \"좋아요\" (61%)",
-    "[success]   ✓ 투표 완료: +20 FLAKE",
-    "[info] 📊 \"미션 502\" 투표 중...",
-    "[warning]   ⚠️ 투표할 항목을 찾을 수 없습니다",
-    "[info] 📊 \"미션 504\" 투표 중...",
-    "[info]   🎯 선택: \"좋아요\" (61%)",
-    "[error]   ✗ 투표 실패",
-    "[info] 📊 \"미션 505\" 투표 중...",
-    "[info]   🎯 선택: \"좋아요\" (61%)",
-    "[error]   ✗ \"미션 505\" 투표 실패: API Error: 500 Error",
-    "[success] ✅ 설문조사 투표 완료: +20 FLAKE",
-    "[info] 📊 설문조사 진행 상황: 1/6 완료",
-    "[success] ✅ 설문조사 미션 처리 완료!"
+    "[info] 설문조사 미션 시작...",
+    "[info] 총 6개 설문조사 확인",
+    "[info] 투표 가능한 설문조사 4개 발견",
+    "[info] \"미션 501\" 투표 중...",
+    "[info]   선택: \"좋아요\" (61%)",
+    "[success]   투표 완료: +20 FLAKE",
+    "[info] \"미션 502\" 투표 중...",
+    "[warning]   투표할 항목을 찾을 수 없습니다",
+    "[info] \"미션 504\" 투표 중...",
+    "[info]   선택: \"좋아요\" (61%)",
+    "[error]   투표 실패",
+    "[info] \"미션 505\" 투표 중...",
+    "[info]   선택: \"좋아요\" (61%)",
+    "[error]   \"미션 505\" 투표 실패: API Error: 500 Error",
+    "[success] 설문조사 투표 완료: +20 FLAKE",
+    "[info] 설문조사 진행 상황: 1/6 완료",
+    "[success] 설문조사 미션 처리 완료!"
   ],
   "titles": [],
   "sounds": 0,
@@ -114,11 +114,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -131,7 +126,6 @@
       "surveyMissions": true,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -145,8 +139,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 20,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": 226,

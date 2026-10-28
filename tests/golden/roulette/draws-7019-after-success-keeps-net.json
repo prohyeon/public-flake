@@ -62,14 +62,14 @@
     "[info] 룰렛 2회 실행 시작...",
     "[success] 룰렛 1/2 완료: 200 플레이크 (200 FLAKE)",
     "[warning] 룰렛 이벤트 기간이 아닙니다",
-    "[warning] 🛑 룰렛 프로세스를 중단합니다",
+    "[warning] 룰렛 프로세스를 중단합니다",
     "[info] [1차] 1/2 성공",
     "[info] ",
-    "[success] 🎰 최종 룰렛 결과 (1차 실행)",
-    "[success]   🎯 총 실행: 1회 성공",
-    "[success]   💰 총 획득: 200 FLAKE",
-    "[info]   💸 총 비용: 100 FLAKE",
-    "[success]   📊 순수익: +100 FLAKE"
+    "[success] 최종 룰렛 결과 (1차 실행)",
+    "[success]   총 실행: 1회 성공",
+    "[success]   총 획득: 200 FLAKE",
+    "[info]   총 비용: 100 FLAKE",
+    "[success]   순수익: +100 FLAKE"
   ],
   "titles": [],
   "sounds": 0,
@@ -78,11 +78,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": true,
       "dailyShop": false,
@@ -95,7 +90,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 100,
       "rouletteExtra": 0,
@@ -109,8 +103,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": null,

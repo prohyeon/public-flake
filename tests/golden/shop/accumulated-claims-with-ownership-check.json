@@ -200,22 +200,22 @@
     200
   ],
   "logs": [
-    "[info] 🎁 데일리 누적 보상 수령 시작...",
+    "[info] 데일리 누적 보상 수령 시작...",
     "[info] 현재 누적 출석일: 16일",
     "[success] 수령 가능한 누적 보상: 7개",
-    "[info] 📦 보상 정보: 누적 5일 플레이크 (타입: FLAKE, 5일)",
+    "[info] 보상 정보: 누적 5일 플레이크 (타입: FLAKE, 5일)",
     "[success] FLAKE 보상 수령 완료 (5일): 누적 5일 플레이크 (300 FLAKE)",
-    "[info] 📦 보상 정보: 아이템 상자 (타입: ITEMBOX, 7일)",
+    "[info] 보상 정보: 아이템 상자 (타입: ITEMBOX, 7일)",
     "[success] 보상 수령 완료 (7일): 아이템 상자",
-    "[info] 📦 보상 정보: 할인 쿠폰 (타입: INDIE_SALE_COUPON, 10일)",
+    "[info] 보상 정보: 할인 쿠폰 (타입: INDIE_SALE_COUPON, 10일)",
     "[success] 보상 수령 완료 (10일): 할인 쿠폰",
-    "[info] 📦 보상 정보: 인디 게임 A (타입: INDIE_GAME_COUPON, 12일)",
+    "[info] 보상 정보: 인디 게임 A (타입: INDIE_GAME_COUPON, 12일)",
     "[success] 보상 수령 완료 (12일): 인디 게임 A",
-    "[info] 📦 보상 정보: 인디 게임 B (타입: INDIE_GAME_COUPON, 14일)",
+    "[info] 보상 정보: 인디 게임 B (타입: INDIE_GAME_COUPON, 14일)",
     "[warning] 이미 소유한 게임: 인디 게임 B - 수령 건너뜀",
-    "[info] 📦 보상 정보: 인디 게임 (ID 없음) (타입: INDIE_GAME_COUPON, 15일)",
+    "[info] 보상 정보: 인디 게임 (ID 없음) (타입: INDIE_GAME_COUPON, 15일)",
     "[success] 보상 수령 완료 (15일): 인디 게임 (ID 없음)",
-    "[info] 📦 보상 정보: 기타 보상 (타입: STOVE_CASH, 16일)",
+    "[info] 보상 정보: 기타 보상 (타입: STOVE_CASH, 16일)",
     "[success] 보상 수령 완료 (16일): 기타 보상"
   ],
   "titles": [],
@@ -225,11 +225,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": false,
       "dailyShop": false,
@@ -242,7 +237,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -256,8 +250,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 300,
-      "boostMission": 0
+      "dailyAccumulated": 300
     },
     "missionComponents": {
       "daily": null,

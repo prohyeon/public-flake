@@ -22,7 +22,7 @@
     "[info] 룰렛 확인 중...",
     "[success] 룰렛 참여 가능 횟수: 0/30 (현재: 30)",
     "[info] 오늘의 룰렛 참여 횟수를 모두 사용했습니다",
-    "[success] ✅ 룰렛 실행 완료!"
+    "[success] 룰렛 실행 완료!"
   ],
   "titles": [],
   "sounds": 0,
@@ -31,11 +31,6 @@
   "sessionStorage": {},
   "state": {
     "isRunning": false,
-    "progress": {
-      "articleLikes": 0,
-      "comments": 0,
-      "newArticle": 0
-    },
     "completed": {
       "roulette": true,
       "dailyShop": false,
@@ -48,7 +43,6 @@
       "surveyMissions": false,
       "prizeEntry": false
     },
-    "createdCommentIds": [],
     "earnings": {
       "roulette": 0,
       "rouletteExtra": 0,
@@ -62,8 +56,7 @@
       "attendanceMissions": 0,
       "surveyMissions": 0,
       "prizeEntry": 0,
-      "dailyAccumulated": 0,
-      "boostMission": 0
+      "dailyAccumulated": 0
     },
     "missionComponents": {
       "daily": null,
