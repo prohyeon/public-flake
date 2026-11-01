@@ -20,6 +20,7 @@ import { build } from 'vite';
 
 import { readUserscriptBundle } from '../helpers/bundle.js';
 import { assertGolden } from '../helpers/golden.js';
+import { playEventShop } from '../helpers/playEventFixture.js';
 
 const userscript = readUserscriptBundle();
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -72,6 +73,8 @@ const BUTTON_IDS = [
     'stove-btn-point-cash-charge',
     'stove-btn-reward-shop',
     'stove-btn-status-refresh',
+    'stove-btn-play-event-refresh',
+    'stove-btn-play-event-claim',
     'stove-btn-copy-log'
 ];
 const MAINTENANCE_DISABLED_IDS = BUTTON_IDS.filter(id => id !== 'stove-btn-copy-log');
@@ -185,6 +188,7 @@ function mountBundle(t, { source = userscript, readyState = 'complete', respond 
 
 const describeRequest = request => `${request.method} ${request.url}`;
 
+const FAMILY_LINKS = 'https://api.onstove.com/dailyshop/v1.0/services/family-links';
 const MISSION_PAGE = 'https://api.onstove.com/flake-shop/v1/page?page_type=MISSION';
 const BILL_BALANCE = 'https://api.onstove.com/mileage/v1.0/balance?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY';
 
@@ -226,6 +230,10 @@ test('mount: the full panel markup (template, <style>, initializeUI effects) mat
         'stove-status-majak',
         'stove-status-total-flake',
         'stove-status-monthly-flake',
+        'stove-btn-play-event-refresh',
+        'stove-play-event-data',
+        'stove-play-event-link',
+        'stove-btn-play-event-claim',
         'stove-toggle-timing',
         'stove-btn-copy-log',
         'stove-log-content'
@@ -235,6 +243,8 @@ test('mount: the full panel markup (template, <style>, initializeUI effects) mat
         'stove-btn-point-cash-charge',
         'stove-btn-reward-shop',
         'stove-btn-status-refresh',
+        'stove-btn-play-event-refresh',
+        'stove-btn-play-event-claim',
         'stove-btn-copy-log'
     ]);
 });
@@ -249,6 +259,8 @@ test('mount: initializeUI leaves the normal-mode panel ready, without requests u
         'stove-btn-point-cash-charge': true,
         'stove-btn-reward-shop': false,
         'stove-btn-status-refresh': false,
+        'stove-btn-play-event-refresh': false,
+        'stove-btn-play-event-claim': true,
         'stove-btn-copy-log': false
     });
     // updatePointCashChargeButtonAvailability(null) runs once during initialization. Number(null) === 0, so the
@@ -271,7 +283,8 @@ test('mount: the 500ms timer runs checkAllStatus (mission components first)', as
     assert.equal(m.runTimers(500), 1);
     await settle();
 
-    assert.deepEqual(m.requests.map(describeRequest), [`GET ${MISSION_PAGE}`]);
+    assert.deepEqual(m.requests.map(describeRequest), [`GET ${FAMILY_LINKS}`, `GET ${MISSION_PAGE}`]);
+    assert.match(m.byId('stove-play-event-data').textContent, /럽플레이스 서버 상태 확인 중/);
     assert.equal(m.byId('stove-status-roulette').textContent, '확인 중...', 'status rows switch to loading');
     assert.deepEqual(m.alerts, []);
 
@@ -299,7 +312,9 @@ const BUTTON_ACTIONS = {
     },
     'stove-btn-point-cash-charge': { action: 'runPointExchange', requests: [`GET ${BILL_BALANCE}`], tabs: [] },
     'stove-btn-reward-shop': { action: 'openRewardShop', requests: [], tabs: ['https://reward.onstove.com/ko'] },
-    'stove-btn-status-refresh': { action: 'checkAllStatus', requests: [`GET ${MISSION_PAGE}`], tabs: [] }
+    'stove-btn-status-refresh': { action: 'checkAllStatus', requests: [`GET ${FAMILY_LINKS}`, `GET ${MISSION_PAGE}`], tabs: [] },
+    'stove-btn-play-event-refresh': { action: 'refreshPlayEvent', requests: [`GET ${FAMILY_LINKS}`], tabs: [] },
+    'stove-btn-play-event-claim': { action: 'receivePlayEvent', requests: [`GET ${FAMILY_LINKS}`], tabs: [] }
 };
 
 test('button wiring: every action button triggers its own workflow (first requests / tabs golden)', async t => {
@@ -309,7 +324,7 @@ test('button wiring: every action button triggers its own workflow (first reques
             const m = mountBundle(st, { now: BUTTON_NOW });
             const logCount = m.logs().length;
             const button = m.byId(id);
-            // The cash-charge button starts disabled (no flake balance yet),
+            // The cash-charge and claim buttons start disabled (no flake balance / no claimable reward yet),
             // and jsdom, like browsers, ignores click() on disabled buttons. Enable them to reach the listener.
             button.disabled = false;
             button.click();
@@ -324,7 +339,8 @@ test('button wiring: every action button triggers its own workflow (first reques
                 tabs: m.tabs,
                 title: m.document.title,
                 newLogs: m.logs().slice(logCount),
-                disabledAfterClick: m.disabledStates()
+                disabledAfterClick: m.disabledStates(),
+                playEventText: m.byId('stove-play-event-data').textContent
             };
         });
     }
@@ -343,9 +359,32 @@ test('button wiring: every action button triggers its own workflow (first reques
     });
 });
 
+test('button wiring: play event refresh and claim each read once; empty family-links is skipped (no claim attempt)', async t => {
+    const respond = request => (request.url === FAMILY_LINKS ? { code: 0, value: [] } : undefined);
+    const idle = /현재 공개된 럽플레이스 행사가 없습니다/;
+
+    const refresh = mountBundle(t, { respond });
+    refresh.byId('stove-btn-play-event-refresh').click();
+    await settle();
+    assert.deepEqual(refresh.requests.map(describeRequest), [`GET ${FAMILY_LINKS}`]);
+    assert.match(refresh.byId('stove-play-event-data').textContent, idle);
+    assert.deepEqual(refresh.logs(), ['자동화 패널이 준비되었습니다']);
+
+    const claim = mountBundle(t, { respond });
+    claim.byId('stove-btn-play-event-claim').disabled = false;
+    claim.byId('stove-btn-play-event-claim').click();
+    await settle();
+    // 행사가 없으면 수령을 시도하지 않으므로 조회는 한 번만 하고, 수령 안내 로그도 남기지 않는다.
+    assert.deepEqual(claim.requests.map(describeRequest), [`GET ${FAMILY_LINKS}`]);
+    assert.match(claim.byId('stove-play-event-data').textContent, idle);
+    assert.deepEqual(claim.logs(), ['자동화 패널이 준비되었습니다']);
+    assert.equal(claim.byId('stove-btn-play-event-claim').disabled, true);
+});
+
 test('button wiring: buttons that start disabled ignore clicks', async t => {
     const m = mountBundle(t);
     m.byId('stove-btn-point-cash-charge').click();
+    m.byId('stove-btn-play-event-claim').click();
     await settle();
     assert.deepEqual(m.requests, []);
     assert.deepEqual(m.logs(), ['자동화 패널이 준비되었습니다']);
@@ -442,14 +481,37 @@ test('maintenance mode: notice shown, six buttons disabled and inert, warning lo
     assert.equal(m.byId('stove-btn-copy-log').textContent, '복사됨');
 });
 
-test('maintenance mode: the 500ms status check is still scheduled and still calls the API', async t => {
+test('maintenance mode: the 500ms status check is still scheduled and can re-enable the inert claim button', async t => {
+    const now = Date.now();
+    const kstDate = offsetDays => new Date(now + offsetDays * 86400000 + 9 * 3600000).toISOString().slice(0, 10);
+    const shop = playEventShop();
+    shop.date_info.attend_start_dt = `${kstDate(-1)}T00:00:00`;
+    shop.date_info.attend_end_dt = `${kstDate(10)}T23:59:59`;
     const maintenanceBundle = await getMaintenanceBundle();
-    const m = mountBundle(t, { source: maintenanceBundle });
+    const m = mountBundle(t, {
+        source: maintenanceBundle,
+        respond: request => {
+            if (request.url === FAMILY_LINKS) return { code: 0, value: [{ service_id: 'luvplace', progress_month: '202610' }] };
+            if (request.url === 'https://api.onstove.com/dailyshop/v1.0/202610/services/luvplace') return { code: 0, value: shop };
+            return undefined;
+        }
+    });
 
     assert.equal(m.timerDelays(500).length, 1, 'checkAllStatus is scheduled even in maintenance mode');
     m.runTimers(500);
     await settle();
-    assert.deepEqual(m.requests.map(describeRequest), [`GET ${MISSION_PAGE}`]);
+    assert.deepEqual(m.requests.map(describeRequest), [
+        `GET ${FAMILY_LINKS}`,
+        `GET ${MISSION_PAGE}`,
+        'GET https://api.onstove.com/dailyshop/v1.0/202610/services/luvplace'
+    ]);
+    const claim = m.byId('stove-btn-play-event-claim');
+    assert.equal(claim.disabled, false, 'renderPlayEvent re-enables the claim button despite maintenance mode');
+
+    const before = m.requests.length;
+    claim.click();
+    await settle();
+    assert.equal(m.requests.length, before, 'the re-enabled claim button has no listener in maintenance mode');
 });
 
 test('maintenance mode: before CONFIG.maintenanceMode.startDate (2025-11-01) the normal panel is kept', async t => {
@@ -490,10 +552,10 @@ test('initializeUI: a missing button is skipped without breaking the other liste
     const m = mountBundle(t, { source });
     assert.deepEqual(m.logs(), ['자동화 패널이 준비되었습니다']);
     m.byId('stove-btn-reward-shop-renamed').click();
-    m.byId('stove-btn-status-refresh').click();
+    m.byId('stove-btn-play-event-refresh').click();
     await settle();
     assert.deepEqual(m.tabs, []);
-    assert.deepEqual(m.requests.map(describeRequest), [`GET ${MISSION_PAGE}`]);
+    assert.deepEqual(m.requests.map(describeRequest), [`GET ${FAMILY_LINKS}`]);
     assert.equal(m.timerDelays(500).length, 1);
 });
 

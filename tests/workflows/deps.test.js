@@ -71,11 +71,35 @@ test('status checks read through injected services', async () => {
         ] } } })
     });
     const roulette = await checkRouletteStatus({}, {
+        getRouletteEventIds: async () => { state.rouletteEvents = { draw: '1000000426' }; return state.rouletteEvents; },
         getRouletteParticipationCount: async () => ({ value: { participation_cnt: 7 } })
     });
 
     assert.deepEqual(daily, { success: true, received: true, notReceived: false });
     assert.deepEqual(roulette, { success: true, current: 7, limit: CONFIG.roulette.maxDraws, remaining: CONFIG.roulette.maxDraws - 7 });
+});
+
+test('roulette status reads the current event id, not the hardcoded CONFIG id', async () => {
+    const asked = [];
+    state.rouletteEvents = { draw: null, extra: null, apply: null, checkIn: null };
+    const result = await checkRouletteStatus({}, {
+        getRouletteEventIds: async () => { state.rouletteEvents = { ...state.rouletteEvents, draw: '1000000426' }; return state.rouletteEvents; },
+        getRouletteParticipationCount: async (headers, subEventNo) => { asked.push(subEventNo); return { value: { participation_cnt: 2 } }; }
+    });
+
+    assert.deepEqual(asked, ['1000000426']);
+    assert.equal(result.current, 2);
+});
+
+test('roulette status reports an error instead of 0/30 when the event ids cannot be loaded', async () => {
+    let counted = false;
+    const result = await checkRouletteStatus({}, {
+        getRouletteEventIds: async () => null,
+        getRouletteParticipationCount: async () => { counted = true; return { value: { participation_cnt: 0 } }; }
+    });
+
+    assert.equal(result.success, false);
+    assert.equal(counted, false);
 });
 
 test('mission steps read and claim through injected services', async () => {

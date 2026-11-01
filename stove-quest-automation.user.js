@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      3.0.1
+// @version      3.1.0
 // @author       prohyeon
 // @description  STOVE 자동화 (미션, 설문 투표, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -10,6 +10,7 @@
 // @match        https://profile.onstove.com/*
 // @connect      api.onstove.com
 // @connect      reward.onstove.com
+// @connect      127.0.0.1
 // @grant        GM_openInTab
 // @grant        GM_xmlhttpRequest
 // @run-at       document-idle
@@ -19,8 +20,8 @@
   'use strict';
 
   const CONFIG = {
-    version: "3.0.1",
-    lastUpdated: "2026-10-28",
+    version: "3.1.0",
+    lastUpdated: "2026-11-01",
     debug: false,
     maintenanceMode: {
       enabled: false,
@@ -73,6 +74,8 @@
       targetGiftName: "스토브 5,000 포인트",
       flakeCost: 500
     },
+    // 누적 플레이 출석 교환 상점. 행사가 family-links에서 빠지면 조회·수령 모두 아무 일도 하지 않는다.
+    playEvent: { key: "luvplace", gameId: "GM-29D4-6A460686_IND", name: "럽플레이스" },
     preRegistration: {
       enabled: true,
       // month(KST YYYYMM)에만, endDate(KST, 당일부터 중지) 전까지만 요청한다. 새 사전등록은 여기에 추가한다.
@@ -106,53 +109,6 @@
       pointMallId: "STOVE_MILEAGE"
     }
   };
-  const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
-  const COLORS = { success: "#34d399", error: "#f87171", info: "#60a5fa", warning: "#fbbf24" };
-  const DECORATIVE = new RegExp("(?:\\p{Extended_Pictographic}️?|‍|✓|✗)+ ?", "gu");
-  const TIMING_OPEN = "";
-  const TIMING_CLOSE = "";
-  const timingText = (text) => `${TIMING_OPEN}${text}${TIMING_CLOSE}`;
-  function decodeHtmlEntities(text) {
-    return String(text).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, name) => {
-      if (name[0] === "#") {
-        const code = name[1].toLowerCase() === "x" ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
-        return code > 0 && code <= 1114111 ? String.fromCodePoint(code) : match;
-      }
-      return ENTITIES[name.toLowerCase()] ?? match;
-    });
-  }
-  function displayText(text) {
-    return decodeHtmlEntities(text).replace(DECORATIVE, "");
-  }
-  function appendMessage(entry, message) {
-    const pattern = new RegExp(`(${TIMING_OPEN}[^${TIMING_CLOSE}]*${TIMING_CLOSE})`);
-    for (const part of String(message).split(pattern)) {
-      if (!part) continue;
-      if (part.startsWith(TIMING_OPEN) && part.endsWith(TIMING_CLOSE)) {
-        const span = document.createElement("span");
-        span.className = "log-timing";
-        span.textContent = displayText(part.slice(1, -1));
-        entry.appendChild(span);
-      } else {
-        entry.appendChild(document.createTextNode(displayText(part)));
-      }
-    }
-  }
-  function log(message, type = "info", options = {}) {
-    const logContent = document.getElementById("stove-log-content");
-    if (!logContent) return;
-    const entry = document.createElement("div");
-    entry.style.color = COLORS[type];
-    entry.style.borderLeftColor = COLORS[type];
-    entry.dataset.type = type;
-    if (options.timing) entry.dataset.timing = "true";
-    appendMessage(entry, message);
-    logContent.appendChild(entry);
-    const logSection = document.querySelector(".stove-log-section");
-    if (logSection) {
-      logSection.scrollTop = logSection.scrollHeight;
-    }
-  }
   const DEBUG_STORAGE_KEY = "stove-quest-automation:debug";
   function isDebugEnabled() {
     var _a;
@@ -266,6 +222,442 @@
       "X-Utc-Offset": "540"
     };
   }
+  function requireOK(response) {
+    if ((response == null ? void 0 : response.code) !== 0 || !response.value) {
+      throw new Error(`럽플레이스 API 확인 실패 (code=${(response == null ? void 0 : response.code) ?? "없음"})`);
+    }
+    return response.value;
+  }
+  async function getPlayEventShop(headers) {
+    var _a;
+    const links = requireOK(await apiRequest(
+      `${CONFIG.api.baseUrl}/dailyshop/v1.0/services/family-links`,
+      "GET",
+      withEventHubOrigin(headers),
+      null,
+      { timeout: 15e3 }
+    ));
+    if (!Array.isArray(links)) throw new Error("행사 목록 형식 확인 실패");
+    const month = (_a = links.find((link) => link.service_id === CONFIG.playEvent.key)) == null ? void 0 : _a.progress_month;
+    if (!month) return { notAvailable: true };
+    if (!/^\d{6}$/.test(String(month))) throw new Error("행사 월 형식 확인 실패");
+    const value = requireOK(await apiRequest(
+      `${CONFIG.api.baseUrl}/dailyshop/v1.0/${month}/services/${CONFIG.playEvent.key}`,
+      "GET",
+      withEventHubOrigin(headers),
+      null,
+      { timeout: 15e3 }
+    ));
+    return { ...value, month: String(month) };
+  }
+  async function claimPlayEventReward(headers, reward) {
+    if (reward.item_type !== "FLAKE" || !Number.isSafeInteger(reward.item_no) || reward.item_no <= 0) {
+      throw new Error("지원하지 않는 럽플레이스 보상");
+    }
+    const value = requireOK(await apiRequest(
+      `${CONFIG.api.baseUrl}/dailyshop/v1.0/attendances/accumulate-play/flake?item_no=${reward.item_no}`,
+      "POST",
+      withEventHubOrigin(headers),
+      { item_no: reward.item_no },
+      { timeout: 15e3 }
+    ));
+    if (value.item_no !== reward.item_no || value.category !== "ACCUMULATE_PLAY" || !Number.isFinite(value.flake_amount) || value.flake_amount < 0) {
+      throw new Error("보상 응답 일치 확인 실패; 상태를 새로고침해 주세요");
+    }
+    return value;
+  }
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(";").shift();
+    return null;
+  }
+  function extractHeaders() {
+    const token = getCookie("SUAT");
+    const uuid = localStorage.getItem("sgs_da_uuid") || getCookie("sgs_da_uuid");
+    if (!token) throw new Error("Authorization token (SUAT) not found");
+    if (!uuid) throw new Error("UUID (sgs_da_uuid) not found");
+    return {
+      "Authorization": `Bearer ${token}`,
+      "caller-id": "storee-lounge",
+      "X-UUID": uuid,
+      "x-lang": "ko",
+      "x-nation": "KR",
+      "x-device-type": "P01",
+      "Accept": "application/json, text/plain, */*",
+      "Content-Type": "application/json",
+      "Origin": "https://lounge.onstove.com",
+      "Referer": "https://lounge.onstove.com/"
+    };
+  }
+  function createInitialState() {
+    return {
+      isRunning: false,
+      completed: {
+        roulette: false,
+        dailyShop: false,
+        majak: false,
+        dailyMissions: false,
+        contentMissions: false,
+        weeklyMissions: false,
+        bannerMissions: false,
+        attendanceMissions: false,
+        surveyMissions: false,
+        prizeEntry: false
+      },
+      earnings: {
+        roulette: 0,
+        rouletteExtra: 0,
+        dailyShop: 0,
+        majak: 0,
+        dailyMissions: 0,
+        visitMissions: 0,
+        contentMissions: 0,
+        weeklyMissions: 0,
+        bannerMissions: 0,
+        attendanceMissions: 0,
+        surveyMissions: 0,
+        prizeEntry: 0,
+        dailyAccumulated: 0
+      },
+      missionComponents: {
+        daily: null,
+        dailyComponents: [],
+        content: null,
+        weekly: null,
+        survey: null,
+        banner: null,
+        attendance: null
+      },
+      rouletteEvents: {
+        draw: null,
+        extra: null,
+        apply: null,
+        checkIn: null
+      },
+      prizeInfo: {
+        eventNo: null,
+        giftNo: null,
+        giftName: null,
+        flakeCost: null
+      },
+      pointCashCharge: {
+        availableFlake: null,
+        hasRequiredFlake: false
+      }
+    };
+  }
+  const state = createInitialState();
+  function resetRunProgress(target = state) {
+    const initial = createInitialState();
+    target.completed = initial.completed;
+    target.earnings = initial.earnings;
+  }
+  const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+  const COLORS = { success: "#34d399", error: "#f87171", info: "#60a5fa", warning: "#fbbf24" };
+  const DECORATIVE = new RegExp("(?:\\p{Extended_Pictographic}️?|‍|✓|✗)+ ?", "gu");
+  const TIMING_OPEN = "";
+  const TIMING_CLOSE = "";
+  const timingText = (text) => `${TIMING_OPEN}${text}${TIMING_CLOSE}`;
+  function decodeHtmlEntities(text) {
+    return String(text).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, name) => {
+      if (name[0] === "#") {
+        const code = name[1].toLowerCase() === "x" ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+        return code > 0 && code <= 1114111 ? String.fromCodePoint(code) : match;
+      }
+      return ENTITIES[name.toLowerCase()] ?? match;
+    });
+  }
+  function displayText(text) {
+    return decodeHtmlEntities(text).replace(DECORATIVE, "");
+  }
+  function appendMessage(entry, message) {
+    const pattern = new RegExp(`(${TIMING_OPEN}[^${TIMING_CLOSE}]*${TIMING_CLOSE})`);
+    for (const part of String(message).split(pattern)) {
+      if (!part) continue;
+      if (part.startsWith(TIMING_OPEN) && part.endsWith(TIMING_CLOSE)) {
+        const span = document.createElement("span");
+        span.className = "log-timing";
+        span.textContent = displayText(part.slice(1, -1));
+        entry.appendChild(span);
+      } else {
+        entry.appendChild(document.createTextNode(displayText(part)));
+      }
+    }
+  }
+  function log(message, type = "info", options = {}) {
+    const logContent = document.getElementById("stove-log-content");
+    if (!logContent) return;
+    const entry = document.createElement("div");
+    entry.style.color = COLORS[type];
+    entry.style.borderLeftColor = COLORS[type];
+    entry.dataset.type = type;
+    if (options.timing) entry.dataset.timing = "true";
+    appendMessage(entry, message);
+    logContent.appendChild(entry);
+    const logSection = document.querySelector(".stove-log-section");
+    if (logSection) {
+      logSection.scrollTop = logSection.scrollHeight;
+    }
+  }
+  function element(tag, className, text) {
+    const node = document.createElement(tag);
+    node.className = className;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+  function emptyState(panel, tone, title, description) {
+    const box = element("div", `stove-pe-empty stove-pe-empty--${tone}`);
+    const icon = element("span", "stove-pe-empty-icon", tone === "error" ? "!" : tone === "loading" ? "↻" : "◇");
+    icon.setAttribute("aria-hidden", "true");
+    const content = element("div", "stove-pe-empty-content");
+    content.append(element("strong", "", title));
+    if (description) content.append(element("p", "", description));
+    box.append(icon, content);
+    panel.append(box);
+  }
+  function metric(label, value, accent = "") {
+    const box = element("div", `stove-pe-metric ${accent}`);
+    box.append(
+      element("span", "stove-pe-metric-label", label),
+      document.createTextNode(" "),
+      element("strong", "stove-pe-metric-value", value)
+    );
+    return box;
+  }
+  function rewardState(reward, status) {
+    if (reward.is_received) return { tone: "received", label: "수령 완료", icon: "✓" };
+    if (reward.sold_out) return { tone: "unavailable", label: "품절", icon: "—" };
+    if (status.claimable.some((item) => item.item_no === reward.item_no)) return { tone: "claimable", label: "수령 가능", icon: "↓" };
+    if (status.ended) return { tone: "unavailable", label: "행사 종료", icon: "—" };
+    if (status.notStarted) return { tone: "locked", label: "시작 전", icon: "◇" };
+    if (reward.eligible) return { tone: "unavailable", label: reward.item_type === "FLAKE" ? "교환 조건 확인" : "상점에서 확인", icon: "!" };
+    const remaining = Math.max(0, reward.rewardable_days - status.totalPlayDays);
+    return { tone: "locked", label: remaining > 0 ? `${remaining}일 더 플레이` : "플레이 반영 대기", icon: "◇" };
+  }
+  function renderPlayEvent(status) {
+    const panel = document.getElementById("stove-play-event-data");
+    const claim = document.getElementById("stove-btn-play-event-claim");
+    if (!panel) return;
+    const section = panel.closest(".stove-pe-section");
+    if (section) section.style.display = status.finished || status.notAvailable ? "none" : "";
+    panel.replaceChildren();
+    if (claim) claim.disabled = true;
+    panel.setAttribute("aria-busy", String(Boolean(status.loading)));
+    if (status.loading) {
+      emptyState(panel, "loading", "럽플레이스 서버 상태 확인 중…", "누적 플레이와 보상 수령 현황을 불러오고 있습니다.");
+      return;
+    }
+    if (!status.success) {
+      emptyState(panel, "error", "확인 실패", status.error || "상태를 불러오지 못했습니다. 새로고침해 주세요.");
+      return;
+    }
+    if (status.notAvailable) {
+      emptyState(panel, "idle", "현재 공개된 럽플레이스 행사가 없습니다", "새 행사가 공개되면 이곳에서 보상을 확인할 수 있습니다.");
+      return;
+    }
+    const date = (value) => new Intl.DateTimeFormat("ko-KR", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).format(new Date(value)).replace(/\.\s*/g, ".").replace(/\.$/, "");
+    const period = element("div", "stove-pe-period");
+    const dates = element("div", "stove-pe-dates");
+    dates.append(
+      element("span", "stove-pe-period-label", "행사 기간"),
+      element("span", "", `${date(status.start)} ~ ${date(status.end)}`),
+      element("span", "stove-pe-period-length", `${status.periodDays}일 행사`)
+    );
+    period.append(dates, element(
+      "span",
+      `stove-pe-period-badge${status.active ? " is-active" : ""}`,
+      status.notStarted ? "시작 전" : status.ended ? "종료" : `${status.remainingDays}일 남음`
+    ));
+    panel.append(period);
+    const summary = element("div", "stove-pe-summary");
+    const play = metric("누적 플레이", `${status.totalPlayDays}/${status.targetDays}일`);
+    const progress = element("div", "stove-pe-progress");
+    progress.setAttribute("role", "progressbar");
+    progress.setAttribute("aria-label", "누적 플레이 달성률");
+    progress.setAttribute("aria-valuemin", "0");
+    progress.setAttribute("aria-valuemax", String(status.targetDays || 1));
+    progress.setAttribute("aria-valuenow", String(Math.min(status.totalPlayDays, status.targetDays || 1)));
+    progress.setAttribute("aria-valuetext", `${status.totalPlayDays}일 플레이 / 목표 ${status.targetDays}일`);
+    const fill = element("span", "stove-pe-progress-fill");
+    fill.style.width = `${status.targetDays > 0 ? Math.min(100, status.totalPlayDays / status.targetDays * 100) : 0}%`;
+    progress.append(fill);
+    play.append(progress);
+    summary.append(
+      play,
+      metric("수령한 보상", `${status.receivedCount}/${status.rewardCount}개`),
+      metric("수령 가능", `${status.claimable.length}개`, status.claimable.length > 0 ? "is-claimable" : "")
+    );
+    panel.append(summary);
+    const grid = element("div", "stove-pe-rewards");
+    grid.setAttribute("role", "list");
+    grid.setAttribute("aria-label", "누적 플레이 일차별 보상");
+    for (const reward of status.rewards) {
+      const decoder = document.createElement("textarea");
+      decoder.innerHTML = String(reward.item_name || "보상").replace(/</g, "&lt;");
+      const display = rewardState(reward, status);
+      const card = element("div", `stove-pe-reward is-${display.tone}`);
+      card.setAttribute("role", "listitem");
+      card.title = decoder.value;
+      const heading = element("div", "stove-pe-reward-heading");
+      const icon = element("span", "stove-pe-reward-icon", display.icon);
+      icon.setAttribute("aria-hidden", "true");
+      heading.append(element("span", "stove-pe-day", `${reward.rewardable_days}일차`), icon);
+      const flake = reward.item_type === "FLAKE" && Number.isFinite(reward.flake_amount);
+      const amount = element("strong", "stove-pe-reward-amount", flake ? reward.flake_amount.toLocaleString("ko-KR") : "게임 아이템");
+      if (flake) amount.append(element("span", "stove-pe-reward-unit", " F"));
+      const bonus = flake ? decoder.value.replace(/^\s*[\d,]+\s*플레이크\s*(?:&|\+|및)\s*/, "") : decoder.value;
+      card.append(
+        heading,
+        amount,
+        element("p", "stove-pe-reward-detail", bonus),
+        element("span", "stove-pe-reward-state", display.label)
+      );
+      grid.append(card);
+    }
+    panel.append(grid);
+    const note = element("div", "stove-pe-note");
+    note.append(
+      element("span", "", "정상 게임 종료 후 기록 반영에 최대 5분이 걸릴 수 있습니다."),
+      element("span", "stove-pe-checked", `최근 확인 ${new Date(status.checkedAt).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul" })}`)
+    );
+    panel.append(note);
+    const link = document.getElementById("stove-play-event-link");
+    if (link && /^\d{6}$/.test(status.month)) link.href = `https://event.onstove.com/ko/dailyshop/${CONFIG.playEvent.key}/${status.month}`;
+    if (claim) claim.disabled = status.claimable.length === 0 || state.isRunning;
+  }
+  const DAY = 864e5;
+  function normalizePlayEvent(value, now = /* @__PURE__ */ new Date()) {
+    if (value == null ? void 0 : value.notAvailable) return { success: true, notAvailable: true };
+    const dates = value == null ? void 0 : value.date_info;
+    const parse = (date) => new Date(/(?:Z|[+-]\d{2}:\d{2})$/.test(date || "") ? date : `${date}+09:00`);
+    const start = parse(dates == null ? void 0 : dates.attend_start_dt), end = parse(dates == null ? void 0 : dates.attend_end_dt);
+    const plays = value == null ? void 0 : value.accumulated_plays;
+    if ((value == null ? void 0 : value.service_id) !== CONFIG.playEvent.gameId || value.attendance_type !== "ACCUMULATED_PLAY_SYSTEM" || !Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end < start || !Number.isSafeInteger(plays == null ? void 0 : plays.total_play_days) || plays.total_play_days < 0 || !Array.isArray(plays.rewards) || ![value.event_not_started, value.event_ended, value.exchange_condition].every((flag) => typeof flag === "boolean")) {
+      throw new Error("럽플레이스 상태 형식 확인 실패");
+    }
+    const seen = /* @__PURE__ */ new Set();
+    const rewards = plays.rewards.map((reward) => {
+      if (!Number.isSafeInteger(reward.item_no) || reward.item_no <= 0 || seen.has(reward.item_no) || !Number.isSafeInteger(reward.rewardable_days) || reward.rewardable_days <= 0 || ![reward.eligible, reward.is_received, reward.sold_out].every((flag) => typeof flag === "boolean")) {
+        throw new Error("럽플레이스 보상 형식 확인 실패");
+      }
+      seen.add(reward.item_no);
+      return { ...reward };
+    }).sort((a, b) => a.rewardable_days - b.rewardable_days);
+    const active = !value.event_not_started && !value.event_ended && now >= start && now <= end;
+    const claimable = rewards.filter((r) => active && value.exchange_condition && r.eligible && !r.is_received && !r.sold_out && r.item_type === "FLAKE" && !r.has_game_character);
+    const ended = Boolean(value.event_ended || now > end);
+    const finished = ended || rewards.length > 0 && rewards.every((r) => r.is_received);
+    return {
+      success: true,
+      month: value.month,
+      start: start.toISOString(),
+      end: end.toISOString(),
+      periodDays: Math.floor((end - start) / DAY) + 1,
+      remainingDays: active ? Math.max(1, Math.ceil((end - now) / DAY)) : 0,
+      active,
+      notStarted: value.event_not_started || now < start,
+      ended,
+      finished,
+      exchangeCondition: value.exchange_condition,
+      totalPlayDays: plays.total_play_days,
+      rewardCount: rewards.length,
+      targetDays: Math.max(0, ...rewards.map((r) => r.rewardable_days)),
+      receivedCount: rewards.filter((r) => r.is_received).length,
+      rewards,
+      claimable,
+      checkedAt: now.toISOString()
+    };
+  }
+  async function checkPlayEvent(headers, deps = {}) {
+    try {
+      return normalizePlayEvent(await (deps.getShop || getPlayEventShop)(headers), deps.now || /* @__PURE__ */ new Date());
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+  let busy = false;
+  async function collectPlayEventRewards(headers, deps = {}) {
+    var _a, _b;
+    if (busy) return { success: false, error: "럽플레이스 작업이 진행 중입니다" };
+    busy = true;
+    const check = () => checkPlayEvent(headers, deps);
+    const assertSession = () => {
+      const current = (deps.getHeaders || extractHeaders)();
+      if (current.Authorization !== headers.Authorization) throw new Error("로그인 계정이 변경되어 작업을 중단했습니다");
+    };
+    let earned = 0;
+    const claimed = [];
+    try {
+      assertSession();
+      const before = await check();
+      if (!before.success) throw new Error(before.error);
+      if (before.notAvailable || before.finished) {
+        renderPlayEvent(before);
+        return { success: true, skipped: true, earned: 0, claimed: [], before, after: before };
+      }
+      for (const candidate of before.claimable || []) {
+        assertSession();
+        const fresh = await check();
+        if (!fresh.success) throw new Error(fresh.error);
+        const reward = (_a = fresh.claimable) == null ? void 0 : _a.find((r) => r.item_no === candidate.item_no);
+        if (!reward) continue;
+        assertSession();
+        const response = await (deps.claim || claimPlayEventReward)(headers, reward);
+        earned += response.flake_amount;
+        claimed.push(reward.item_no);
+        state.earnings.playEvent = (state.earnings.playEvent || 0) + response.flake_amount;
+        log(`럽플레이스 ${reward.rewardable_days}일차: ${response.flake_amount.toLocaleString()} F 수령`, "success");
+      }
+      assertSession();
+      const after = await check();
+      renderPlayEvent(after);
+      if (!after.success || claimed.some((id) => {
+        var _a2, _b2;
+        return !((_b2 = (_a2 = after.rewards) == null ? void 0 : _a2.find((r) => r.item_no === id)) == null ? void 0 : _b2.is_received);
+      }) || (((_b = after.claimable) == null ? void 0 : _b.length) || 0) > 0) {
+        throw new Error("럽플레이스 보상 반영 확인 대기 — 새로고침 후 확인해 주세요");
+      }
+      if (!claimed.length) log("럽플레이스: 현재 수령 가능한 보상 없음 (실행 반영은 종료 후 최대 5분)", "info");
+      return { success: true, earned, claimed, before, after };
+    } catch (error) {
+      renderPlayEvent({ success: false, error: error.message });
+      log(`럽플레이스: ${error.message}`, "warning");
+      return { success: false, earned, claimed, error: error.message };
+    } finally {
+      busy = false;
+    }
+  }
+  async function refreshPlayEvent() {
+    renderPlayEvent({ loading: true });
+    try {
+      const headers = extractHeaders();
+      const result = await checkPlayEvent(headers);
+      if (extractHeaders().Authorization !== headers.Authorization) throw new Error("로그인 계정 변경 — 다시 조회해 주세요");
+      renderPlayEvent(result);
+      return result;
+    } catch (error) {
+      renderPlayEvent({ success: false, error: error.message });
+    }
+  }
+  async function receivePlayEvent() {
+    if (state.isRunning) {
+      log("전체 자동화 완료 후 이용해 주세요", "warning");
+      return;
+    }
+    const button = document.getElementById("stove-btn-play-event-claim");
+    if (button) button.disabled = true;
+    try {
+      await collectPlayEventRewards(extractHeaders());
+    } catch (error) {
+      renderPlayEvent({ success: false, error: error.message });
+    }
+  }
   const PRE_REGISTRATION_ALREADY_JOINED = 90605;
   async function registerPreRegistration(headers, campaign) {
     var _a;
@@ -374,93 +766,6 @@
       success: failed.length === 0,
       results,
       error: failed.map((result) => `${result.key}: ${result.error}`).join(", ") || void 0
-    };
-  }
-  function createInitialState() {
-    return {
-      isRunning: false,
-      completed: {
-        roulette: false,
-        dailyShop: false,
-        majak: false,
-        dailyMissions: false,
-        contentMissions: false,
-        weeklyMissions: false,
-        bannerMissions: false,
-        attendanceMissions: false,
-        surveyMissions: false,
-        prizeEntry: false
-      },
-      earnings: {
-        roulette: 0,
-        rouletteExtra: 0,
-        dailyShop: 0,
-        majak: 0,
-        dailyMissions: 0,
-        visitMissions: 0,
-        contentMissions: 0,
-        weeklyMissions: 0,
-        bannerMissions: 0,
-        attendanceMissions: 0,
-        surveyMissions: 0,
-        prizeEntry: 0,
-        dailyAccumulated: 0
-      },
-      missionComponents: {
-        daily: null,
-        dailyComponents: [],
-        content: null,
-        weekly: null,
-        survey: null,
-        banner: null,
-        attendance: null
-      },
-      rouletteEvents: {
-        draw: null,
-        extra: null,
-        apply: null,
-        checkIn: null
-      },
-      prizeInfo: {
-        eventNo: null,
-        giftNo: null,
-        giftName: null,
-        flakeCost: null
-      },
-      pointCashCharge: {
-        availableFlake: null,
-        hasRequiredFlake: false
-      }
-    };
-  }
-  const state = createInitialState();
-  function resetRunProgress(target = state) {
-    const initial = createInitialState();
-    target.completed = initial.completed;
-    target.earnings = initial.earnings;
-  }
-  function getCookie(name) {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(";").shift();
-    return null;
-  }
-  function extractHeaders() {
-    const token = getCookie("SUAT");
-    const uuid = localStorage.getItem("sgs_da_uuid") || getCookie("sgs_da_uuid");
-    if (!token) throw new Error("Authorization token (SUAT) not found");
-    if (!uuid) throw new Error("UUID (sgs_da_uuid) not found");
-    return {
-      "Authorization": `Bearer ${token}`,
-      "caller-id": "storee-lounge",
-      "X-UUID": uuid,
-      "x-lang": "ko",
-      "x-nation": "KR",
-      "x-device-type": "P01",
-      "Accept": "application/json, text/plain, */*",
-      "Content-Type": "application/json",
-      "Origin": "https://lounge.onstove.com",
-      "Referer": "https://lounge.onstove.com/"
     };
   }
   function playCompletionSound() {
@@ -794,10 +1099,10 @@
       throw error;
     }
   }
-  async function executeRouletteDraw(headers, subEventNo) {
+  async function executeRouletteDraw(headers, subEventNo, typeNo = 1) {
     const url = `${CONFIG.api.baseUrl}/emsbackapi/v3.0/draw/${subEventNo}`;
     const rewardHeaders = makeRewardPageJsonHeaders(headers);
-    const body = { type_no: 1 };
+    const body = { type_no: typeNo };
     debugLog(`[룰렛 뽑기 실행] sub_event_no: ${subEventNo}`);
     try {
       const response = await apiRequest(url, "POST", rewardHeaders, body);
@@ -1732,12 +2037,71 @@
       }
     };
   }
+  const CAPSULE_TIER_OFF = "off";
+  const CAPSULE_TIER_100 = "100";
+  const CAPSULE_TIER_1000 = "1000";
+  const CAPSULE_TIER_DEFAULT = CAPSULE_TIER_100;
+  const CAPSULE_TIER_PORT = 47813;
+  const CAPSULE_TIER_URL = `http://127.0.0.1:${CAPSULE_TIER_PORT}/capsule-tier`;
+  const CAPSULE_TIER_TIMEOUT_MS = 2e3;
+  const KNOWN_TIERS = [CAPSULE_TIER_OFF, CAPSULE_TIER_100, CAPSULE_TIER_1000];
+  function memberNoFromPath(pathname) {
+    const match = /\/(\d+)\/?$/.exec(pathname || "");
+    return match ? match[1] : null;
+  }
+  function parseCapsuleTier(value) {
+    return KNOWN_TIERS.includes(value) ? value : null;
+  }
+  function requestCapsuleTier(memberNo, deps = {}) {
+    const gmRequest = deps.gmRequest || globalThis.GM_xmlhttpRequest;
+    const timeout = deps.timeoutMs ?? CAPSULE_TIER_TIMEOUT_MS;
+    return new Promise((resolve) => {
+      if (typeof gmRequest !== "function") {
+        resolve(null);
+        return;
+      }
+      try {
+        gmRequest({
+          method: "GET",
+          url: `${CAPSULE_TIER_URL}?member_no=${encodeURIComponent(memberNo)}`,
+          timeout,
+          onload: (response) => {
+            try {
+              const body = JSON.parse(response.responseText);
+              resolve(response.status === 200 ? parseCapsuleTier(body.tier) : null);
+            } catch {
+              resolve(null);
+            }
+          },
+          onerror: () => resolve(null),
+          ontimeout: () => resolve(null)
+        });
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+  async function resolveCapsuleTier(pathname, deps = {}) {
+    const memberNo = memberNoFromPath(pathname);
+    if (!memberNo) return CAPSULE_TIER_DEFAULT;
+    return await requestCapsuleTier(memberNo, deps) ?? CAPSULE_TIER_DEFAULT;
+  }
+  function capsuleDrawSpec(tier) {
+    if (tier === CAPSULE_TIER_1000) {
+      return { typeNo: 2, cost: 1e3, label: "1000뽑기" };
+    }
+    return { typeNo: 1, cost: 100, label: "100뽑기" };
+  }
   function services$3(deps = {}) {
     return {
       getRouletteParticipationCount,
       executeRouletteDraw,
       getRouletteExtra,
       claimRouletteExtra,
+      resolveCapsuleTier: () => {
+        var _a;
+        return resolveCapsuleTier((_a = globalThis.location) == null ? void 0 : _a.pathname);
+      },
       delay,
       log,
       ...deps
@@ -1746,6 +2110,14 @@
   async function runRouletteDraws(headers, deps = {}) {
     var _a, _b;
     const io = services$3(deps);
+    const tier = await io.resolveCapsuleTier();
+    if (tier === CAPSULE_TIER_OFF) {
+      io.log("캡슐 뽑기 끔", "info");
+      state.completed.roulette = true;
+      return 0;
+    }
+    const spec = capsuleDrawSpec(tier);
+    io.log(`캡슐 뽑기: ${spec.label}`, "info");
     io.log("룰렛 확인 중...", "info");
     try {
       let totalRewards = 0;
@@ -1791,7 +2163,7 @@
                 io.log(`🔄 룰렛 ${i}/${remaining} 재시도 (${retryCount}/${CONFIG.roulette.maxRetries})...`, "warning");
                 await io.delay(CONFIG.roulette.retryDelay);
               }
-              const drawResult = await io.executeRouletteDraw(headers, getRouletteSubEventNo());
+              const drawResult = await io.executeRouletteDraw(headers, getRouletteSubEventNo(), spec.typeNo);
               if (drawResult && drawResult.code !== 0) {
                 const errorCode = drawResult.code;
                 if (errorCode === 7019) {
@@ -1839,7 +2211,7 @@
         await io.delay(CONFIG.delays.betweenActions);
       }
       if (totalSuccessCount > 0) {
-        const totalCost = totalSuccessCount * CONFIG.roulette.drawCost;
+        const totalCost = totalSuccessCount * spec.cost;
         const netProfit = totalRewards - totalCost;
         const profitSign = netProfit >= 0 ? "+" : "";
         io.log("", "info");
@@ -2995,6 +3367,7 @@
   const BALANCE_KEYS = ["totalFlake", "monthlyFlake"];
   function services(deps = {}) {
     return {
+      getRouletteEventIds,
       getRouletteParticipationCount,
       getDailyShopRewards,
       getMajakDailyShopRewards,
@@ -3025,6 +3398,10 @@
   async function checkRouletteStatus(headers, deps = {}) {
     const io = services(deps);
     try {
+      const events = await io.getRouletteEventIds(headers);
+      if (!events) {
+        return { success: false, error: "룰렛 이벤트 번호 조회 실패" };
+      }
       const participationInfo = await io.getRouletteParticipationCount(headers, getRouletteSubEventNo());
       if (participationInfo == null ? void 0 : participationInfo.value) {
         const maxDraws = CONFIG.roulette.maxDraws;
@@ -3136,6 +3513,7 @@
   }
   async function checkAllStatus() {
     console.log("[상태 확인 시작]");
+    const playEventRefresh = refreshPlayEvent();
     try {
       const headers = extractHeaders();
       updateStatusUI(Object.fromEntries([...STATUS_KEYS, ...BALANCE_KEYS].map((key) => [key, { loading: true }])));
@@ -3161,6 +3539,7 @@
         monthlyFlake
       });
       updatePointCashChargeButtonAvailability(totalFlake);
+      await playEventRefresh;
       console.log("[상태 확인] ✅ 완료");
     } catch (error) {
       console.error("[상태 확인 오류]", error);
@@ -3434,6 +3813,7 @@
     diff,
     plan,
     groupResults = [],
+    playEventResult,
     preRegistrationResult,
     rouletteEnabled = CONFIG.roulette.enabled
   }) {
@@ -3451,6 +3831,7 @@
     if (rouletteEnabled && roulettePlanned && (diff == null ? void 0 : diff.rouletteStillRemaining)) {
       issues.push("룰렛 미완료");
     }
+    if ((playEventResult == null ? void 0 : playEventResult.success) !== true) issues.push("럽플레이스 확인 필요");
     if ((preRegistrationResult == null ? void 0 : preRegistrationResult.success) === false) issues.push("사전등록 확인 필요");
     return { success: issues.length === 0, issues };
   }
@@ -3510,7 +3891,7 @@
     return { sections, onSectionTime: (label, ms) => sections.push({ label, ms }) };
   }
   async function runAutomation() {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     if (state.isRunning) {
       log("이미 자동화가 실행 중입니다", "warning");
       return;
@@ -3670,6 +4051,10 @@
         endRecheck();
       }
       saveMonthlyAttendanceRecord(monthlyAttendanceContext, beforeSnapshot, afterSnapshot, diff);
+      const endPlayEvent = timing.start("마무리", "럽플레이스");
+      const playEventResult = await collectPlayEventRewards(headers);
+      endPlayEvent();
+      if ((_a = playEventResult.claimed) == null ? void 0 : _a.length) changedAfterSnapshot = true;
       const endPreRegistration = timing.start("마무리", "사전등록");
       const preRegistrationResult = await runPreRegistrations(headers);
       endPreRegistration();
@@ -3681,10 +4066,11 @@
         diff,
         plan,
         groupResults: allGroupResults,
+        playEventResult,
         preRegistrationResult
       });
       const dailyAccumulatedFlake = state.earnings.dailyAccumulated || 0;
-      let totalEarnings = (state.earnings.roulette || 0) + (state.earnings.rouletteExtra || 0) + (state.earnings.dailyShop || 0) + (state.earnings.majak || 0) + (state.earnings.dailyMissions || 0) + (state.earnings.visitMissions || 0) + (state.earnings.contentMissions || 0) + (state.earnings.weeklyMissions || 0) + (state.earnings.bannerMissions || 0) + (state.earnings.attendanceMissions || 0) + (state.earnings.surveyMissions || 0) + (state.earnings.prizeEntry || 0) + (dailyAccumulatedFlake || 0);
+      let totalEarnings = (state.earnings.roulette || 0) + (state.earnings.rouletteExtra || 0) + (state.earnings.dailyShop || 0) + (state.earnings.majak || 0) + (state.earnings.dailyMissions || 0) + (state.earnings.visitMissions || 0) + (state.earnings.contentMissions || 0) + (state.earnings.weeklyMissions || 0) + (state.earnings.bannerMissions || 0) + (state.earnings.attendanceMissions || 0) + (state.earnings.surveyMissions || 0) + (state.earnings.prizeEntry || 0) + (state.earnings.playEvent || 0) + (dailyAccumulatedFlake || 0);
       if (isNaN(totalEarnings)) {
         log("⚠️ 수익 계산 오류 발생 - 일부 값이 유효하지 않음", "warning");
         totalEarnings = 0;
@@ -3711,13 +4097,14 @@
       log(`  💝 데일리 보상: ${state.earnings.dailyShop} FLAKE`, state.earnings.dailyShop > 0 ? "success" : "info");
       log(`  🎁 데일리 누적 보상: ${dailyAccumulatedFlake} FLAKE`, dailyAccumulatedFlake > 0 ? "success" : "info");
       log(`  🀄 마작 리워드: ${state.earnings.majak} FLAKE`, state.earnings.majak > 0 ? "success" : "info");
+      if (!playEventResult.skipped) log(`  🎮 럽플레이스: ${state.earnings.playEvent || 0} FLAKE`, "info");
       log("───────────────────────────────────────", "info");
       log(`  📊 총 순수익: ${profitSign}${totalEarnings} FLAKE`, totalEarnings >= 0 ? "success" : "warning");
       log("═══════════════════════════════════════", "info");
       if (outcome.success) playCompletionSound();
-      state.completed.roulette = ((_a = afterSnapshot.roulette) == null ? void 0 : _a.success) === true && (!CONFIG.roulette.enabled || !diff.rouletteStillRemaining);
-      state.completed.dailyShop = ((_b = afterSnapshot.shop) == null ? void 0 : _b.success) === true && diff.unclaimedDailyShop === 0;
-      state.completed.majak = ((_c = afterSnapshot.majak) == null ? void 0 : _c.success) === true && diff.unclaimedMajakShop === 0;
+      state.completed.roulette = ((_b = afterSnapshot.roulette) == null ? void 0 : _b.success) === true && (!CONFIG.roulette.enabled || !diff.rouletteStillRemaining);
+      state.completed.dailyShop = ((_c = afterSnapshot.shop) == null ? void 0 : _c.success) === true && diff.unclaimedDailyShop === 0;
+      state.completed.majak = ((_d = afterSnapshot.majak) == null ? void 0 : _d.success) === true && diff.unclaimedMajakShop === 0;
       log("", "info");
       log("📊 상태 업데이트 중...", "info");
       const endStatusUpdate = timing.start("마무리", "상태 업데이트");
@@ -3726,6 +4113,9 @@
       endStatusUpdate();
       log("✅ 상태 업데이트 완료!", "success");
       log("", "info");
+      if (!playEventResult.success) {
+        log(`럽플레이스 확인 필요: ${playEventResult.error}`, "warning");
+      }
       if (!preRegistrationResult.success) {
         log(`사전등록 확인 필요: ${preRegistrationResult.error}`, "warning");
       }
@@ -4271,10 +4661,10 @@
       const panel = doc.getElementById(PANEL_ID);
       return Boolean(panel && (node === panel || panel.contains(node)));
     }
-    function isVisible(element) {
+    function isVisible(element2) {
       var _a2, _b, _c, _d, _e;
-      if (!element || !((_a2 = doc.documentElement) == null ? void 0 : _a2.contains(element))) return false;
-      for (let current = element; current && current.nodeType === 1; current = current.parentElement) {
+      if (!element2 || !((_a2 = doc.documentElement) == null ? void 0 : _a2.contains(element2))) return false;
+      for (let current = element2; current && current.nodeType === 1; current = current.parentElement) {
         if (current.hidden || current.hasAttribute("hidden")) return false;
         if (((_b = current.getAttribute("aria-hidden")) == null ? void 0 : _b.trim().toLowerCase()) === "true") return false;
         const style = getComputedStyleFor(current);
@@ -4290,31 +4680,31 @@
       }
       return true;
     }
-    function getComputedStyleFor(element) {
+    function getComputedStyleFor(element2) {
       var _a2;
       try {
-        return (_a2 = timerHost.getComputedStyle) == null ? void 0 : _a2.call(timerHost, element);
+        return (_a2 = timerHost.getComputedStyle) == null ? void 0 : _a2.call(timerHost, element2);
       } catch {
         return null;
       }
     }
-    function isEnabled(element) {
+    function isEnabled(element2) {
       var _a2;
-      for (let current = element; current && current.nodeType === 1; current = current.parentElement) {
+      for (let current = element2; current && current.nodeType === 1; current = current.parentElement) {
         if (current.disabled === true) return false;
         if (((_a2 = current.getAttribute("aria-disabled")) == null ? void 0 : _a2.trim().toLowerCase()) === "true") return false;
         if (current.inert === true || current.hasAttribute("inert")) return false;
       }
       return true;
     }
-    function canClick(element) {
+    function canClick(element2) {
       var _a2, _b;
-      if (!isVisible(element) || !isEnabled(element)) return false;
-      return ((_b = (_a2 = getComputedStyleFor(element)) == null ? void 0 : _a2.pointerEvents) == null ? void 0 : _b.toLowerCase()) !== "none";
+      if (!isVisible(element2) || !isEnabled(element2)) return false;
+      return ((_b = (_a2 = getComputedStyleFor(element2)) == null ? void 0 : _a2.pointerEvents) == null ? void 0 : _b.toLowerCase()) !== "none";
     }
     function firstActionable(container, selector) {
-      for (const element of container.querySelectorAll(selector)) {
-        if (canClick(element) && typeof element.click === "function") return element;
+      for (const element2 of container.querySelectorAll(selector)) {
+        if (canClick(element2) && typeof element2.click === "function") return element2;
       }
       return null;
     }
@@ -4660,6 +5050,87 @@
             }
             #stove-log-content:not([data-show-timing="true"]) [data-timing="true"],
             #stove-log-content:not([data-show-timing="true"]) .log-timing { display: none; }
+            #stove-quest-automation .stove-pe-section { grid-column: 1 / -1; order: 1; min-width: 0; }
+            #stove-quest-automation .stove-pe-header {
+                display: flex; align-items: center; justify-content: space-between;
+                gap: 12px; margin-bottom: 18px;
+            }
+            #stove-quest-automation .stove-pe-title-group { display: flex; align-items: center; gap: 12px; min-width: 0; }
+            #stove-quest-automation .stove-pe-game-icon {
+                display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0;
+                background: #1a1a1a; border: 1px solid #353535; border-radius: 10px; font-size: 22px;
+            }
+            #stove-quest-automation .stove-pe-title { margin: 0; color: #f5f5f5; font-size: 16px; font-weight: 650; line-height: 1.4; }
+            #stove-quest-automation .stove-pe-subtitle { margin: 3px 0 0; color: #9ca3af; font-size: 12px; line-height: 1.4; }
+            #stove-quest-automation .stove-pe-refresh { padding: 8px 12px; flex-shrink: 0; border-radius: 6px; }
+            #stove-quest-automation .stove-pe-period {
+                display: flex; align-items: center; justify-content: space-between; gap: 12px;
+                flex-wrap: wrap; margin-bottom: 14px; font-size: 12px; color: #b5bbc5;
+            }
+            #stove-quest-automation .stove-pe-dates { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+            #stove-quest-automation .stove-pe-period-label { color: #9ca3af; }
+            #stove-quest-automation .stove-pe-period-length { color: #a6adba; border-left: 1px solid #414141; padding-left: 8px; }
+            #stove-quest-automation .stove-pe-period-badge { padding: 4px 8px; border-radius: 5px; background: #303030; color: #b5bbc5; white-space: nowrap; }
+            #stove-quest-automation .stove-pe-period-badge.is-active { background: #163e32; color: #a7f3d0; }
+            #stove-quest-automation .stove-pe-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+            #stove-quest-automation .stove-pe-metric { min-width: 0; padding: 14px 16px; border: 1px solid #353535; border-radius: 8px; background: #1a1a1a; }
+            #stove-quest-automation .stove-pe-metric-label { display: block; font-size: 12px; line-height: 1.4; color: #a6adba; }
+            #stove-quest-automation .stove-pe-metric-value { display: block; font-size: 24px; font-weight: 650; line-height: 1.5; color: #f5f5f5; font-variant-numeric: tabular-nums; }
+            #stove-quest-automation .stove-pe-metric.is-claimable { border-color: #705328; background: #30291c; }
+            #stove-quest-automation .stove-pe-metric.is-claimable .stove-pe-metric-value { color: #fcd34d; }
+            #stove-quest-automation .stove-pe-progress { height: 4px; margin-top: 8px; background: #343434; border-radius: 4px; overflow: hidden; }
+            #stove-quest-automation .stove-pe-progress-fill { display: block; height: 100%; background: #34d399; border-radius: inherit; }
+            #stove-quest-automation .stove-pe-rewards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 8px; }
+            #stove-quest-automation .stove-pe-reward { display: flex; flex-direction: column; min-width: 0; padding: 13px 12px; border-radius: 8px; border: 1px solid #353535; background: #1c1c1c; }
+            #stove-quest-automation .stove-pe-reward-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+            #stove-quest-automation .stove-pe-day { color: #b5bbc5; font-size: 12px; font-weight: 600; }
+            #stove-quest-automation .stove-pe-reward-icon { display: grid; place-items: center; width: 22px; height: 22px; flex-shrink: 0; color: #9ca3af; background: #303030; border-radius: 50%; font-size: 12px; }
+            #stove-quest-automation .stove-pe-reward-amount { color: #e5e7eb; font-size: 20px; font-weight: 650; line-height: 1.35; font-variant-numeric: tabular-nums; }
+            #stove-quest-automation .stove-pe-reward-unit { color: #a6adba; font-size: 12px; font-weight: 500; }
+            #stove-quest-automation .stove-pe-reward-detail { flex: 1; margin: 6px 0 16px; min-height: 36px; color: #a6adba; font-size: 12px; line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
+            #stove-quest-automation .stove-pe-reward-state { align-self: flex-start; padding: 4px 7px; border-radius: 4px; color: #b5bbc5; background: #303030; font-size: 11px; font-weight: 500; line-height: 1.4; }
+            #stove-quest-automation .stove-pe-reward.is-received { border-color: #28503f; background: #18251f; }
+            #stove-quest-automation .stove-pe-reward.is-received .stove-pe-reward-icon,
+            #stove-quest-automation .stove-pe-reward.is-received .stove-pe-reward-state { background: #1c4332; color: #a7f3d0; }
+            #stove-quest-automation .stove-pe-reward.is-claimable { border-color: #9a742f; background: #30291c; }
+            #stove-quest-automation .stove-pe-reward.is-claimable .stove-pe-reward-amount { color: #fcd34d; }
+            #stove-quest-automation .stove-pe-reward.is-claimable .stove-pe-reward-icon,
+            #stove-quest-automation .stove-pe-reward.is-claimable .stove-pe-reward-state { background: #544020; color: #fde68a; }
+            #stove-quest-automation .stove-pe-note { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; margin-top: 14px; color: #9ca3af; font-size: 11px; line-height: 1.6; }
+            #stove-quest-automation .stove-pe-checked { white-space: nowrap; }
+            #stove-quest-automation .stove-pe-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 16px; margin-top: 16px; border-top: 1px solid #353535; }
+            #stove-quest-automation .stove-pe-shop-link { display: inline-flex; align-items: center; gap: 8px; color: #b5bbc5; font-size: 12px; text-decoration: none; }
+            #stove-quest-automation .stove-pe-shop-link:hover { color: #f5f5f5; }
+            #stove-quest-automation .stove-pe-claim { background: #166044; border-color: #277357; color: #d1fae5; padding: 9px 16px; font-size: 13px; }
+            #stove-quest-automation .stove-pe-claim:hover:not(:disabled) { background: #1c7452; border-color: #34a276; }
+            #stove-quest-automation .stove-pe-empty { display: flex; align-items: center; gap: 14px; min-height: 120px; padding: 20px; background: #1a1a1a; border: 1px dashed #414141; border-radius: 8px; }
+            #stove-quest-automation .stove-pe-empty-icon { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; background: #303030; color: #a6adba; font-size: 22px; }
+            #stove-quest-automation .stove-pe-empty-content { min-width: 0; overflow-wrap: anywhere; }
+            #stove-quest-automation .stove-pe-empty-content strong { font-size: 13px; font-weight: 600; color: #d1d5db; }
+            #stove-quest-automation .stove-pe-empty-content p { margin: 6px 0 0; color: #9ca3af; font-size: 12px; line-height: 1.6; }
+            #stove-quest-automation .stove-pe-empty--error { border-color: #75453e; }
+            #stove-quest-automation .stove-pe-empty--error .stove-pe-empty-icon { background: #4c2924; color: #fca5a5; }
+            @media (max-width: 720px) {
+                #stove-quest-automation .stove-pe-section { padding: 14px; }
+                #stove-quest-automation .stove-pe-header { gap: 8px; }
+                #stove-quest-automation .stove-pe-title-group { gap: 8px; }
+                #stove-quest-automation .stove-pe-game-icon { width: 34px; height: 34px; font-size: 18px; }
+                #stove-quest-automation .stove-pe-title { font-size: 14px; }
+                #stove-quest-automation .stove-pe-refresh { padding: 7px 8px; font-size: 11px; }
+                #stove-quest-automation .stove-pe-summary { gap: 6px; }
+                #stove-quest-automation .stove-pe-metric { padding: 10px 8px; }
+                #stove-quest-automation .stove-pe-metric-value { font-size: 20px; }
+                #stove-quest-automation .stove-pe-metric-label { font-size: 11px; }
+                #stove-quest-automation .stove-pe-rewards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+                #stove-quest-automation .stove-pe-empty { padding: 16px; gap: 10px; }
+                #stove-quest-automation .stove-pe-claim { width: 100%; }
+                #stove-quest-automation .stove-pe-shop-link { margin-left: auto; }
+            }
+            @media (max-width: 420px) {
+                #stove-quest-automation .stove-pe-game-icon { display: none; }
+                #stove-quest-automation .stove-pe-metric-value { font-size: 18px; }
+                #stove-quest-automation .stove-pe-period-label { display: none; }
+            }
             .stove-success-notice {
                 background: #064e3b;
                 border: 1px solid #10b981;
@@ -4760,6 +5231,20 @@
                     </div>
                 </div>
             </div>
+            <section class="stove-card stove-pe-section" aria-label="럽플레이스 상태">
+                <div class="stove-pe-header">
+                    <div class="stove-pe-title-group">
+                        <span class="stove-pe-game-icon" aria-hidden="true">🎮</span>
+                        <div><h3 class="stove-pe-title">럽플레이스</h3><p class="stove-pe-subtitle">누적 플레이 보상</p></div>
+                    </div>
+                    <button id="stove-btn-play-event-refresh" class="stove-ghost-btn stove-pe-refresh" type="button">새로고침</button>
+                </div>
+                <div id="stove-play-event-data" aria-live="polite"><div class="stove-pe-empty"><span class="stove-pe-empty-icon" aria-hidden="true">◇</span><div class="stove-pe-empty-content"><strong>플레이 현황을 확인해 보세요</strong><p>새로고침하면 누적 플레이와 일차별 보상을 확인할 수 있습니다.</p></div></div></div>
+                <div class="stove-pe-actions">
+                    <a id="stove-play-event-link" class="stove-pe-shop-link" href="https://event.onstove.com/ko/dailyshop/luvplace" target="_blank" rel="noopener noreferrer">출석 교환 상점 <span aria-hidden="true">↗</span></a>
+                    <button id="stove-btn-play-event-claim" class="stove-btn stove-pe-claim" type="button" disabled>수령 가능한 보상 받기</button>
+                </div>
+            </section>
             <div class="stove-card">
                 <div class="stove-card-header">
                     <span class="stove-card-title">로그</span>
@@ -4780,6 +5265,8 @@
     `;
   }
   const ACTION_BUTTONS = [
+    ["stove-btn-play-event-refresh", refreshPlayEvent],
+    ["stove-btn-play-event-claim", receivePlayEvent],
     ["stove-btn-start", runAutomation],
     ["stove-btn-point-cash-charge", runPointExchange],
     ["stove-btn-reward-shop", openRewardShop],
@@ -4810,9 +5297,9 @@
       });
     }
     const attachListener = (id, handler) => {
-      const element = document.getElementById(id);
-      if (element) {
-        element.addEventListener("click", handler);
+      const element2 = document.getElementById(id);
+      if (element2) {
+        element2.addEventListener("click", handler);
       } else {
         console.warn(`[이벤트 등록] ${id} 버튼을 찾을 수 없습니다`);
       }

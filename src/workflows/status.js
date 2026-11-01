@@ -1,9 +1,10 @@
+import { refreshPlayEvent } from './playEvent.js';
 import { CONFIG } from '../config.js';
 import { state } from '../state.js';
 import { extractHeaders } from '../utils/auth.js';
 import { getTodayString } from '../utils/time.js';
 import { openTabInBackground } from '../utils/tabs.js';
-import { getRouletteParticipationCount, getRouletteSubEventNo } from '../api/roulette.js';
+import { getRouletteEventIds, getRouletteParticipationCount, getRouletteSubEventNo } from '../api/roulette.js';
 import { getDailyShopRewards, getMajakDailyShopRewards } from '../api/shop.js';
 import { apiRequest } from '../api/request.js';
 import { getAllDailyMissions, getMissionComponentIds, getMissionComponentNos, missionComponentUrl } from '../api/missions.js';
@@ -17,6 +18,7 @@ const BALANCE_KEYS = ['totalFlake', 'monthlyFlake'];
 
 function services(deps = {}) {
     return {
+        getRouletteEventIds,
         getRouletteParticipationCount,
         getDailyShopRewards,
         getMajakDailyShopRewards,
@@ -52,6 +54,12 @@ async function checkTodayAttendanceStatus(io, readShop) {
 export async function checkRouletteStatus(headers, deps = {}) {
     const io = services(deps);
     try {
+        // The panel can run before any automation run, so load the current event IDs first.
+        // Otherwise the hardcoded CONFIG id (an old campaign) is read and shows a false 0/30.
+        const events = await io.getRouletteEventIds(headers);
+        if (!events) {
+            return { success: false, error: '룰렛 이벤트 번호 조회 실패' };
+        }
         const participationInfo = await io.getRouletteParticipationCount(headers, getRouletteSubEventNo());
         if (participationInfo?.value) {
             const maxDraws = CONFIG.roulette.maxDraws;
@@ -180,6 +188,8 @@ export async function visitRequiredPages() {
 
 export async function checkAllStatus() {
     console.log('[상태 확인 시작]');
+    // Refresh independently so an unrelated mission API failure does not hide this dashboard.
+    const playEventRefresh = refreshPlayEvent();
     try {
         const headers = extractHeaders();
 
@@ -211,6 +221,7 @@ export async function checkAllStatus() {
         });
         updatePointCashChargeButtonAvailability(totalFlake);
 
+        await playEventRefresh;
         console.log('[상태 확인] ✅ 완료');
     } catch (error) {
         console.error('[상태 확인 오류]', error);

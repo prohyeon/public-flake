@@ -230,6 +230,87 @@ export function panelMarkup() {
             }
             #stove-log-content:not([data-show-timing="true"]) [data-timing="true"],
             #stove-log-content:not([data-show-timing="true"]) .log-timing { display: none; }
+            #stove-quest-automation .stove-pe-section { grid-column: 1 / -1; order: 1; min-width: 0; }
+            #stove-quest-automation .stove-pe-header {
+                display: flex; align-items: center; justify-content: space-between;
+                gap: 12px; margin-bottom: 18px;
+            }
+            #stove-quest-automation .stove-pe-title-group { display: flex; align-items: center; gap: 12px; min-width: 0; }
+            #stove-quest-automation .stove-pe-game-icon {
+                display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0;
+                background: #1a1a1a; border: 1px solid #353535; border-radius: 10px; font-size: 22px;
+            }
+            #stove-quest-automation .stove-pe-title { margin: 0; color: #f5f5f5; font-size: 16px; font-weight: 650; line-height: 1.4; }
+            #stove-quest-automation .stove-pe-subtitle { margin: 3px 0 0; color: #9ca3af; font-size: 12px; line-height: 1.4; }
+            #stove-quest-automation .stove-pe-refresh { padding: 8px 12px; flex-shrink: 0; border-radius: 6px; }
+            #stove-quest-automation .stove-pe-period {
+                display: flex; align-items: center; justify-content: space-between; gap: 12px;
+                flex-wrap: wrap; margin-bottom: 14px; font-size: 12px; color: #b5bbc5;
+            }
+            #stove-quest-automation .stove-pe-dates { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+            #stove-quest-automation .stove-pe-period-label { color: #9ca3af; }
+            #stove-quest-automation .stove-pe-period-length { color: #a6adba; border-left: 1px solid #414141; padding-left: 8px; }
+            #stove-quest-automation .stove-pe-period-badge { padding: 4px 8px; border-radius: 5px; background: #303030; color: #b5bbc5; white-space: nowrap; }
+            #stove-quest-automation .stove-pe-period-badge.is-active { background: #163e32; color: #a7f3d0; }
+            #stove-quest-automation .stove-pe-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+            #stove-quest-automation .stove-pe-metric { min-width: 0; padding: 14px 16px; border: 1px solid #353535; border-radius: 8px; background: #1a1a1a; }
+            #stove-quest-automation .stove-pe-metric-label { display: block; font-size: 12px; line-height: 1.4; color: #a6adba; }
+            #stove-quest-automation .stove-pe-metric-value { display: block; font-size: 24px; font-weight: 650; line-height: 1.5; color: #f5f5f5; font-variant-numeric: tabular-nums; }
+            #stove-quest-automation .stove-pe-metric.is-claimable { border-color: #705328; background: #30291c; }
+            #stove-quest-automation .stove-pe-metric.is-claimable .stove-pe-metric-value { color: #fcd34d; }
+            #stove-quest-automation .stove-pe-progress { height: 4px; margin-top: 8px; background: #343434; border-radius: 4px; overflow: hidden; }
+            #stove-quest-automation .stove-pe-progress-fill { display: block; height: 100%; background: #34d399; border-radius: inherit; }
+            #stove-quest-automation .stove-pe-rewards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 8px; }
+            #stove-quest-automation .stove-pe-reward { display: flex; flex-direction: column; min-width: 0; padding: 13px 12px; border-radius: 8px; border: 1px solid #353535; background: #1c1c1c; }
+            #stove-quest-automation .stove-pe-reward-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+            #stove-quest-automation .stove-pe-day { color: #b5bbc5; font-size: 12px; font-weight: 600; }
+            #stove-quest-automation .stove-pe-reward-icon { display: grid; place-items: center; width: 22px; height: 22px; flex-shrink: 0; color: #9ca3af; background: #303030; border-radius: 50%; font-size: 12px; }
+            #stove-quest-automation .stove-pe-reward-amount { color: #e5e7eb; font-size: 20px; font-weight: 650; line-height: 1.35; font-variant-numeric: tabular-nums; }
+            #stove-quest-automation .stove-pe-reward-unit { color: #a6adba; font-size: 12px; font-weight: 500; }
+            #stove-quest-automation .stove-pe-reward-detail { flex: 1; margin: 6px 0 16px; min-height: 36px; color: #a6adba; font-size: 12px; line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
+            #stove-quest-automation .stove-pe-reward-state { align-self: flex-start; padding: 4px 7px; border-radius: 4px; color: #b5bbc5; background: #303030; font-size: 11px; font-weight: 500; line-height: 1.4; }
+            #stove-quest-automation .stove-pe-reward.is-received { border-color: #28503f; background: #18251f; }
+            #stove-quest-automation .stove-pe-reward.is-received .stove-pe-reward-icon,
+            #stove-quest-automation .stove-pe-reward.is-received .stove-pe-reward-state { background: #1c4332; color: #a7f3d0; }
+            #stove-quest-automation .stove-pe-reward.is-claimable { border-color: #9a742f; background: #30291c; }
+            #stove-quest-automation .stove-pe-reward.is-claimable .stove-pe-reward-amount { color: #fcd34d; }
+            #stove-quest-automation .stove-pe-reward.is-claimable .stove-pe-reward-icon,
+            #stove-quest-automation .stove-pe-reward.is-claimable .stove-pe-reward-state { background: #544020; color: #fde68a; }
+            #stove-quest-automation .stove-pe-note { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; margin-top: 14px; color: #9ca3af; font-size: 11px; line-height: 1.6; }
+            #stove-quest-automation .stove-pe-checked { white-space: nowrap; }
+            #stove-quest-automation .stove-pe-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 16px; margin-top: 16px; border-top: 1px solid #353535; }
+            #stove-quest-automation .stove-pe-shop-link { display: inline-flex; align-items: center; gap: 8px; color: #b5bbc5; font-size: 12px; text-decoration: none; }
+            #stove-quest-automation .stove-pe-shop-link:hover { color: #f5f5f5; }
+            #stove-quest-automation .stove-pe-claim { background: #166044; border-color: #277357; color: #d1fae5; padding: 9px 16px; font-size: 13px; }
+            #stove-quest-automation .stove-pe-claim:hover:not(:disabled) { background: #1c7452; border-color: #34a276; }
+            #stove-quest-automation .stove-pe-empty { display: flex; align-items: center; gap: 14px; min-height: 120px; padding: 20px; background: #1a1a1a; border: 1px dashed #414141; border-radius: 8px; }
+            #stove-quest-automation .stove-pe-empty-icon { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; background: #303030; color: #a6adba; font-size: 22px; }
+            #stove-quest-automation .stove-pe-empty-content { min-width: 0; overflow-wrap: anywhere; }
+            #stove-quest-automation .stove-pe-empty-content strong { font-size: 13px; font-weight: 600; color: #d1d5db; }
+            #stove-quest-automation .stove-pe-empty-content p { margin: 6px 0 0; color: #9ca3af; font-size: 12px; line-height: 1.6; }
+            #stove-quest-automation .stove-pe-empty--error { border-color: #75453e; }
+            #stove-quest-automation .stove-pe-empty--error .stove-pe-empty-icon { background: #4c2924; color: #fca5a5; }
+            @media (max-width: 720px) {
+                #stove-quest-automation .stove-pe-section { padding: 14px; }
+                #stove-quest-automation .stove-pe-header { gap: 8px; }
+                #stove-quest-automation .stove-pe-title-group { gap: 8px; }
+                #stove-quest-automation .stove-pe-game-icon { width: 34px; height: 34px; font-size: 18px; }
+                #stove-quest-automation .stove-pe-title { font-size: 14px; }
+                #stove-quest-automation .stove-pe-refresh { padding: 7px 8px; font-size: 11px; }
+                #stove-quest-automation .stove-pe-summary { gap: 6px; }
+                #stove-quest-automation .stove-pe-metric { padding: 10px 8px; }
+                #stove-quest-automation .stove-pe-metric-value { font-size: 20px; }
+                #stove-quest-automation .stove-pe-metric-label { font-size: 11px; }
+                #stove-quest-automation .stove-pe-rewards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+                #stove-quest-automation .stove-pe-empty { padding: 16px; gap: 10px; }
+                #stove-quest-automation .stove-pe-claim { width: 100%; }
+                #stove-quest-automation .stove-pe-shop-link { margin-left: auto; }
+            }
+            @media (max-width: 420px) {
+                #stove-quest-automation .stove-pe-game-icon { display: none; }
+                #stove-quest-automation .stove-pe-metric-value { font-size: 18px; }
+                #stove-quest-automation .stove-pe-period-label { display: none; }
+            }
             .stove-success-notice {
                 background: #064e3b;
                 border: 1px solid #10b981;
@@ -330,6 +411,20 @@ export function panelMarkup() {
                     </div>
                 </div>
             </div>
+            <section class="stove-card stove-pe-section" aria-label="럽플레이스 상태">
+                <div class="stove-pe-header">
+                    <div class="stove-pe-title-group">
+                        <span class="stove-pe-game-icon" aria-hidden="true">🎮</span>
+                        <div><h3 class="stove-pe-title">럽플레이스</h3><p class="stove-pe-subtitle">누적 플레이 보상</p></div>
+                    </div>
+                    <button id="stove-btn-play-event-refresh" class="stove-ghost-btn stove-pe-refresh" type="button">새로고침</button>
+                </div>
+                <div id="stove-play-event-data" aria-live="polite"><div class="stove-pe-empty"><span class="stove-pe-empty-icon" aria-hidden="true">◇</span><div class="stove-pe-empty-content"><strong>플레이 현황을 확인해 보세요</strong><p>새로고침하면 누적 플레이와 일차별 보상을 확인할 수 있습니다.</p></div></div></div>
+                <div class="stove-pe-actions">
+                    <a id="stove-play-event-link" class="stove-pe-shop-link" href="https://event.onstove.com/ko/dailyshop/luvplace" target="_blank" rel="noopener noreferrer">출석 교환 상점 <span aria-hidden="true">↗</span></a>
+                    <button id="stove-btn-play-event-claim" class="stove-btn stove-pe-claim" type="button" disabled>수령 가능한 보상 받기</button>
+                </div>
+            </section>
             <div class="stove-card">
                 <div class="stove-card-header">
                     <span class="stove-card-title">로그</span>

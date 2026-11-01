@@ -8,6 +8,9 @@ import {
 } from '../api/roulette.js';
 import { log } from '../ui/logger.js';
 import { debugLog } from '../utils/debug.js';
+import {
+    CAPSULE_TIER_OFF, capsuleDrawSpec, resolveCapsuleTier
+} from '../api/capsuleTier.js';
 
 function services(deps = {}) {
     return {
@@ -15,6 +18,7 @@ function services(deps = {}) {
         executeRouletteDraw,
         getRouletteExtra,
         claimRouletteExtra,
+        resolveCapsuleTier: () => resolveCapsuleTier(globalThis.location?.pathname),
         delay,
         log,
         ...deps
@@ -28,6 +32,16 @@ export async function runRouletteDraws(headers, deps = {}) {
         state.completed.roulette = true;
         return 0;
     }
+
+    // 계정별 설정(봇에서 지정): 끔이면 뽑지 않고, 100/1000뽑기면 옵션 번호와 비용을 바꾼다.
+    const tier = await io.resolveCapsuleTier();
+    if (tier === CAPSULE_TIER_OFF) {
+        io.log('캡슐 뽑기 끔', 'info');
+        state.completed.roulette = true;
+        return 0;
+    }
+    const spec = capsuleDrawSpec(tier);
+    io.log(`캡슐 뽑기: ${spec.label}`, 'info');
 
     io.log('룰렛 확인 중...', 'info');
 
@@ -88,7 +102,7 @@ export async function runRouletteDraws(headers, deps = {}) {
                             await io.delay(CONFIG.roulette.retryDelay);
                         }
 
-                        const drawResult = await io.executeRouletteDraw(headers, getRouletteSubEventNo());
+                        const drawResult = await io.executeRouletteDraw(headers, getRouletteSubEventNo(), spec.typeNo);
 
                         if (drawResult && drawResult.code !== 0) {
                             const errorCode = drawResult.code;
@@ -147,7 +161,7 @@ export async function runRouletteDraws(headers, deps = {}) {
         }
 
         if (totalSuccessCount > 0) {
-            const totalCost = totalSuccessCount * CONFIG.roulette.drawCost;
+            const totalCost = totalSuccessCount * spec.cost;
             const netProfit = totalRewards - totalCost;
             const profitSign = netProfit >= 0 ? '+' : '';
 

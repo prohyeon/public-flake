@@ -191,7 +191,7 @@ test('updateStatusUI: without the panel elements it is a no-op', async t => {
 
 function buttonView(h) {
     return Object.fromEntries(['stove-btn-start', 'stove-btn-reward-shop', 'stove-btn-status-refresh',
-        'stove-btn-point-cash-charge'].map(id => {
+        'stove-btn-point-cash-charge', 'stove-btn-play-event-refresh', 'stove-btn-play-event-claim'].map(id => {
         const button = h.document.getElementById(id);
         return [id, { disabled: button.disabled, opacity: button.style.opacity }];
     }));
@@ -208,6 +208,7 @@ test('setButtonState: running disables the control buttons and the charge button
 
     assert.deepEqual(running.buttons['stove-btn-start'], { disabled: true, opacity: '0.5' });
     assert.deepEqual(idle.buttons['stove-btn-start'], { disabled: false, opacity: '1' });
+    assert.deepEqual(running.buttons['stove-btn-play-event-claim'], { disabled: true, opacity: '' }, 'play event buttons are not managed');
     assertGolden('status/ui-button-state', { running, idle });
 });
 

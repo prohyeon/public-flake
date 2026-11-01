@@ -8,6 +8,7 @@
 //
 // Clock: the harness pins Date to DEFAULT_NOW (2026-10-16 10:00 KST); all dates here straddle it.
 import { DEFAULT_NOW } from '../helpers/gmHarness.js';
+import { playEventShop } from '../helpers/playEventFixture.js';
 
 export const API = 'https://api.onstove.com';
 export const NOW = DEFAULT_NOW;
@@ -115,6 +116,7 @@ const ROULETTE_PRIZES = [300, 50, 150, 100];
  *   roulettePrizes: number[]                 FLAKE won per draw, cycled (default [300, 50, 150, 100])
  *   rouletteExtraReceived: number[]          milestones already received (default [10, 20])
  *   dailyShopClaimed / majakClaimed: boolean
+ *   playEvent: 'claimable' | 'claimed' | 'none'
  *   attendanceTrigger: 'rewardTab' | 'focusedRewardTab' | 'never'
  *       which opened tab makes the server count today's monthly attendance (+1 once)
  *   overrides: { [routeName]: (request, callIndex, next) => response }
@@ -136,12 +138,16 @@ export function installAutomationWorld(h, options = {}) {
             }))
         },
         shops: buildShops({ dailyShopClaimed: Boolean(options.dailyShopClaimed), majakClaimed: Boolean(options.majakClaimed) }),
+        playEvent: {
+            mode: options.playEvent ?? 'claimable',
+            received: new Set(options.playEvent === 'claimed' ? [42] : [])
+        },
         attendance: { trigger: options.attendanceTrigger ?? 'rewardTab', counted: false },
         overrides: { ...(options.overrides || {}) },
         audit: {
             missionClaims: [], duplicateClaims: [], prematureClaims: [],
             draws: 0, overDraws: 0, prizeApplies: 0, extraClaims: [],
-            shopClaims: [], preRegistrations: 0, wishlists: 0
+            shopClaims: [], playEventClaims: [], preRegistrations: 0, wishlists: 0
         }
     };
     const { audit } = world;
@@ -327,6 +333,33 @@ export function installAutomationWorld(h, options = {}) {
             return okBody({ item_no: itemNo });
         }
         return { code: 1404, message: '보상을 찾을 수 없습니다' };
+    });
+    route('familyLinks', 'GET', /^\/dailyshop\/v1\.0\/services\/family-links$/, () => okBody([
+        { service_id: 'riichicity', progress_month: '202610' },
+        ...(world.playEvent.mode === 'none' ? [] : [{ service_id: 'luvplace', progress_month: '202610' }])
+    ]));
+    const playEventValue = () => {
+        const value = playEventShop();
+        value.date_info = { attend_start_dt: '2026-10-01T00:00:00', attend_end_dt: '2026-10-31T23:59:59' };
+        for (const reward of value.accumulated_plays.rewards) reward.is_received = world.playEvent.received.has(reward.item_no);
+        return value;
+    };
+    route('playEventShop', 'GET', /^\/dailyshop\/v1\.0\/\d{6}\/services\/luvplace$/, () => okBody(playEventValue()));
+    route('playEventClaim', 'POST', /^\/dailyshop\/v1\.0\/attendances\/accumulate-play\/flake$/, (request, url) => {
+        const itemNo = Number(url.searchParams.get('item_no'));
+        const reward = playEventValue().accumulated_plays.rewards.find(item => item.item_no === itemNo);
+        if (!reward) return { code: 1404, message: '보상을 찾을 수 없습니다' };
+        if (reward.is_received) {
+            audit.duplicateClaims.push(`playEvent:${itemNo}`);
+            return { code: 1001, message: '이미 수령한 보상입니다' };
+        }
+        if (!reward.eligible) {
+            audit.prematureClaims.push(`playEvent:${itemNo}`);
+            return { code: 1002, message: '플레이 일수가 부족합니다' };
+        }
+        world.playEvent.received.add(itemNo);
+        audit.playEventClaims.push(itemNo);
+        return okBody({ item_no: itemNo, category: 'ACCUMULATE_PLAY', flake_amount: reward.flake_amount });
     });
     route('preRegister', 'POST', /^\/dailyshop\/v1\.0\/campaigns\/(\d{6})\/([\w-]+)\/register$/, () => {
         audit.preRegistrations += 1;

@@ -1,3 +1,4 @@
+import { refreshPlayEvent, receivePlayEvent } from './workflows/playEvent.js';
 import { isMaintenanceMode } from './utils/maintenance.js';
 import { log } from './ui/logger.js';
 import { runAutomation } from './workflows/automation.js';
@@ -11,6 +12,8 @@ import { panelMarkup } from './ui/panelTemplate.js';
 
 // Panel buttons and the workflow each one starts. Maintenance mode disables all of them.
 const ACTION_BUTTONS = [
+    ['stove-btn-play-event-refresh', refreshPlayEvent],
+    ['stove-btn-play-event-claim', receivePlayEvent],
     ['stove-btn-start', runAutomation],
     ['stove-btn-point-cash-charge', runPointExchange],
     ['stove-btn-reward-shop', openRewardShop],

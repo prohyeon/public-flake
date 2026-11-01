@@ -1,4 +1,4 @@
-import test from 'node:test';
+﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
@@ -39,6 +39,7 @@ const completedRun = diff => ({
     snapshot: { degraded: false },
     diff,
     plan: { groups: [] },
+    playEventResult: { success: true },
     groupResults: []
 });
 

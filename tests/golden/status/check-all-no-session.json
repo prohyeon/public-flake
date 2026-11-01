@@ -90,6 +90,12 @@
       "opacity": "0.45",
       "status": "192,500 플레이크 부족",
       "statusColor": "rgb(251, 191, 36)"
+    },
+    "playEvent": {
+      "busy": "false",
+      "text": "!확인 실패Authorization token (SUAT) not found",
+      "claimDisabled": true,
+      "link": "https://event.onstove.com/ko/dailyshop/luvplace"
     }
   }
 }

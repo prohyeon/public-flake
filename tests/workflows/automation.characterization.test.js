@@ -33,7 +33,7 @@ const DONE_TITLE = '[SG_DONE] 전체 자동화 완료 | STOVE';
 const DONE_WORLD = Object.freeze({
     missions: 'done',
     rouletteUsed: 30, rouletteExtraReceived: [10, 20, 30], dailyShopClaimed: true, majakClaimed: true,
-    attendanceTrigger: 'never'
+    playEvent: 'claimed', attendanceTrigger: 'never'
 });
 const MONTHLY_RECORD_KEY = `stove-monthly-attendance-v1:${USER_ID}`;
 
@@ -91,6 +91,7 @@ function expectedSummaryLogs({ earnings }) {
         `[${level(earnings.dailyShop)}]   데일리 보상: ${earnings.dailyShop} FLAKE`,
         `[${level(earnings.dailyAccumulated)}]   데일리 누적 보상: ${earnings.dailyAccumulated} FLAKE`,
         `[${level(earnings.majak)}]   마작 리워드: ${earnings.majak} FLAKE`,
+        `[info]   럽플레이스: ${earnings.playEvent || 0} FLAKE`,
         '[info] ───────────────────────────────────────',
         `[${total >= 0 ? 'success' : 'warning'}]   총 순수익: ${sign}${total} FLAKE`,
         '[info] ═══════════════════════════════════════'
@@ -305,7 +306,7 @@ test('runAutomation fresh day: every task runs once, no repair, done signal, sou
         roulette: 150, rouletteExtra: 1000, dailyShop: 10, majak: 20,
         // Single-visit rewards (missions 1001/1002, 20 FLAKE) are counted on their own line.
         dailyMissions: 0, visitMissions: 20, contentMissions: 20, weeklyMissions: 100, bannerMissions: 15,
-        attendanceMissions: 30, surveyMissions: 5, prizeEntry: -200, dailyAccumulated: 100
+        attendanceMissions: 30, surveyMissions: 5, prizeEntry: -200, dailyAccumulated: 100, playEvent: 1000
     });
     // Weekly/attendance/survey claims run concurrently, so compare the claimed set, not its order.
     assert.deepEqual([...world.audit.missionClaims].sort((a, b) => a - b),
@@ -326,7 +327,7 @@ test('runAutomation fresh day: every task runs once, no repair, done signal, sou
         '[info] 소요 시간 · 총 0.0초',
         '[info]   준비: 초기 스냅샷 0.0초 · 월간 출석 기록 0.0초',
         '[info]   그룹: setup 0.0초 · visits 0.0초 · missionClaims 0.0초 · flakeSpending 0.0초 · followups 0.0초',
-        '[info]   마무리: 최종 스냅샷 0.0초 · 사전등록 0.0초 · 상태 업데이트 0.0초',
+        '[info]   마무리: 최종 스냅샷 0.0초 · 럽플레이스 0.0초 · 사전등록 0.0초 · 상태 업데이트 0.0초',
         '[info]   초기 스냅샷 세부: missionComponents 0.0초 → missions 0.0초 · roulette 0.0초 · rouletteExtra 0.0초 · shop 0.0초',
         '[info]   최종 스냅샷 세부: missionComponents 0.0초 → missions 0.0초 · roulette 0.0초 · rouletteExtra 0.0초 · shop 0.0초'
     ]);
@@ -396,14 +397,15 @@ test('runAutomation partial failure: repair pass, "확인 필요" warning and er
                 return next();
             },
             dailyClaim: failFirst(1, httpError(500)),
-            preRegister: () => httpError(500)
+            preRegister: () => httpError(500),
+            familyLinks: () => httpError(503)
         }
     });
     await runAutomation();
 
     assertGolden('automation/partial-failure', h.snapshot({ unordered: true }));
 
-    const issues = '사전등록 확인 필요';
+    const issues = '럽플레이스 확인 필요, 사전등록 확인 필요';
     assert.deepEqual(h.titles, [RUNNING_TITLE, `[SG_ERROR] ${issues} | STOVE`]);
     assert.equal(h.sounds.length, 0);
     const logs = h.logs().map(withoutElapsed);
@@ -415,6 +417,7 @@ test('runAutomation partial failure: repair pass, "확인 필요" warning and er
         '[warning] 복구 그룹 1개 실행',
         '[success] 복구 완료: repairSafe (2/2)',
         '[success] 복구 후 비교: 미션 0개, 데일리 0개, 마작 0개, EXTRA 0개, 월간출석 +1 1/1',
+        '[warning] 럽플레이스 확인 필요: API Error: 503 Error',
         '[warning] 사전등록 확인 필요: luvplace: API Error: 500 Error',
         // Roulette lost 100 FLAKE: its own sign, not the positive total's.
         '[warning]   룰렛 순수익: -100 FLAKE'

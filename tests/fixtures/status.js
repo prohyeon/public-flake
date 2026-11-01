@@ -1,6 +1,7 @@
 // Fixtures for the status dashboard characterization tests (workflows/status.js, ui/status.js,
 // ui/progress.js). Response shapes follow what src reads plus captured shapes used elsewhere in
 import { DEFAULT_NOW } from '../helpers/gmHarness.js';
+import { playEventShop } from '../helpers/playEventFixture.js';
 
 export const API = 'https://api.onstove.com';
 export const DAY = 86400000;
@@ -80,7 +81,23 @@ export const STATUS_PANEL_BODY = `
             </div>
             <div id="stove-log-content"></div>
         </div>
-</div>`;
+</div>
+
+        <section class="stove-status-section stove-pe-section" aria-label="럽플레이스 상태">
+            <div class="stove-pe-header">
+                <div class="stove-pe-title-group">
+                    <span class="stove-pe-game-icon" aria-hidden="true">🎮</span>
+                    <div><h3 class="stove-pe-title">럽플레이스</h3><p class="stove-pe-subtitle">누적 플레이 보상</p></div>
+                </div>
+                <button id="stove-btn-play-event-refresh" class="stove-status-refresh stove-pe-refresh" type="button">↻ 새로고침</button>
+            </div>
+            <div id="stove-play-event-data" aria-live="polite"><div class="stove-pe-empty"><span class="stove-pe-empty-icon" aria-hidden="true">◇</span><div class="stove-pe-empty-content"><strong>플레이 현황을 확인해 보세요</strong><p>새로고침하면 누적 플레이와 일차별 보상을 확인할 수 있습니다.</p></div></div></div>
+            <div class="stove-pe-actions">
+                <a id="stove-play-event-link" class="stove-pe-shop-link" href="https://event.onstove.com/ko/dailyshop/luvplace" target="_blank" rel="noopener noreferrer">출석 교환 상점 <span aria-hidden="true">↗</span></a>
+                <button id="stove-btn-play-event-claim" class="stove-btn stove-pe-claim" type="button" disabled>수령 가능한 보상 받기</button>
+            </div>
+        </section>
+`;
 
 const compact = html => html.replace(/>\s+</g, '><').replace(/\s+/g, ' ').trim();
 
@@ -93,6 +110,7 @@ export function panelSnapshot(document) {
             [...item.querySelectorAll('.stove-mission-tooltip')].map(tooltip => compact(tooltip.innerHTML))]));
     const charge = document.getElementById('stove-btn-point-cash-charge');
     const chargeStatus = document.getElementById('stove-btn-point-cash-charge-status');
+    const playEvent = document.getElementById('stove-play-event-data');
     return {
         values,
         tooltips,
@@ -102,6 +120,12 @@ export function panelSnapshot(document) {
             opacity: charge.style.opacity,
             status: chargeStatus.textContent,
             statusColor: chargeStatus.style.color
+        },
+        playEvent: {
+            busy: playEvent.getAttribute('aria-busy'),
+            text: playEvent.textContent,
+            claimDisabled: document.getElementById('stove-btn-play-event-claim').disabled,
+            link: document.getElementById('stove-play-event-link').href
         }
     };
 }
@@ -212,7 +236,11 @@ export function doneComponentBodies() {
 
 // ------------------------------------------------------------------ other dashboard reads
 
-export const participationBody = count => ({ code: 0, message: 'OK', value: { sub_event_no: 1000000353, participation_cnt: count } });
+export const participationBody = count => ({ code: 0, message: 'OK', value: { sub_event_no: 1000000426, participation_cnt: count } });
+
+// The current draw event as /events reports it (the capsule). CONFIG's id is an older campaign.
+export const EVENTS_URL = `${API}/emsbackapi/v3.0/events?service_id1=STOVE_WEB&service_id2=FLAKE_WEB`;
+export const eventsBody = (drawId = 1000000426) => ({ code: 0, message: 'OK', value: { draw_info: { sub_event_no: drawId }, extra_info: { sub_event_no: 1000000428 }, apply_info: { sub_event_no: 1000000427 }, check_in_info: { sub_event_no: 1000000425 } } });
 
 export function dailyShopBody(todayReceived, { today = true } = {}) {
     const rewards = [
@@ -230,7 +258,19 @@ export function dailyShopBody(todayReceived, { today = true } = {}) {
 export const balanceBody = amount => ({ code: 0, message: 'OK', value: { mileage_amount: amount } });
 export const depositBody = amount => ({ code: 0, message: 'OK', value: { total_deposit_amount: amount } });
 
+export const familyLinksBody = (month = MONTH) => ({ code: 0, message: 'OK', value: [
+    { service_id: 'other', progress_month: null },
+    ...(month ? [{ service_id: 'luvplace', progress_month: month }] : [])
+] });
 
+/** Captured play event shop, moved so the attendance window contains NOW. */
+export function playEventBody(mutate = () => {}) {
+    const shop = playEventShop();
+    shop.date_info.attend_start_dt = '2026-10-15T00:00:00';
+    shop.date_info.attend_end_dt = '2026-10-28T23:59:59';
+    mutate(shop);
+    return { code: 0, message: 'OK', value: shop };
+}
 
 // ------------------------------------------------------------------ checkAllStatus world
 
@@ -241,6 +281,9 @@ export const URLS = Object.freeze({
     majakShop: `${API}/dailyshop/v1.0/${MONTH}/services/RIICHICITY_IND`,
     balance: `${API}/mileage/v1.0/balance?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY`,
     deposit: /^https:\/\/api\.onstove\.com\/mileage\/v2\.0\/master\/deposit\/total\?/,
+    events: EVENTS_URL,
+    familyLinks: `${API}/dailyshop/v1.0/services/family-links`,
+    playEvent: `${API}/dailyshop/v1.0/${MONTH}/services/luvplace`,
 });
 
 /** Defaults: a fresh day where everything is still pending. */
@@ -253,13 +296,16 @@ export function pendingWorld() {
         majakShop: dailyShopBody(false),
         balance: balanceBody(150000),
         deposit: depositBody(12345),
+        familyLinks: familyLinksBody(),
+        playEvent: playEventBody()
     };
 }
 
 /** Registers every endpoint checkAllStatus reads; `world` maps URLS keys (+ components) to responses. */
 export function routeStatusWorld(h, world) {
     routeComponents(h, world.components);
+    h.on('GET', EVENTS_URL, world.events ?? eventsBody());
     for (const [key, match] of Object.entries(URLS)) {
-        if (world[key] !== undefined) h.on('GET', match, world[key]);
+        if (key !== 'events' && world[key] !== undefined) h.on('GET', match, world[key]);
     }
 }

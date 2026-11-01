@@ -53,8 +53,11 @@
       "stove-btn-point-cash-charge": true,
       "stove-btn-reward-shop": true,
       "stove-btn-status-refresh": true,
+      "stove-btn-play-event-refresh": false,
+      "stove-btn-play-event-claim": true,
       "stove-btn-copy-log": false
-    }
+    },
+    "playEventText": "◇플레이 현황을 확인해 보세요새로고침하면 누적 플레이와 일차별 보상을 확인할 수 있습니다."
   },
   "stove-btn-point-cash-charge": {
     "action": "runPointExchange",
@@ -82,8 +85,11 @@
       "stove-btn-point-cash-charge": true,
       "stove-btn-reward-shop": true,
       "stove-btn-status-refresh": true,
+      "stove-btn-play-event-refresh": false,
+      "stove-btn-play-event-claim": true,
       "stove-btn-copy-log": false
-    }
+    },
+    "playEventText": "◇플레이 현황을 확인해 보세요새로고침하면 누적 플레이와 일차별 보상을 확인할 수 있습니다."
   },
   "stove-btn-reward-shop": {
     "action": "openRewardShop",
@@ -107,12 +113,37 @@
       "stove-btn-point-cash-charge": true,
       "stove-btn-reward-shop": false,
       "stove-btn-status-refresh": false,
+      "stove-btn-play-event-refresh": false,
+      "stove-btn-play-event-claim": true,
       "stove-btn-copy-log": false
-    }
+    },
+    "playEventText": "◇플레이 현황을 확인해 보세요새로고침하면 누적 플레이와 일차별 보상을 확인할 수 있습니다."
   },
   "stove-btn-status-refresh": {
     "action": "checkAllStatus",
     "requests": [
+      {
+        "method": "GET",
+        "url": "https://api.onstove.com/dailyshop/v1.0/services/family-links",
+        "headers": {
+          "Authorization": "Bearer test-suat",
+          "caller-id": "event-hub",
+          "X-UUID": "test-uuid",
+          "x-lang": "ko",
+          "x-nation": "KR",
+          "x-device-type": "P01",
+          "Accept": "application/json, text/plain, */*",
+          "Content-Type": "application/json",
+          "Origin": "https://event.onstove.com",
+          "Referer": "https://event.onstove.com/",
+          "caller-detail": "test-uuid",
+          "X-Timezone": "Asia/Seoul",
+          "X-Utc-Offset": "540"
+        },
+        "body": null,
+        "anonymous": true,
+        "timeout": 15000
+      },
       {
         "method": "GET",
         "url": "https://api.onstove.com/flake-shop/v1/page?page_type=MISSION",
@@ -138,7 +169,90 @@
       "stove-btn-point-cash-charge": true,
       "stove-btn-reward-shop": false,
       "stove-btn-status-refresh": false,
+      "stove-btn-play-event-refresh": false,
+      "stove-btn-play-event-claim": true,
       "stove-btn-copy-log": false
-    }
+    },
+    "playEventText": "↻럽플레이스 서버 상태 확인 중…누적 플레이와 보상 수령 현황을 불러오고 있습니다."
+  },
+  "stove-btn-play-event-refresh": {
+    "action": "refreshPlayEvent",
+    "requests": [
+      {
+        "method": "GET",
+        "url": "https://api.onstove.com/dailyshop/v1.0/services/family-links",
+        "headers": {
+          "Authorization": "Bearer test-suat",
+          "caller-id": "event-hub",
+          "X-UUID": "test-uuid",
+          "x-lang": "ko",
+          "x-nation": "KR",
+          "x-device-type": "P01",
+          "Accept": "application/json, text/plain, */*",
+          "Content-Type": "application/json",
+          "Origin": "https://event.onstove.com",
+          "Referer": "https://event.onstove.com/",
+          "caller-detail": "test-uuid",
+          "X-Timezone": "Asia/Seoul",
+          "X-Utc-Offset": "540"
+        },
+        "body": null,
+        "anonymous": true,
+        "timeout": 15000
+      }
+    ],
+    "tabs": [],
+    "title": "MY홈",
+    "newLogs": [],
+    "disabledAfterClick": {
+      "stove-btn-start": false,
+      "stove-btn-point-cash-charge": true,
+      "stove-btn-reward-shop": false,
+      "stove-btn-status-refresh": false,
+      "stove-btn-play-event-refresh": false,
+      "stove-btn-play-event-claim": true,
+      "stove-btn-copy-log": false
+    },
+    "playEventText": "↻럽플레이스 서버 상태 확인 중…누적 플레이와 보상 수령 현황을 불러오고 있습니다."
+  },
+  "stove-btn-play-event-claim": {
+    "action": "receivePlayEvent",
+    "requests": [
+      {
+        "method": "GET",
+        "url": "https://api.onstove.com/dailyshop/v1.0/services/family-links",
+        "headers": {
+          "Authorization": "Bearer test-suat",
+          "caller-id": "event-hub",
+          "X-UUID": "test-uuid",
+          "x-lang": "ko",
+          "x-nation": "KR",
+          "x-device-type": "P01",
+          "Accept": "application/json, text/plain, */*",
+          "Content-Type": "application/json",
+          "Origin": "https://event.onstove.com",
+          "Referer": "https://event.onstove.com/",
+          "caller-detail": "test-uuid",
+          "X-Timezone": "Asia/Seoul",
+          "X-Utc-Offset": "540"
+        },
+        "body": null,
+        "anonymous": true,
+        "timeout": 15000
+      }
+    ],
+    "tabs": [],
+    "title": "MY홈",
+    "newLogs": [],
+    "disabledAfterClick": {
+      "stove-btn-start": false,
+      "stove-btn-point-cash-charge": true,
+      "stove-btn-reward-shop": false,
+      "stove-btn-status-refresh": false,
+      "stove-btn-play-event-refresh": false,
+      "stove-btn-play-event-claim": true,
+      "stove-btn-copy-log": false
+    },
+    "playEventText": "◇플레이 현황을 확인해 보세요새로고침하면 누적 플레이와 일차별 보상을 확인할 수 있습니다."
   }
 }

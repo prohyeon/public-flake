@@ -1,3 +1,4 @@
+import { collectPlayEventRewards } from './playEvent.js';
 import { runPreRegistrations } from './preRegistration.js';
 import { CONFIG } from '../config.js';
 import { state, resetRunProgress } from '../state.js';
@@ -180,7 +181,7 @@ function isFailedTask(result) {
 }
 
 export function getAutomationOutcome({ snapshot, diff, plan, groupResults = [],
-    preRegistrationResult,
+    playEventResult, preRegistrationResult,
     rouletteEnabled = CONFIG.roulette.enabled }) {
     const issues = [];
     const failedTasks = flattenTaskResults(groupResults).filter(isFailedTask);
@@ -193,6 +194,7 @@ export function getAutomationOutcome({ snapshot, diff, plan, groupResults = [],
     if (rouletteEnabled && roulettePlanned && diff?.rouletteStillRemaining) {
         issues.push('룰렛 미완료');
     }
+    if (playEventResult?.success !== true) issues.push('럽플레이스 확인 필요');
     if (preRegistrationResult?.success === false) issues.push('사전등록 확인 필요');
     return { success: issues.length === 0, issues };
 }
@@ -442,6 +444,10 @@ export async function runAutomation() {
         }
         saveMonthlyAttendanceRecord(monthlyAttendanceContext, beforeSnapshot, afterSnapshot, diff);
 
+        const endPlayEvent = timing.start('마무리', '럽플레이스');
+        const playEventResult = await collectPlayEventRewards(headers);
+        endPlayEvent();
+        if (playEventResult.claimed?.length) changedAfterSnapshot = true;
         const endPreRegistration = timing.start('마무리', '사전등록');
         const preRegistrationResult = await runPreRegistrations(headers);
         endPreRegistration();
@@ -449,7 +455,7 @@ export async function runAutomation() {
             changedAfterSnapshot = true;
         }
         const outcome = getAutomationOutcome({ snapshot: afterSnapshot, diff, plan,
-            groupResults: allGroupResults, preRegistrationResult });
+            groupResults: allGroupResults, playEventResult, preRegistrationResult });
         const dailyAccumulatedFlake = state.earnings.dailyAccumulated || 0;
 
         // Calculate earnings summary
@@ -465,6 +471,7 @@ export async function runAutomation() {
             (state.earnings.attendanceMissions || 0) +
             (state.earnings.surveyMissions || 0) +
             (state.earnings.prizeEntry || 0) +
+            (state.earnings.playEvent || 0) +
             (dailyAccumulatedFlake || 0);
 
         if (isNaN(totalEarnings)) {
@@ -495,6 +502,7 @@ export async function runAutomation() {
         log(`  💝 데일리 보상: ${state.earnings.dailyShop} FLAKE`, state.earnings.dailyShop > 0 ? 'success' : 'info');
         log(`  🎁 데일리 누적 보상: ${dailyAccumulatedFlake} FLAKE`, dailyAccumulatedFlake > 0 ? 'success' : 'info');
         log(`  🀄 마작 리워드: ${state.earnings.majak} FLAKE`, state.earnings.majak > 0 ? 'success' : 'info');
+        if (!playEventResult.skipped) log(`  🎮 럽플레이스: ${state.earnings.playEvent || 0} FLAKE`, 'info');
         log('───────────────────────────────────────', 'info');
         log(`  📊 총 순수익: ${profitSign}${totalEarnings} FLAKE`, totalEarnings >= 0 ? 'success' : 'warning');
         log('═══════════════════════════════════════', 'info');
@@ -514,6 +522,9 @@ export async function runAutomation() {
         log('✅ 상태 업데이트 완료!', 'success');
 
         log('', 'info');
+        if (!playEventResult.success) {
+            log(`럽플레이스 확인 필요: ${playEventResult.error}`, 'warning');
+        }
         if (!preRegistrationResult.success) {
             log(`사전등록 확인 필요: ${preRegistrationResult.error}`, 'warning');
         }

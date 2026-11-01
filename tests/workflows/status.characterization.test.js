@@ -12,7 +12,7 @@ import {
     API, DAY, NOW, COMPONENTS, STATUS_PANEL_BODY, URLS, panelSnapshot,
     componentPageBody, loadedComponents, mission, componentBody, componentUrl, routeComponents,
     pendingComponentBodies, doneComponentBodies, participationBody, dailyShopBody,
-    pendingWorld, routeStatusWorld
+    playEventBody, pendingWorld, routeStatusWorld, EVENTS_URL, eventsBody
 } from '../fixtures/status.js';
 import { CONFIG } from '../../src/config.js';
 import { state } from '../../src/state.js';
@@ -22,7 +22,7 @@ import {
 } from '../../src/workflows/status.js';
 
 const writes = h => h.requests.filter(request => request.method !== 'GET');
-const ROULETTE_URL = `${API}/emsbackapi/v3.0/participationCnt?sub_event_no=1000000353`;
+const ROULETTE_URL = `${API}/emsbackapi/v3.0/participationCnt?sub_event_no=1000000426`;
 const SHOPS = [
     { name: 'daily', check: checkDailyShopStatus, service: 'STOVEINDIE' },
     { name: 'majak', check: checkMajakShopStatus, service: 'RIICHICITY_IND' }
@@ -42,8 +42,9 @@ test('time zone is pinned to KST for this file', () => {
 
 // ---------------------------------------------------------------- checkRouletteStatus
 
-test('roulette: reads participationCnt for the configured draw event with reward headers', async t => {
+test('roulette: reads participationCnt for the current draw event with reward headers', async t => {
     const h = useHarness(t);
+    h.on('GET', EVENTS_URL, eventsBody());
     h.on('GET', ROULETTE_URL, participationBody(12));
 
     const result = await checkRouletteStatus(TEST_HEADERS);
@@ -55,6 +56,7 @@ test('roulette: reads participationCnt for the configured draw event with reward
 
 test('roulette: remaining is clamped at 0, missing count is 0, response code is ignored, failures carry the error', async t => {
     const h = useHarness(t);
+    h.on('GET', EVENTS_URL, eventsBody());
     h.on('GET', ROULETTE_URL, [
         participationBody(0),
         participationBody(35),
@@ -85,13 +87,15 @@ test('roulette: remaining is clamped at 0, missing count is 0, response code is 
 
 test('roulette: a loaded draw event id and CONFIG.roulette.maxDraws drive the request and limit', async t => {
     const h = useHarness(t);
-    state.rouletteEvents.draw = '1000000999';
+    // The status check refreshes the event ids first, so the id under test comes from /events.
+    h.on('GET', EVENTS_URL, eventsBody(1000000999));
     CONFIG.roulette.maxDraws = 50;
     h.on('GET', `${API}/emsbackapi/v3.0/participationCnt?sub_event_no=1000000999`, participationBody(20));
 
     assert.deepEqual(await checkRouletteStatus({ Authorization: 'Bearer x', 'caller-detail': 'detail' }),
         { success: true, current: 20, limit: 50, remaining: 30 });
-    assert.equal(h.requests[0].headers['caller-detail'], 'detail');
+    const count = h.requests.find(request => request.url.includes('participationCnt'));
+    assert.equal(count.headers['caller-detail'], 'detail');
 });
 
 // ---------------------------------------------------------------- checkDailyShopStatus / checkMajakShopStatus
@@ -358,7 +362,11 @@ function doneWorld() {
         dailyShop: dailyShopBody(true),
         majakShop: dailyShopBody(true),
         balance: { code: 0, message: 'OK', value: { mileage_amount: 200000 } },
-        deposit: { code: 0, message: 'OK', value: { total_deposit_amount: 50000 } }
+        deposit: { code: 0, message: 'OK', value: { total_deposit_amount: 50000 } },
+        playEvent: playEventBody(shop => {
+            shop.accumulated_plays.total_play_days = 10;
+            for (const reward of shop.accumulated_plays.rewards) Object.assign(reward, { eligible: true, is_received: true });
+        })
     };
 }
 
@@ -397,6 +405,7 @@ test('checkAllStatus: fresh day with everything pending renders the full dashboa
         'monthly-flake': '+12,345 F'
     });
     assert.equal(panel.pointCashCharge.status, '42,500 플레이크 부족');
+    assert.equal(panel.playEvent.claimDisabled, false, 'claimable play event reward enables the claim button');
     assert.deepEqual(state.missionComponents, loadedComponents());
     assert.equal(countCalls(h, URLS.page), 1);
     assert.equal(countCalls(h, componentUrl(COMPONENTS.survey)), 2, 'survey component is read by both the mission and survey checks');
@@ -425,6 +434,7 @@ test('checkAllStatus: everything already done (component ids preloaded, so no mi
     assert.deepEqual(panel.pointCashCharge, {
         disabled: false, title: '192,500 플레이크 보유: 충전 가능', opacity: '1', status: '충전 가능', statusColor: 'rgb(167, 243, 208)'
     });
+    assert.equal(panel.playEvent.claimDisabled, true);
     assert.deepEqual(state.pointCashCharge, { availableFlake: 200000, hasRequiredFlake: true });
     assertGolden('status/check-all-done', { ...h.snapshot({ unordered: true }), panel });
 });
@@ -441,7 +451,8 @@ test('checkAllStatus: several APIs failing or malformed degrade cell by cell', a
         dailyShop: { code: 9999, message: 'maintenance' },
         majakShop: rawText('<html>점검</html>'),
         balance: httpError(500),
-        deposit: { code: 1, message: 'denied' }
+        deposit: { code: 1, message: 'denied' },
+        familyLinks: timeoutError()
     });
 
     const { panel } = await runCheckAll(h);
@@ -457,6 +468,7 @@ test('checkAllStatus: several APIs failing or malformed degrade cell by cell', a
     assert.equal(text('total-flake'), '0 F');
     assert.equal(text('monthly-flake'), '+0 F');
     assert.equal(panel.pointCashCharge.status, '192,500 플레이크 부족');
+    assert.match(panel.playEvent.text, /확인 실패.*API request timed out/);
     assertGolden('status/check-all-partial-failures', { ...h.snapshot({ unordered: true }), panel });
 });
 

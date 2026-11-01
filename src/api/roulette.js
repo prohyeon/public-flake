@@ -120,10 +120,11 @@ export async function getRouletteParticipationCount(headers, subEventNo) {
     }
 }
 
-export async function executeRouletteDraw(headers, subEventNo) {
+// typeNo: 1 = 100뽑기, 2 = 1000뽑기 (같은 이벤트 번호, 같은 일일 횟수를 공유한다).
+export async function executeRouletteDraw(headers, subEventNo, typeNo = 1) {
     const url = `${CONFIG.api.baseUrl}/emsbackapi/v3.0/draw/${subEventNo}`;
     const rewardHeaders = makeRewardPageJsonHeaders(headers);
-    const body = { type_no: 1 };
+    const body = { type_no: typeNo };
 
     debugLog(`[룰렛 뽑기 실행] sub_event_no: ${subEventNo}`);
 

@@ -40,7 +40,43 @@
     },
     {
       "method": "GET",
-      "url": "https://api.onstove.com/emsbackapi/v3.0/participationCnt?sub_event_no=1000000353",
+      "url": "https://api.onstove.com/dailyshop/v1.0/services/family-links",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "event-hub",
+        "X-UUID": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "x-device-type": "P01",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Origin": "https://event.onstove.com",
+        "Referer": "https://event.onstove.com/",
+        "caller-detail": "test-uuid",
+        "X-Timezone": "Asia/Seoul",
+        "X-Utc-Offset": "540"
+      },
+      "body": null,
+      "timeout": 15000
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/emsbackapi/v3.0/events?service_id1=STOVE_WEB&service_id2=FLAKE_WEB",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "application/json",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/emsbackapi/v3.0/participationCnt?sub_event_no=1000000426",
       "headers": {
         "Authorization": "Bearer test-suat",
         "caller-id": "flake-fe",
@@ -269,10 +305,10 @@
       "attendance": 284
     },
     "rouletteEvents": {
-      "draw": null,
-      "extra": null,
-      "apply": null,
-      "checkIn": null
+      "draw": "1000000426",
+      "extra": "1000000428",
+      "apply": "1000000427",
+      "checkIn": "1000000425"
     },
     "prizeInfo": {
       "eventNo": null,
@@ -318,6 +354,12 @@
       "opacity": "0.45",
       "status": "192,500 플레이크 부족",
       "statusColor": "rgb(251, 191, 36)"
+    },
+    "playEvent": {
+      "busy": "false",
+      "text": "!확인 실패API request timed out",
+      "claimDisabled": true,
+      "link": "https://event.onstove.com/ko/dailyshop/luvplace"
     }
   }
 }

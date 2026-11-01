@@ -8,7 +8,22 @@
   "requests": [
     {
       "method": "GET",
-      "url": "https://api.onstove.com/emsbackapi/v3.0/participationCnt?sub_event_no=1000000353",
+      "url": "https://api.onstove.com/emsbackapi/v3.0/events?service_id1=STOVE_WEB&service_id2=FLAKE_WEB",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "flake-fe",
+        "caller-detail": "test-uuid",
+        "x-lang": "ko",
+        "x-nation": "KR",
+        "Accept": "application/json",
+        "Origin": "https://reward.onstove.com",
+        "Referer": "https://reward.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
+      "url": "https://api.onstove.com/emsbackapi/v3.0/participationCnt?sub_event_no=1000000426",
       "headers": {
         "Authorization": "Bearer test-suat",
         "caller-id": "flake-fe",
@@ -69,10 +84,10 @@
       "attendance": null
     },
     "rouletteEvents": {
-      "draw": null,
-      "extra": null,
-      "apply": null,
-      "checkIn": null
+      "draw": "1000000426",
+      "extra": "1000000428",
+      "apply": "1000000427",
+      "checkIn": "1000000425"
     },
     "prizeInfo": {
       "eventNo": null,

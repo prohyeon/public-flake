@@ -1,6 +1,6 @@
 export const CONFIG = {
-    version: '3.0.1',
-    lastUpdated: '2026-10-28',
+    version: '3.1.0',
+    lastUpdated: '2026-11-01',
     debug: false,
     maintenanceMode: {
         enabled: false,
@@ -53,6 +53,8 @@ export const CONFIG = {
         targetGiftName: '스토브 5,000 포인트',
         flakeCost: 500
     },
+    // 누적 플레이 출석 교환 상점. 행사가 family-links에서 빠지면 조회·수령 모두 아무 일도 하지 않는다.
+    playEvent: { key: 'luvplace', gameId: 'GM-29D4-6A460686_IND', name: '럽플레이스' },
     preRegistration: {
         enabled: true,
         // month(KST YYYYMM)에만, endDate(KST, 당일부터 중지) 전까지만 요청한다. 새 사전등록은 여기에 추가한다.

@@ -19,6 +19,7 @@
   "tabs": [],
   "delays": [],
   "logs": [
+    "[info] 캡슐 뽑기: 100뽑기",
     "[info] 룰렛 확인 중...",
     "[error] 룰렛 실행 실패: API Error: 500 Error",
     "[success] 룰렛 실행 완료!"
