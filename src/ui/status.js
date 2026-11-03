@@ -182,4 +182,18 @@ export function updateStatusUI(statusData) {
             monthlyFlakeEl.innerHTML = `<span style="color: #10b981">+${statusData.monthlyFlake.toLocaleString()} F</span>`;
         }
     }
+
+    const monthlyNetFlakeEl = document.getElementById('stove-status-monthly-net-flake');
+    if (monthlyNetFlakeEl && statusData.monthlyNetFlake !== undefined) {
+        const net = statusData.monthlyNetFlake;
+        if (net?.loading) {
+            monthlyNetFlakeEl.innerHTML = '<span style="color: #3b82f6">확인 중...</span>';
+        } else if (net?.error) {
+            monthlyNetFlakeEl.innerHTML = '<span style="color: #ef4444">확인 실패</span>';
+        } else if (net < 0) {
+            monthlyNetFlakeEl.innerHTML = `<span style="color: #ef4444">${net.toLocaleString()} F</span>`;
+        } else {
+            monthlyNetFlakeEl.innerHTML = `<span style="color: #10b981">+${net.toLocaleString()} F</span>`;
+        }
+    }
 }

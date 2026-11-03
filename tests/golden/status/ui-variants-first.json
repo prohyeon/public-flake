@@ -9,7 +9,8 @@
     "stove-status-majak": "<span class=\"stove-status-value\" id=\"stove-status-majak\"><span style=\"color: #f59e0b\">보상 미수령</span></span>",
     "stove-status-survey": "<span class=\"stove-status-value\" id=\"stove-status-survey\"><span style=\"color: #f59e0b\">투표 가능 2개</span></span>",
     "stove-status-total-flake": "<span class=\"stove-status-value\" id=\"stove-status-total-flake\"><span style=\"color: #10b981\">1,234,567 F</span></span>",
-    "stove-status-monthly-flake": "<span class=\"stove-status-value\" id=\"stove-status-monthly-flake\"><span style=\"color: #10b981\">+12,345 F</span></span>"
+    "stove-status-monthly-flake": "<span class=\"stove-status-value\" id=\"stove-status-monthly-flake\"><span style=\"color: #10b981\">+12,345 F</span></span>",
+    "stove-status-monthly-net-flake": "<span class=\"stove-status-value\" id=\"stove-status-monthly-net-flake\">-</span>"
   },
   "tooltips": {
     "daily": [

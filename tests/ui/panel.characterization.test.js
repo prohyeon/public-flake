@@ -230,6 +230,7 @@ test('mount: the full panel markup (template, <style>, initializeUI effects) mat
         'stove-status-majak',
         'stove-status-total-flake',
         'stove-status-monthly-flake',
+        'stove-status-monthly-net-flake',
         'stove-btn-play-event-refresh',
         'stove-play-event-data',
         'stove-play-event-link',

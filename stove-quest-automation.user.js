@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      3.1.0
+// @version      3.1.1
 // @author       prohyeon
 // @description  STOVE 자동화 (미션, 설문 투표, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -20,8 +20,8 @@
   'use strict';
 
   const CONFIG = {
-    version: "3.1.0",
-    lastUpdated: "2026-11-01",
+    version: "3.1.1",
+    lastUpdated: "2026-11-04",
     debug: false,
     maintenanceMode: {
       enabled: false,
@@ -193,6 +193,15 @@
       "Accept": "*/*",
       "Origin": "https://reward.onstove.com",
       "Referer": "https://reward.onstove.com/"
+    };
+  }
+  function makeBillHistoryHeaders(headers) {
+    return {
+      "Authorization": headers["Authorization"],
+      "caller-id": "billuser",
+      "Accept": "application/json, text/javascript, */*; q=0.01",
+      "Origin": "https://bill.onstove.com",
+      "Referer": "https://bill.onstove.com/"
     };
   }
   function makeEventHubHeaders(headers) {
@@ -1270,6 +1279,51 @@
     } catch (error) {
       console.warn("[FLAKE] 월간 플레이크 조회 실패:", error.message);
       return 0;
+    }
+  }
+  const HISTORY_PAGE_SIZE = 1e3;
+  const HISTORY_MAX_PAGES = 20;
+  const NET_TYPE_CODES = /* @__PURE__ */ new Set(["ADD", "USE"]);
+  function isVoucherExchange(row) {
+    return row.service_name === "SHOP_PRODUCT" && String(row.descriptions ?? "").includes("상품권");
+  }
+  async function getMonthlyFlakeNet(headers) {
+    try {
+      const now = /* @__PURE__ */ new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).getTime();
+      let net = 0;
+      let previousOldest = Infinity;
+      for (let page = 1; page <= HISTORY_MAX_PAGES; page++) {
+        const params = new URLSearchParams({
+          page_size: HISTORY_PAGE_SIZE,
+          page_index: page,
+          request_type: "ALL",
+          attribute_code_list: "STOVE_MILE_PLAY_B,STOVE_MILE_PLAY_S",
+          start_date: start,
+          end_date: end
+        });
+        const url = `${CONFIG.api.baseUrl}/mileage/v1.0/master/myinfo?${params.toString()}`;
+        const response = await apiRequest(url, "GET", makeBillHistoryHeaders(headers));
+        if ((response == null ? void 0 : response.code) !== 0 || !Array.isArray(response.value)) {
+          throw new Error("unexpected history response");
+        }
+        const rows = response.value;
+        if (rows.length > 0 && rows[0].reg_datetime > previousOldest) {
+          throw new Error("history pages overlap");
+        }
+        for (const row of rows) {
+          if (!NET_TYPE_CODES.has(row.type_code) || row.reg_datetime < start || isVoucherExchange(row)) continue;
+          if (!Number.isFinite(row.mileage_amount)) throw new Error("invalid history amount");
+          net += row.mileage_amount;
+        }
+        if (rows.length < HISTORY_PAGE_SIZE) return net;
+        previousOldest = rows[rows.length - 1].reg_datetime;
+      }
+      throw new Error("too many history pages");
+    } catch (error) {
+      console.warn("[FLAKE] 월간 순이익 조회 실패:", error.message);
+      return { error: true };
     }
   }
   async function getTotalFlakeBalance(headers) {
@@ -3362,9 +3416,22 @@
         monthlyFlakeEl.innerHTML = `<span style="color: #10b981">+${statusData.monthlyFlake.toLocaleString()} F</span>`;
       }
     }
+    const monthlyNetFlakeEl = document.getElementById("stove-status-monthly-net-flake");
+    if (monthlyNetFlakeEl && statusData.monthlyNetFlake !== void 0) {
+      const net = statusData.monthlyNetFlake;
+      if (net == null ? void 0 : net.loading) {
+        monthlyNetFlakeEl.innerHTML = '<span style="color: #3b82f6">확인 중...</span>';
+      } else if (net == null ? void 0 : net.error) {
+        monthlyNetFlakeEl.innerHTML = '<span style="color: #ef4444">확인 실패</span>';
+      } else if (net < 0) {
+        monthlyNetFlakeEl.innerHTML = `<span style="color: #ef4444">${net.toLocaleString()} F</span>`;
+      } else {
+        monthlyNetFlakeEl.innerHTML = `<span style="color: #10b981">+${net.toLocaleString()} F</span>`;
+      }
+    }
   }
   const STATUS_KEYS = ["dailyMission", "roulette", "dailyShop", "majakShop", "survey"];
-  const BALANCE_KEYS = ["totalFlake", "monthlyFlake"];
+  const BALANCE_KEYS = ["totalFlake", "monthlyFlake", "monthlyNetFlake"];
   function services(deps = {}) {
     return {
       getRouletteEventIds,
@@ -3520,14 +3587,15 @@
       if (getMissionComponentNos().length === 0) {
         await getMissionComponentIds(headers);
       }
-      const [dailyMissionStatus, rouletteStatus, dailyShopStatus, majakShopStatus, surveyStatus, totalFlake, monthlyFlake] = await Promise.all([
+      const [dailyMissionStatus, rouletteStatus, dailyShopStatus, majakShopStatus, surveyStatus, totalFlake, monthlyFlake, monthlyNetFlake] = await Promise.all([
         checkDailyMissionStatus(headers),
         checkRouletteStatus(headers),
         checkDailyShopStatus(headers),
         checkMajakShopStatus(headers),
         checkSurveyStatus(headers),
         getTotalFlakeBalance(headers),
-        getMonthlyFlakeTotal(headers)
+        getMonthlyFlakeTotal(headers),
+        getMonthlyFlakeNet(headers)
       ]);
       updateStatusUI({
         dailyMission: dailyMissionStatus,
@@ -3536,7 +3604,8 @@
         majakShop: majakShopStatus,
         survey: surveyStatus,
         totalFlake,
-        monthlyFlake
+        monthlyFlake,
+        monthlyNetFlake
       });
       updatePointCashChargeButtonAvailability(totalFlake);
       await playEventRefresh;
@@ -5228,6 +5297,10 @@
                     <div class="stove-status-item">
                         <span class="stove-status-label">이번 달 획득</span>
                         <span class="stove-status-value" id="stove-status-monthly-flake">-</span>
+                    </div>
+                    <div class="stove-status-item">
+                        <span class="stove-status-label">이번 달 획득 (순이익)</span>
+                        <span class="stove-status-value" id="stove-status-monthly-net-flake">-</span>
                     </div>
                 </div>
             </div>

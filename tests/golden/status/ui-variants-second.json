@@ -9,7 +9,8 @@
     "stove-status-majak": "<span class=\"stove-status-value\" id=\"stove-status-majak\"><span style=\"color: #10b981\">전부 완료</span></span>",
     "stove-status-survey": "<span class=\"stove-status-value\" id=\"stove-status-survey\"><span style=\"color: #10b981\">전부 완료</span></span>",
     "stove-status-total-flake": "<span class=\"stove-status-value\" id=\"stove-status-total-flake\"><span style=\"color: #ef4444\">확인 실패</span></span>",
-    "stove-status-monthly-flake": "<span class=\"stove-status-value\" id=\"stove-status-monthly-flake\"><span style=\"color: #ef4444\">확인 실패</span></span>"
+    "stove-status-monthly-flake": "<span class=\"stove-status-value\" id=\"stove-status-monthly-flake\"><span style=\"color: #ef4444\">확인 실패</span></span>",
+    "stove-status-monthly-net-flake": "<span class=\"stove-status-value\" id=\"stove-status-monthly-net-flake\">-</span>"
   },
   "tooltips": {
     "daily": [

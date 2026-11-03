@@ -8,13 +8,13 @@ import { getRouletteEventIds, getRouletteParticipationCount, getRouletteSubEvent
 import { getDailyShopRewards, getMajakDailyShopRewards } from '../api/shop.js';
 import { apiRequest } from '../api/request.js';
 import { getAllDailyMissions, getMissionComponentIds, getMissionComponentNos, missionComponentUrl } from '../api/missions.js';
-import { getMonthlyFlakeTotal, getTotalFlakeBalance } from '../api/profile.js';
+import { getMonthlyFlakeNet, getMonthlyFlakeTotal, getTotalFlakeBalance } from '../api/profile.js';
 import { log } from '../ui/logger.js';
 import { updateStatusUI } from '../ui/status.js';
 import { updatePointCashChargeButtonAvailability } from '../ui/pointCashCharge.js';
 
 const STATUS_KEYS = ['dailyMission', 'roulette', 'dailyShop', 'majakShop', 'survey'];
-const BALANCE_KEYS = ['totalFlake', 'monthlyFlake'];
+const BALANCE_KEYS = ['totalFlake', 'monthlyFlake', 'monthlyNetFlake'];
 
 function services(deps = {}) {
     return {
@@ -200,14 +200,15 @@ export async function checkAllStatus() {
             await getMissionComponentIds(headers);
         }
 
-        const [dailyMissionStatus, rouletteStatus, dailyShopStatus, majakShopStatus, surveyStatus, totalFlake, monthlyFlake] = await Promise.all([
+        const [dailyMissionStatus, rouletteStatus, dailyShopStatus, majakShopStatus, surveyStatus, totalFlake, monthlyFlake, monthlyNetFlake] = await Promise.all([
             checkDailyMissionStatus(headers),
             checkRouletteStatus(headers),
             checkDailyShopStatus(headers),
             checkMajakShopStatus(headers),
             checkSurveyStatus(headers),
             getTotalFlakeBalance(headers),
-            getMonthlyFlakeTotal(headers)
+            getMonthlyFlakeTotal(headers),
+            getMonthlyFlakeNet(headers)
         ]);
 
         updateStatusUI({
@@ -217,7 +218,8 @@ export async function checkAllStatus() {
             majakShop: majakShopStatus,
             survey: surveyStatus,
             totalFlake,
-            monthlyFlake
+            monthlyFlake,
+            monthlyNetFlake
         });
         updatePointCashChargeButtonAvailability(totalFlake);
 

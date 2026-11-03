@@ -41,6 +41,17 @@ export function makeMileageHeaders(headers) {
     };
 }
 
+// bill.onstove.com flake history reads (the page sends no caller-detail).
+export function makeBillHistoryHeaders(headers) {
+    return {
+        'Authorization': headers['Authorization'],
+        'caller-id': 'billuser',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Origin': 'https://bill.onstove.com',
+        'Referer': 'https://bill.onstove.com/'
+    };
+}
+
 // event.onstove.com (event-hub) with only the account headers: daily shop and game ownership.
 export function makeEventHubHeaders(headers) {
     return {

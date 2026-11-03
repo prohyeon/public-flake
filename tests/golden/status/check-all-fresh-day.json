@@ -10,7 +10,8 @@
       "stove-status-majak": "<span class=\"stove-status-value\" id=\"stove-status-majak\"><span style=\"color: #3b82f6\">확인 중...</span></span>",
       "stove-status-survey": "<span class=\"stove-status-value\" id=\"stove-status-survey\"><span style=\"color: #3b82f6\">확인 중...</span></span>",
       "stove-status-total-flake": "<span class=\"stove-status-value\" id=\"stove-status-total-flake\"><span style=\"color: #3b82f6\">확인 중...</span></span>",
-      "stove-status-monthly-flake": "<span class=\"stove-status-value\" id=\"stove-status-monthly-flake\"><span style=\"color: #3b82f6\">확인 중...</span></span>"
+      "stove-status-monthly-flake": "<span class=\"stove-status-value\" id=\"stove-status-monthly-flake\"><span style=\"color: #3b82f6\">확인 중...</span></span>",
+      "stove-status-monthly-net-flake": "<span class=\"stove-status-value\" id=\"stove-status-monthly-net-flake\"><span style=\"color: #3b82f6\">확인 중...</span></span>"
     },
     "tooltips": {
       "daily": [],
@@ -296,6 +297,18 @@
     },
     {
       "method": "GET",
+      "url": "https://api.onstove.com/mileage/v1.0/master/myinfo?page_size=1000&page_index=1&request_type=ALL&attribute_code_list=STOVE_MILE_PLAY_B%2CSTOVE_MILE_PLAY_S&start_date=1790780400000&end_date=1793458799000",
+      "headers": {
+        "Authorization": "Bearer test-suat",
+        "caller-id": "billuser",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Origin": "https://bill.onstove.com",
+        "Referer": "https://bill.onstove.com/"
+      },
+      "body": null
+    },
+    {
+      "method": "GET",
       "url": "https://api.onstove.com/mileage/v2.0/master/deposit/total?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&tz_offset=540&yyyyMM=202610",
       "headers": {
         "Authorization": "Bearer test-suat",
@@ -386,7 +399,8 @@
       "stove-status-majak": "<span class=\"stove-status-value\" id=\"stove-status-majak\"><span style=\"color: #f59e0b\">보상 미수령</span></span>",
       "stove-status-survey": "<span class=\"stove-status-value\" id=\"stove-status-survey\"><span style=\"color: #f59e0b\">투표 가능 1개</span></span>",
       "stove-status-total-flake": "<span class=\"stove-status-value\" id=\"stove-status-total-flake\"><span style=\"color: #10b981\">150,000 F</span></span>",
-      "stove-status-monthly-flake": "<span class=\"stove-status-value\" id=\"stove-status-monthly-flake\"><span style=\"color: #10b981\">+12,345 F</span></span>"
+      "stove-status-monthly-flake": "<span class=\"stove-status-value\" id=\"stove-status-monthly-flake\"><span style=\"color: #10b981\">+12,345 F</span></span>",
+      "stove-status-monthly-net-flake": "<span class=\"stove-status-value\" id=\"stove-status-monthly-net-flake\"><span style=\"color: #10b981\">+700 F</span></span>"
     },
     "tooltips": {
       "daily": [

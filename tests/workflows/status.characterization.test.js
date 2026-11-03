@@ -402,7 +402,8 @@ test('checkAllStatus: fresh day with everything pending renders the full dashboa
         'majak': '보상 미수령',
         'survey': '투표 가능 1개',
         'total-flake': '150,000 F',
-        'monthly-flake': '+12,345 F'
+        'monthly-flake': '+12,345 F',
+        'monthly-net-flake': '+700 F'
     });
     assert.equal(panel.pointCashCharge.status, '42,500 플레이크 부족');
     assert.equal(panel.playEvent.claimDisabled, false, 'claimable play event reward enables the claim button');
@@ -490,6 +491,7 @@ test('checkAllStatus: every API down still renders, reading the mission page twi
     assert.equal(text('survey'), '비활성화', 'no survey component id is known, so the survey reads as disabled');
     assert.equal(text('total-flake'), '0 F');
     assert.equal(text('monthly-flake'), '+0 F');
+    assert.equal(text('monthly-net-flake'), '확인 실패', 'unlike the deposit total, a failed net never reads as 0');
     assertGolden('status/check-all-api-down', { ...h.snapshot({ unordered: true }), panel });
 });
 
@@ -503,5 +505,6 @@ test('checkAllStatus: without a session cookie it alerts and marks every cell as
     assert.equal(text('mission-daily'), '실패');
     assert.equal(text('total-flake'), '확인 실패');
     assert.equal(text('monthly-flake'), '확인 실패');
+    assert.equal(text('monthly-net-flake'), '확인 실패');
     assertGolden('status/check-all-no-session', { ...h.snapshot(), panel });
 });

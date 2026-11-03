@@ -131,7 +131,12 @@ test('updateStatusUI: shop, survey and attendance fallbacks render the expected 
         [{ dailyMission: { success: true, categories: { attendance: category([m('출석', 'INCOMPLETE')]) } } }, 'mission-attendance', '<span style="color: #6b7280">-</span>'],
         [{ dailyMission: { success: true, categories: { daily: category([m('a', 'RECEIVABLE'), m('b', 'RECEIVABLE')]) } } }, 'mission-daily', '<span style="color: #f59e0b">보상 2개</span>'],
         [{ totalFlake: 0, monthlyFlake: 0 }, 'total-flake', '<span style="color: #10b981">0 F</span>'],
-        [{ totalFlake: 0, monthlyFlake: 0 }, 'monthly-flake', '<span style="color: #10b981">+0 F</span>']
+        [{ totalFlake: 0, monthlyFlake: 0 }, 'monthly-flake', '<span style="color: #10b981">+0 F</span>'],
+        [{ monthlyNetFlake: 0 }, 'monthly-net-flake', '<span style="color: #10b981">+0 F</span>'],
+        [{ monthlyNetFlake: 2750 }, 'monthly-net-flake', '<span style="color: #10b981">+2,750 F</span>'],
+        [{ monthlyNetFlake: -1200 }, 'monthly-net-flake', '<span style="color: #ef4444">-1,200 F</span>'],
+        [{ monthlyNetFlake: { loading: true } }, 'monthly-net-flake', '<span style="color: #3b82f6">확인 중...</span>'],
+        [{ monthlyNetFlake: { error: true } }, 'monthly-net-flake', '<span style="color: #ef4444">확인 실패</span>']
     ];
     for (const [statusData, id, expected] of cases) {
         updateStatusUI(statusData);

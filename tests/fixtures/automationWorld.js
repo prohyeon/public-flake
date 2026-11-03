@@ -200,6 +200,7 @@ export function installAutomationWorld(h, options = {}) {
     // --- flake balance ------------------------------------------------------------------------
     route('flakeBalance', 'GET', /^\/mileage\/v1\.0\/balance$/, () => okBody({ mileage_amount: 150000 }));
     route('flakeMonthly', 'GET', /^\/mileage\/v2\.0\/master\/deposit\/total$/, () => okBody({ total_deposit_amount: 12000 }));
+    route('flakeHistory', 'GET', /^\/mileage\/v1\.0\/master\/myinfo$/, () => okBody([]));
 
     // --- missions -----------------------------------------------------------------------------
     route('missionPage', 'GET', /^\/flake-shop\/v1\/page$/, () => okBody({ component_list: structuredClone(COMPONENT_LIST) }));

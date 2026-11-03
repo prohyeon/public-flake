@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 import { useHarness, httpError, networkError, timeoutError, rawText, ok, TEST_HEADERS, DEFAULT_NOW } from '../helpers/gmHarness.js';
 import { assertGolden } from '../helpers/golden.js';
-import { getMyProfile, getMonthlyFlakeTotal, getTotalFlakeBalance } from '../../src/api/profile.js';
+import { getMyProfile, getMonthlyFlakeNet, getMonthlyFlakeTotal, getTotalFlakeBalance } from '../../src/api/profile.js';
 
 const API = 'https://api.onstove.com';
 const PROFILE_URL = `${API}/postie/v1.0/user/me?timestemp=${DEFAULT_NOW}`;
@@ -115,6 +115,107 @@ test('getMonthlyFlakeTotal: month and tz_offset follow the local (KST) calendar 
     const url = `${API}/mileage/v2.0/master/deposit/total?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY&tz_offset=540&yyyyMM=202611`;
     h.on('GET', url, { code: 0, value: { total_deposit_amount: 1 } });
     assert.equal(await getMonthlyFlakeTotal(TEST_HEADERS), 1);
+});
+
+// ---------------------------------------------------------------- getMonthlyFlakeNet
+
+const HISTORY_PATH = /^https:\/\/api\.onstove\.com\/mileage\/v1\.0\/master\/myinfo\?/;
+const row = (type_code, mileage_amount, reg_datetime = DEFAULT_NOW) => ({ type_code, mileage_amount, reg_datetime });
+const historyPage = rows => ({ code: 0, message: 'OK', value: rows });
+const fullPage = (reg_datetime, amount = 1) => historyPage(Array.from({ length: 1000 }, () => row('ADD', amount, reg_datetime)));
+
+test('getMonthlyFlakeNet: sums the KST month ADD and USE rows with the bill page headers', async t => {
+    const h = useHarness(t);
+    h.on('GET', HISTORY_PATH, historyPage([row('ADD', 1000), row('USE', -300), row('ADD', 10)]));
+
+    assert.equal(await getMonthlyFlakeNet(TEST_HEADERS), 710);
+    assert.equal(h.requests.length, 1, 'a page shorter than page_size is the last page');
+    assert.deepEqual(Object.fromEntries(new URL(h.requests[0].url).searchParams), {
+        page_size: '1000',
+        page_index: '1',
+        request_type: 'ALL',
+        attribute_code_list: 'STOVE_MILE_PLAY_B,STOVE_MILE_PLAY_S',
+        start_date: String(Date.parse('2026-10-01T00:00:00+09:00')),
+        end_date: String(Date.parse('2026-10-31T23:59:59+09:00'))
+    });
+    assert.deepEqual(h.requests[0].headers, {
+        'Authorization': 'Bearer test-suat',
+        'caller-id': 'billuser',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Origin': 'https://bill.onstove.com',
+        'Referer': 'https://bill.onstove.com/'
+    });
+});
+
+test('getMonthlyFlakeNet: other row types are ignored and the net may be negative', async t => {
+    const h = useHarness(t);
+    h.on('GET', HISTORY_PATH, historyPage([
+        row('USE', -500), row('ADD', 100), row('EXCHANGE_USE', -25000), row('EXPIRE', -7), row('USE_CANCEL', 500)
+    ]));
+    assert.equal(await getMonthlyFlakeNet(TEST_HEADERS), -400);
+});
+
+test('getMonthlyFlakeNet: only voucher exchanges are left out of the shop purchases', async t => {
+    const h = useHarness(t);
+    const shop = (descriptions, mileage_amount) => ({ ...row('USE', mileage_amount), service_name: 'SHOP_PRODUCT', descriptions });
+    h.on('GET', HISTORY_PATH, historyPage([
+        row('ADD', 23990),
+        shop('플레이크 샵 GS25 1만원 상품권 교환', -300000),
+        shop('플레이크 샵 게임 아이템 교환', -700),
+        { ...row('USE', -9000), service_name: 'DRAW', descriptions: '꽝 없는 럭키 캡슐' },
+        { ...row('USE', -1500), service_name: 'APPLY', descriptions: '상품권 경품 이벤트' }
+    ]));
+    assert.equal(await getMonthlyFlakeNet(TEST_HEADERS), 12790);
+});
+
+test('getMonthlyFlakeNet: on the 1st it starts at 00:00 that day and never counts the previous month', async t => {
+    const h = useHarness(t, { now: Date.parse('2026-10-31T15:30:00Z') }); // 2026-11-01 00:30 KST
+    const firstOfMonth = Date.parse('2026-11-01T00:00:00+09:00');
+    h.on('GET', HISTORY_PATH, historyPage([
+        row('ADD', 100, firstOfMonth + 1000),
+        row('USE', -10, firstOfMonth),
+        row('ADD', 5000, firstOfMonth - 1000)
+    ]));
+
+    assert.equal(await getMonthlyFlakeNet(TEST_HEADERS), 90);
+    const params = new URL(h.requests[0].url).searchParams;
+    assert.equal(params.get('start_date'), String(firstOfMonth));
+    assert.equal(params.get('end_date'), String(Date.parse('2026-11-30T23:59:59+09:00')));
+});
+
+test('getMonthlyFlakeNet: follows full pages until a short page', async t => {
+    const h = useHarness(t);
+    h.on('GET', HISTORY_PATH, [fullPage(DEFAULT_NOW), fullPage(DEFAULT_NOW), historyPage([row('USE', -5, DEFAULT_NOW - 1000)])]);
+
+    assert.equal(await getMonthlyFlakeNet(TEST_HEADERS), 1995);
+    assert.deepEqual(h.requests.map(r => new URL(r.url).searchParams.get('page_index')), ['1', '2', '3']);
+});
+
+test('getMonthlyFlakeNet: every failure is an error, never a sum', async t => {
+    const h = useHarness(t);
+    h.on('GET', HISTORY_PATH, [
+        { code: 1001, message: 'denied', value: [] },
+        { code: 0, value: null },
+        historyPage([row('ADD', '100')]),
+        rawText('oops'),
+        httpError(500),
+        networkError()
+    ]);
+    for (let i = 0; i < 6; i++) assert.deepEqual(await getMonthlyFlakeNet(TEST_HEADERS), { error: true });
+});
+
+test('getMonthlyFlakeNet: a page newer than the previous page is an overlap error', async t => {
+    const h = useHarness(t);
+    h.on('GET', HISTORY_PATH, [fullPage(DEFAULT_NOW - 1000), fullPage(DEFAULT_NOW)]);
+    assert.deepEqual(await getMonthlyFlakeNet(TEST_HEADERS), { error: true });
+    assert.equal(h.requests.length, 2);
+});
+
+test('getMonthlyFlakeNet: stops at the page limit with an error', async t => {
+    const h = useHarness(t);
+    h.on('GET', HISTORY_PATH, fullPage(DEFAULT_NOW));
+    assert.deepEqual(await getMonthlyFlakeNet(TEST_HEADERS), { error: true });
+    assert.equal(h.requests.length, 20);
 });
 
 // ---------------------------------------------------------------- getTotalFlakeBalance

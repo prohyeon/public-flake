@@ -71,6 +71,10 @@ export const STATUS_PANEL_BODY = `
                     <span class="stove-status-label">이번 달 획득</span>
                     <span class="stove-status-value" id="stove-status-monthly-flake">-</span>
                 </div>
+                <div class="stove-status-item">
+                    <span class="stove-status-label">이번 달 획득 (순이익)</span>
+                    <span class="stove-status-value" id="stove-status-monthly-net-flake">-</span>
+                </div>
             </div>
         </div>
 
@@ -257,6 +261,7 @@ export function dailyShopBody(todayReceived, { today = true } = {}) {
 
 export const balanceBody = amount => ({ code: 0, message: 'OK', value: { mileage_amount: amount } });
 export const depositBody = amount => ({ code: 0, message: 'OK', value: { total_deposit_amount: amount } });
+export const historyBody = rows => ({ code: 0, message: 'OK', value: rows });
 
 export const familyLinksBody = (month = MONTH) => ({ code: 0, message: 'OK', value: [
     { service_id: 'other', progress_month: null },
@@ -281,6 +286,7 @@ export const URLS = Object.freeze({
     majakShop: `${API}/dailyshop/v1.0/${MONTH}/services/RIICHICITY_IND`,
     balance: `${API}/mileage/v1.0/balance?client_id=M_STOVE_COMMUNITY&use_rule_id=ML_STOVE_COMMUNITY_MILE_PLAY`,
     deposit: /^https:\/\/api\.onstove\.com\/mileage\/v2\.0\/master\/deposit\/total\?/,
+    history: /^https:\/\/api\.onstove\.com\/mileage\/v1\.0\/master\/myinfo\?/,
     events: EVENTS_URL,
     familyLinks: `${API}/dailyshop/v1.0/services/family-links`,
     playEvent: `${API}/dailyshop/v1.0/${MONTH}/services/luvplace`,
@@ -296,6 +302,10 @@ export function pendingWorld() {
         majakShop: dailyShopBody(false),
         balance: balanceBody(150000),
         deposit: depositBody(12345),
+        history: historyBody([
+            { reg_datetime: NOW, type_code: 'ADD', mileage_amount: 1000 },
+            { reg_datetime: NOW - 1000, type_code: 'USE', mileage_amount: -300 }
+        ]),
         familyLinks: familyLinksBody(),
         playEvent: playEventBody()
     };
