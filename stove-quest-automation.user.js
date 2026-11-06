@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         STOVE Quest Automation
 // @namespace    https://profile.onstove.com/
-// @version      3.1.1
+// @version      3.1.2
 // @author       prohyeon
 // @description  STOVE 자동화 (미션, 설문 투표, 룰렛, 데일리 보상)
 // @supportURL   https://github.com/prohyeon/public-flake/issues
@@ -20,8 +20,8 @@
   'use strict';
 
   const CONFIG = {
-    version: "3.1.1",
-    lastUpdated: "2026-11-04",
+    version: "3.1.2",
+    lastUpdated: "2026-11-06",
     debug: false,
     maintenanceMode: {
       enabled: false,
@@ -1284,8 +1284,11 @@
   const HISTORY_PAGE_SIZE = 1e3;
   const HISTORY_MAX_PAGES = 20;
   const NET_TYPE_CODES = /* @__PURE__ */ new Set(["ADD", "USE"]);
+  const VOUCHER_KEYWORDS = ["상품권", "금액권", "교환권"];
   function isVoucherExchange(row) {
-    return row.service_name === "SHOP_PRODUCT" && String(row.descriptions ?? "").includes("상품권");
+    if (row.service_name !== "SHOP_PRODUCT") return false;
+    const descriptions = String(row.descriptions ?? "");
+    return VOUCHER_KEYWORDS.some((keyword) => descriptions.includes(keyword));
   }
   async function getMonthlyFlakeNet(headers) {
     try {

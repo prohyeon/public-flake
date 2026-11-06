@@ -161,6 +161,8 @@ test('getMonthlyFlakeNet: only voucher exchanges are left out of the shop purcha
     h.on('GET', HISTORY_PATH, historyPage([
         row('ADD', 23990),
         shop('플레이크 샵 GS25 1만원 상품권 교환', -300000),
+        shop('플레이크 → 메가커피 모바일 금액권 1만원 교환', -300000),
+        shop('플레이크 샵 아메리카노 교환권 교환', -110000),
         shop('플레이크 샵 게임 아이템 교환', -700),
         { ...row('USE', -9000), service_name: 'DRAW', descriptions: '꽝 없는 럭키 캡슐' },
         { ...row('USE', -1500), service_name: 'APPLY', descriptions: '상품권 경품 이벤트' }

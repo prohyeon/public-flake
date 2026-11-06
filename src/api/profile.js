@@ -42,8 +42,13 @@ const HISTORY_MAX_PAGES = 20;
 const NET_TYPE_CODES = new Set(['ADD', 'USE']);
 
 // Trading FLAKE for a shop voucher cashes earnings out, so it is not spending against the net.
+// Shops name them 상품권 (GS25), 금액권 (메가커피 모바일 금액권) or 교환권 (a gifticon for one item).
+const VOUCHER_KEYWORDS = ['상품권', '금액권', '교환권'];
+
 function isVoucherExchange(row) {
-    return row.service_name === 'SHOP_PRODUCT' && String(row.descriptions ?? '').includes('상품권');
+    if (row.service_name !== 'SHOP_PRODUCT') return false;
+    const descriptions = String(row.descriptions ?? '');
+    return VOUCHER_KEYWORDS.some(keyword => descriptions.includes(keyword));
 }
 
 // This month's earned minus spent FLAKE from the signed history rows. Only ADD and USE count for
