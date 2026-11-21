@@ -12,7 +12,7 @@ import {
     API, DAY, NOW, COMPONENTS, STATUS_PANEL_BODY, URLS, panelSnapshot,
     componentPageBody, loadedComponents, mission, componentBody, componentUrl, routeComponents,
     pendingComponentBodies, doneComponentBodies, participationBody, dailyShopBody,
-    playEventBody, pendingWorld, routeStatusWorld, EVENTS_URL, eventsBody
+    pendingWorld, routeStatusWorld, EVENTS_URL, eventsBody
 } from '../fixtures/status.js';
 import { CONFIG } from '../../src/config.js';
 import { state } from '../../src/state.js';
@@ -362,11 +362,7 @@ function doneWorld() {
         dailyShop: dailyShopBody(true),
         majakShop: dailyShopBody(true),
         balance: { code: 0, message: 'OK', value: { mileage_amount: 200000 } },
-        deposit: { code: 0, message: 'OK', value: { total_deposit_amount: 50000 } },
-        playEvent: playEventBody(shop => {
-            shop.accumulated_plays.total_play_days = 10;
-            for (const reward of shop.accumulated_plays.rewards) Object.assign(reward, { eligible: true, is_received: true });
-        })
+        deposit: { code: 0, message: 'OK', value: { total_deposit_amount: 50000 } }
     };
 }
 
@@ -406,7 +402,6 @@ test('checkAllStatus: fresh day with everything pending renders the full dashboa
         'monthly-net-flake': '+700 F'
     });
     assert.equal(panel.pointCashCharge.status, '42,500 플레이크 부족');
-    assert.equal(panel.playEvent.claimDisabled, false, 'claimable play event reward enables the claim button');
     assert.deepEqual(state.missionComponents, loadedComponents());
     assert.equal(countCalls(h, URLS.page), 1);
     assert.equal(countCalls(h, componentUrl(COMPONENTS.survey)), 2, 'survey component is read by both the mission and survey checks');
@@ -435,7 +430,6 @@ test('checkAllStatus: everything already done (component ids preloaded, so no mi
     assert.deepEqual(panel.pointCashCharge, {
         disabled: false, title: '192,500 플레이크 보유: 충전 가능', opacity: '1', status: '충전 가능', statusColor: 'rgb(167, 243, 208)'
     });
-    assert.equal(panel.playEvent.claimDisabled, true);
     assert.deepEqual(state.pointCashCharge, { availableFlake: 200000, hasRequiredFlake: true });
     assertGolden('status/check-all-done', { ...h.snapshot({ unordered: true }), panel });
 });
@@ -452,8 +446,7 @@ test('checkAllStatus: several APIs failing or malformed degrade cell by cell', a
         dailyShop: { code: 9999, message: 'maintenance' },
         majakShop: rawText('<html>점검</html>'),
         balance: httpError(500),
-        deposit: { code: 1, message: 'denied' },
-        familyLinks: timeoutError()
+        deposit: { code: 1, message: 'denied' }
     });
 
     const { panel } = await runCheckAll(h);
@@ -469,7 +462,6 @@ test('checkAllStatus: several APIs failing or malformed degrade cell by cell', a
     assert.equal(text('total-flake'), '0 F');
     assert.equal(text('monthly-flake'), '+0 F');
     assert.equal(panel.pointCashCharge.status, '192,500 플레이크 부족');
-    assert.match(panel.playEvent.text, /확인 실패.*API request timed out/);
     assertGolden('status/check-all-partial-failures', { ...h.snapshot({ unordered: true }), panel });
 });
 

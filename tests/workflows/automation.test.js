@@ -66,7 +66,6 @@ const completedRun = overrides => ({
     snapshot: { degraded: false },
     diff: {},
     plan: { groups: [] },
-    playEventResult: { success: true },
     ...overrides
 });
 

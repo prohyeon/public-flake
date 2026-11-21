@@ -325,69 +325,6 @@
     },
     {
       "method": "GET",
-      "url": "https://api.onstove.com/dailyshop/v1.0/services/family-links",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": null,
-      "timeout": 15000
-    },
-    {
-      "method": "GET",
-      "url": "https://api.onstove.com/dailyshop/v1.0/services/family-links",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": null,
-      "timeout": 15000
-    },
-    {
-      "method": "GET",
-      "url": "https://api.onstove.com/dailyshop/v1.0/services/family-links",
-      "headers": {
-        "Authorization": "Bearer test-suat",
-        "caller-id": "event-hub",
-        "X-UUID": "test-uuid",
-        "x-lang": "ko",
-        "x-nation": "KR",
-        "x-device-type": "P01",
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
-        "Origin": "https://event.onstove.com",
-        "Referer": "https://event.onstove.com/",
-        "caller-detail": "test-uuid",
-        "X-Timezone": "Asia/Seoul",
-        "X-Utc-Offset": "540"
-      },
-      "body": null,
-      "timeout": 15000
-    },
-    {
-      "method": "GET",
       "url": "https://api.onstove.com/emsbackapi/v3.0/apply?sub_event_no=1000000354",
       "headers": {
         "Authorization": "Bearer test-suat",
@@ -2312,9 +2249,8 @@
     "[info]   그룹: setup 0.0초 · visits 0.0초 · missionClaims 0.0초 · flakeSpending 0.0초 · followups 0.0초",
     "[info]   데일리 누적 보상: 0 FLAKE",
     "[info]   데일리 미션: 0 FLAKE",
-    "[info]   럽플레이스: 0 FLAKE",
     "[info]   리워드샵 페이지 방문 중...",
-    "[info]   마무리: 최종 스냅샷 0.0초 · 복구 0.0초 · 럽플레이스 0.0초 · 사전등록 0.0초 · 상태 업데이트 0.0초",
+    "[info]   마무리: 최종 스냅샷 0.0초 · 복구 0.0초 · 사전등록 0.0초 · 상태 업데이트 0.0초",
     "[info]   선택: \"최고예요\" (70%)",
     "[info]   스토브 메인 페이지 방문 중...",
     "[info]   위클리 미션: 0 FLAKE",
@@ -2486,19 +2422,17 @@
     "[warning]   경품 응모: -200 FLAKE",
     "[warning]   룰렛 순수익: -100 FLAKE",
     "[warning]   순수익: -100 FLAKE",
-    "[warning] 럽플레이스 확인 필요: API Error: 503 Error",
-    "[warning] 럽플레이스: API Error: 503 Error",
     "[warning] 복구 그룹 1개 실행",
     "[warning] 사전등록 확인 필요: luvplace: API Error: 500 Error",
     "[warning] 스냅샷 비교: 미션 1개, 데일리 1개, 마작 0개, EXTRA 0개, 월간출석 +1 1/1",
     "[warning] 안전 복구 대상 확인 중...",
-    "[warning] 일부 작업이 실패했거나 확인이 필요합니다: 럽플레이스 확인 필요, 사전등록 확인 필요",
+    "[warning] 일부 작업이 실패했거나 확인이 필요합니다: 사전등록 확인 필요",
     "[warning] 재확인 결과: 미션 1개, 데일리 1개, 마작 0개, EXTRA 0개, 월간출석 +1 1/1",
-    "[warning] 전체 자동화 종료 · 확인 필요: 럽플레이스 확인 필요, 사전등록 확인 필요"
+    "[warning] 전체 자동화 종료 · 확인 필요: 사전등록 확인 필요"
   ],
   "titles": [
     "[SG_RUNNING] 전체 자동화 실행 중 | STOVE",
-    "[SG_ERROR] 럽플레이스 확인 필요, 사전등록 확인 필요 | STOVE"
+    "[SG_ERROR] 사전등록 확인 필요 | STOVE"
   ],
   "sounds": 0,
   "alerts": [],
